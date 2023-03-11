@@ -101,10 +101,15 @@ export default function LoginPage() {
                 <div className="border-t-4">
                     {loaderData.users.map((user: User) => {
                         return (
-                            <div key={user.id} className="flex items-center">
-                                <p> {user.email} </p>
-                                <p> {user.firstName} </p>
-                                <p> {user.lastName} </p>
+                            <div key={user.id} className="flex items-center w-96">
+                                <div className="flex-col">
+                                    <div>
+                                        Name: {user.firstName} {user.lastName}{" "}
+                                    </div>
+                                    <div className="text-sm text-slate-500"> {user.email} </div>
+
+                                </div>
+
                                 <Button className="w-12 h-12 ml-4" loading={loading} onClick={() => deleteUser(user)}>
                                     <TrashIcon className="w-full h-full" />
                                 </Button>
