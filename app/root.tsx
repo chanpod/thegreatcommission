@@ -31,8 +31,10 @@ export default function App() {
                     </div>
                     <div className="flex-col w-full">
                         <Header />
-                        <div className="flex-col h-full bg-gray-200 pl-8 pt-4 w-full">
-                            <Outlet />
+                        <div className="flex-col h-full bg-gray-200 pl-8 pt-4 w-full ">
+                            <div className="bg-white rounded-md p-3">
+                                <Outlet />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -48,9 +50,7 @@ export default function App() {
 export function ErrorBoundary({ error }: { error: Error }) {
     console.error(error);
 
-    return (
-        <h1>Something broke</h1>
-    );
+    return <h1>Something broke</h1>;
 }
 
 export function CatchBoundary() {

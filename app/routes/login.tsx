@@ -83,7 +83,7 @@ export default function LoginPage() {
 
     return (
         <>
-            <div className="flex-col bg-white rounded-md p-3">
+            <div className="flex-col">
                 <h1 className="text-3xl"> Login </h1>
 
                 <form method="post" className="flex-col w-48 space-y-2">
