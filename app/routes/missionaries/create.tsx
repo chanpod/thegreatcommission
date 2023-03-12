@@ -37,7 +37,7 @@ export const action = async ({ request }: ActionArgs) => {
 export default function CreateChurch() {
     return (
         <div className="flex-col">
-            <h1 className="text-3xl">Create a Missions Organization</h1>
+            <h1 className="text-3xl">Create a Missionary</h1>
 
             <form method="post">
                 <Input name="firstName" label="First Name" />
