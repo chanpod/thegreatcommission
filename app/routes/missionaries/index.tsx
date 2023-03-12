@@ -1,6 +1,6 @@
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { Missionary } from "@prisma/client";
-import { json } from "@remix-run/node";
+import { json, LoaderArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { Button } from "~/src/components/button/Button";
 import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
@@ -9,6 +9,8 @@ import RowItem from "~/src/components/listItems/RowItem";
 import { prismaClient } from "~/src/components/server/dbConnection";
 
 export const loader = async ({ request }: LoaderArgs) => {
+    const url = new URL(request.url);
+   
     const missionaries = await prismaClient.missionary.findMany();
 
     return json({

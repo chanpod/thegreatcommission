@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { Disclosure, Menu, Transition } from "@headlessui/react";
 import { Bars3Icon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Link, useMatches } from "@remix-run/react";
+import SearchBar from "./SearchBar";
 
 export const navigation = [
     { name: "Churches", href: "/churches", current: true },
@@ -44,13 +45,7 @@ export default function Header() {
                                 </div>
                             </div>
                             <div className="flex flex-1 items-center align-items-start sm:items-stretch sm:justify-start">
-                                <input
-                                    type="text"
-                                    id="first_name"
-                                    className="bg-gray-900 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-900 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                                    placeholder="Search..."
-                                    required
-                                />
+                                <SearchBar />
                             </div>
                             <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                                 {/* <button
@@ -66,7 +61,7 @@ export default function Header() {
                                     <div>
                                         <Menu.Button className="flex p-2 rounded-full bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800">
                                             <span className="sr-only">Open user menu</span>
-                                           <PhotoIcon className="h-5 w-5 text-white" />
+                                            <PhotoIcon className="h-5 w-5 text-white" />
                                         </Menu.Button>
                                     </div>
                                     <Transition
@@ -105,7 +100,6 @@ export default function Header() {
                                                     </Link>
                                                 )}
                                             </Menu.Item>
-                                            
                                         </Menu.Items>
                                     </Transition>
                                 </Menu>
