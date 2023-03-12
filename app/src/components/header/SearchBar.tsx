@@ -15,7 +15,9 @@ const SearchBar = () => {
     const [missionaries, setMissionaries] = useState<Missionary[]>([]);
 
     useEffect(() => {
-        searchFetcher.load(`/api/search?search=${encodeURI(search)}`, {});
+        if (search.length > 2) {
+            searchFetcher.load(`/api/search?search=${encodeURI(search)}`, {});
+        }
     }, [search]);
 
     useEffect(() => {
@@ -65,7 +67,11 @@ const SearchBar = () => {
                             <ul className="max-w-md divide-y flex-col divide-gray-200 dark:divide-gray-700">
                                 {missionaries?.map((missionary: Missionary) => {
                                     return (
-                                        <Link key={missionary.id} to={`/missionaries/${missionary.id}`} onClick={closePopover}>
+                                        <Link
+                                            key={missionary.id}
+                                            to={`/missionaries/${missionary.id}`}
+                                            onClick={closePopover}
+                                        >
                                             <Row>
                                                 <RowItem>
                                                     <div className="flex-shrink-0">
