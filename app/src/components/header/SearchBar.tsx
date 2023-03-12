@@ -1,25 +1,38 @@
 import { Popover, Transition } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { ChurchOrganization, Missionary } from "@prisma/client";
-import { Link, useFetcher } from "@remix-run/react";
+import { Link, useFetcher, useNavigation } from "@remix-run/react";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { Fragment, useEffect, useState } from "react";
 import EmptyAvatar from "../emptyAvatar/EmptyAvatar";
 import Row from "../listItems/Row";
 import RowItem from "../listItems/RowItem";
 
-const SearchBar = () => {
+interface Props {
+    setLoading?: (loading: boolean) => void;
+}
+
+const SearchBar = (props: Props) => {
     const searchFetcher = useFetcher();
     const [openPopover, setOpenPopover] = useState(false);
     const [search, setSearch] = useState("");
     const [churches, setChurches] = useState<ChurchOrganization[]>([]);
     const [missionaries, setMissionaries] = useState<Missionary[]>([]);
 
+    const transition = useNavigation();
+    const loading = searchFetcher.state != "idle";
+
     useEffect(() => {
         if (search.length > 1) {
             searchFetcher.load(`/api/search?search=${encodeURI(search)}`, {});
         }
     }, [search]);
+
+    useEffect(() => {
+        if (props.setLoading) {
+            props.setLoading(loading);
+        }
+    }, [loading]);
 
     useEffect(() => {
         console.log(searchFetcher.data);
@@ -37,10 +50,7 @@ const SearchBar = () => {
     }
 
     return (
-        <div
-           
-            className={`pt-1 pb-1 bg-gray-900 text-white text-sm rounded-lg w-11/12 block z-10`}
-        >
+        <div className={`pt-1 pb-1 bg-gray-900 text-white text-sm rounded-lg w-11/12 block z-10`}>
             <input
                 onFocus={() => setOpenPopover(true)}
                 type="text"
@@ -55,8 +65,8 @@ const SearchBar = () => {
             <AnimatePresence>
                 {openPopover && (
                     <motion.div
-                        style = {{
-                            top: "50px"
+                        style={{
+                            top: "50px",
                         }}
                         className={`p-3 pt-1 absolute top-3 bg-gray-900 text-white text-sm rounded-lg w-11/12 block z-10 ${
                             openPopover ? "h-auto" : "h-12"
@@ -68,7 +78,7 @@ const SearchBar = () => {
                     >
                         <div className=" left-1/2 z-10 mt-3 w-screen max-w-sm px-4 sm:px-0 lg:max-w-3xl">
                             <div className="relative flex-col gap-8 p-7 lg:grid-cols-2">
-                                <span className="text-2xl">Missionaries</span>
+                                <span className="text-2xl">Missionaries - {loading ? "true" : "false"}</span>
                                 <ul className="max-w-md divide-y flex-col divide-gray-200 dark:divide-gray-700">
                                     {missionaries?.map((missionary: Missionary) => {
                                         return (

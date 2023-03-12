@@ -1,4 +1,4 @@
-import { Outlet } from "@remix-run/react";
+import { Outlet, useNavigation } from "@remix-run/react";
 import Header from "~/src/components/header/Header";
 
 export default function Index() {

@@ -1,8 +1,8 @@
 import { Disclosure, Menu, Transition } from "@headlessui/react";
 import { Bars3Icon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { Link, useMatches, useNavigation } from "@remix-run/react";
-import { Fragment } from "react";
-import { ColorRing } from "react-loader-spinner";
+import { Link, useMatches, useNavigation, useTransition } from "@remix-run/react";
+import { Fragment, useState } from "react";
+import { ColorRing, TailSpin } from "react-loader-spinner";
 import SearchBar from "./SearchBar";
 
 export const navigation = [
@@ -16,9 +16,9 @@ function classNames(...classes) {
 
 export default function Header() {
     const matches = useMatches();
-    // const navigation = useNavigation();
-    // const loading = navigation.state === "loading" || navigation.state === "submitting";
-    const loading = false;
+    const transition = useNavigation();
+    const loading = transition.state != "idle";
+    const [searchLoading, setSearchLoading] = useState(false);
 
     return (
         <Disclosure as="nav" className="bg-white">
@@ -38,14 +38,9 @@ export default function Header() {
                                 </Disclosure.Button>
                             </div>
                             <div className="flex flex-none pr-4 flex-1 items-center justify-center sm:items-stretch sm:justify-start">
-                                <div className="flex flex-shrink-0 items-center">
-                                    {loading ? (
-                                        <ColorRing
-                                            visible={true}
-                                            ariaLabel="blocks-loading"
-                                            wrapperClass="w-full h-full relative"
-                                            colors={["#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff"]}
-                                        />
+                                <div>
+                                    {loading || searchLoading ? (
+                                        <TailSpin height={40} width={40} />
                                     ) : (
                                         <Link to="/">
                                             <img
@@ -58,7 +53,7 @@ export default function Header() {
                                 </div>
                             </div>
                             <div className="flex flex-1 items-start align-items-start sm:items-stretch sm:justify-start relative">
-                                <SearchBar />
+                                <SearchBar setLoading={(loading) => setSearchLoading(loading)} />
                             </div>
                             <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                                 {/* <button
