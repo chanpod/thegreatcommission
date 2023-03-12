@@ -1,7 +1,8 @@
-import { Fragment } from "react";
 import { Disclosure, Menu, Transition } from "@headlessui/react";
 import { Bars3Icon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { Link, useMatches } from "@remix-run/react";
+import { Link, useMatches, useNavigation } from "@remix-run/react";
+import { Fragment } from "react";
+import { ColorRing } from "react-loader-spinner";
 import SearchBar from "./SearchBar";
 
 export const navigation = [
@@ -15,6 +16,9 @@ function classNames(...classes) {
 
 export default function Header() {
     const matches = useMatches();
+    // const navigation = useNavigation();
+    // const loading = navigation.state === "loading" || navigation.state === "submitting";
+    const loading = false;
 
     return (
         <Disclosure as="nav" className="bg-white">
@@ -35,16 +39,25 @@ export default function Header() {
                             </div>
                             <div className="flex flex-none pr-4 flex-1 items-center justify-center sm:items-stretch sm:justify-start">
                                 <div className="flex flex-shrink-0 items-center">
-                                    <Link to="/">
-                                        <img
-                                            className="hidden h-8 w-auto lg:block"
-                                            src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=500"
-                                            alt="Your Company"
+                                    {loading ? (
+                                        <ColorRing
+                                            visible={true}
+                                            ariaLabel="blocks-loading"
+                                            wrapperClass="w-full h-full relative"
+                                            colors={["#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff"]}
                                         />
-                                    </Link>
+                                    ) : (
+                                        <Link to="/">
+                                            <img
+                                                className="hidden h-8 w-auto lg:block"
+                                                src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=500"
+                                                alt="Your Company"
+                                            />
+                                        </Link>
+                                    )}
                                 </div>
                             </div>
-                            <div className="flex flex-1 items-center align-items-start sm:items-stretch sm:justify-start">
+                            <div className="flex flex-1 items-start align-items-start sm:items-stretch sm:justify-start relative">
                                 <SearchBar />
                             </div>
                             <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
