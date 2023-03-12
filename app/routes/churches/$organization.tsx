@@ -18,7 +18,7 @@ export const loader = async ({ request, params }: LoaderArgs) => {
 const MissionaryPage = () => {
     const params = useParams();
     const loaderData = useLoaderData<typeof loader>();
-    return <h1 className="text-3xl"> Missionary: {loaderData.organization?.name}</h1>;
+    return <h1 className="text-3xl"> Church: {loaderData.organization?.name}</h1>;
 };
 
 export default MissionaryPage;

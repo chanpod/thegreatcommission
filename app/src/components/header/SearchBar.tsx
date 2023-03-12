@@ -29,9 +29,13 @@ const SearchBar = () => {
         }
     }, [searchFetcher.data]);
 
+    function closePopover() {
+        setOpenPopover(false);
+    }
+
     return (
         <div
-            className={`p-3 pt-1 absolute top-3 bg-gray-900 text-white text-sm rounded-lg w-full block z-10 ${
+            className={`p-3 pt-1 absolute top-3 bg-gray-900 text-white text-sm rounded-lg w-11/12 block z-10 ${
                 openPopover ? "h-auto" : "h-12"
             }`}
         >
@@ -61,7 +65,7 @@ const SearchBar = () => {
                             <ul className="max-w-md divide-y flex-col divide-gray-200 dark:divide-gray-700">
                                 {missionaries?.map((missionary: Missionary) => {
                                     return (
-                                        <Link key={missionary.id} to={`/missionaries/${missionary.id}`}>
+                                        <Link key={missionary.id} to={`/missionaries/${missionary.id}`} onClick={closePopover}>
                                             <Row>
                                                 <RowItem>
                                                     <div className="flex-shrink-0">
@@ -84,9 +88,10 @@ const SearchBar = () => {
                             </ul>
 
                             <ul className="max-w-md divide-y  divide-gray-200 dark:divide-gray-700">
+                                <span className="text-2xl">Churches</span>
                                 {churches?.map((church: ChurchOrganization) => {
                                     return (
-                                        <Link key={church.id} to={`/churches/${church.id}`}>
+                                        <Link key={church.id} to={`/churches/${church.id}`} onClick={closePopover}>
                                             <Row>
                                                 <RowItem>
                                                     <div className="flex-shrink-0">
