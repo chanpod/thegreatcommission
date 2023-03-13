@@ -1,9 +1,11 @@
 import { Popover, Transition } from "@headlessui/react";
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { ChurchOrganization, Missionary } from "@prisma/client";
 import { Link, useFetcher, useNavigation } from "@remix-run/react";
 import { AnimatePresence, motion } from "framer-motion";
-import React, { Fragment, useEffect, useState } from "react";
+import React, { Fragment, useEffect, useRef, useState } from "react";
+import { useClickOutside } from "~/src/hooks/useClickOutside";
+import useDebounce from "~/src/hooks/useDebounce";
 import EmptyAvatar from "../emptyAvatar/EmptyAvatar";
 import Row from "../listItems/Row";
 import RowItem from "../listItems/RowItem";
@@ -18,6 +20,9 @@ const SearchBar = (props: Props) => {
     const [search, setSearch] = useState("");
     const [churches, setChurches] = useState<ChurchOrganization[]>([]);
     const [missionaries, setMissionaries] = useState<Missionary[]>([]);
+    const ref = useRef();
+    const outsideClicked = useClickOutside(ref);
+    const shortDebounce = useDebounce({ value: search, debounceDelay: 500 });
 
     const transition = useNavigation();
     const loading = searchFetcher.state != "idle";
@@ -26,7 +31,13 @@ const SearchBar = (props: Props) => {
         if (search.length > 1) {
             searchFetcher.load(`/api/search?search=${encodeURI(search)}`, {});
         }
-    }, [search]);
+    }, [shortDebounce]);
+
+    useEffect(() => {
+        if (outsideClicked) {
+            setOpenPopover(false);
+        }
+    }, [outsideClicked]);
 
     useEffect(() => {
         if (props.setLoading) {
@@ -50,7 +61,7 @@ const SearchBar = (props: Props) => {
     }
 
     return (
-        <div className={`pt-1 pb-1 bg-gray-900 text-white text-sm rounded-lg w-11/12 block z-10`}>
+        <div ref={ref} className={`pt-1 pb-1 bg-gray-900 text-white text-sm rounded-lg w-11/12 block z-10`}>
             <input
                 onFocus={() => setOpenPopover(true)}
                 type="text"
@@ -77,8 +88,8 @@ const SearchBar = (props: Props) => {
                         transition={{ duration: 0.3 }}
                     >
                         <div className=" left-1/2 z-10 mt-3 w-screen max-w-sm px-4 sm:px-0 lg:max-w-3xl">
-                            <div className="relative flex-col gap-8 p-7 lg:grid-cols-2">
-                                <span className="text-2xl">Missionaries - {loading ? "true" : "false"}</span>
+                            <div className="relative flex-col gap-8 p-7 lg:grid-cols-2 border-gray-200">
+                                <span className="text-2xl">Missionaries</span>
                                 <ul className="max-w-md divide-y flex-col divide-gray-200 dark:divide-gray-700">
                                     {missionaries?.map((missionary: Missionary) => {
                                         return (
@@ -107,7 +118,9 @@ const SearchBar = (props: Props) => {
                                         );
                                     })}
                                 </ul>
+                            </div>
 
+                            <div className="relative flex-col gap-8 p-7 lg:grid-cols-2 border-gray-200">
                                 <ul className="max-w-md divide-y  divide-gray-200 dark:divide-gray-700">
                                     <span className="text-2xl">Churches</span>
                                     {churches?.map((church: ChurchOrganization) => {
@@ -137,7 +150,10 @@ const SearchBar = (props: Props) => {
                                 </ul>
                             </div>
 
-                            <button onClick={() => setOpenPopover(false)}>Close</button>
+                            <button className="flex items-center" onClick={() => setOpenPopover(false)}>
+                                <XMarkIcon className="w-4 h-4" />
+                                Close
+                            </button>
                         </div>
                     </motion.div>
                 )}

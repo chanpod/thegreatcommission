@@ -5,7 +5,7 @@ import { prismaClient } from "~/src/components/server/dbConnection";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { ChurchOrganization } from "@prisma/client";
 import Row from "~/src/components/listItems/Row";
-import RowItem from "~/src/components/listItems/RowItem";
+import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
 import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
 export const loader = async ({ request }: LoaderArgs) => {
     const churches = await prismaClient.churchOrganization.findMany();
@@ -38,16 +38,16 @@ export default function ChurchPage() {
                             <Link key={church.id} to={`/churches/${church.id}`}>
                                 <Row>
                                     <RowItem>
-                                        <div className="flex-shrink-0">
+                                        <div className="flex-shrink-0 pr-2">
                                             <EmptyAvatar />
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-gray-900 truncate">{church.name}</p>
-                                            <p className="text-sm text-gray-500 truncate dark:text-gray-400">
+                                        <div className="flex-1 min-w-0 hover:text-white">
+                                            <p className={primaryText}>{church.name}</p>
+                                            <p className={secondaryText}>
                                                 {church.city}, {church.state}
                                             </p>
                                         </div>
-                                        <div className="inline-flex items-center text-base font-semibold text-gray-900">
+                                        <div className={secondaryText}>
                                             {church.zip}
                                         </div>
                                     </RowItem>
