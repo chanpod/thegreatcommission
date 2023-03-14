@@ -2,6 +2,11 @@
 
 This directory is a brief example of a [Remix](https://remix.run/docs) site that can be deployed to Vercel with zero configuration.
 
+## Env variables needed
+GOOGLE_REDIRECT_URI
+GOOGLE_CLIENT_SECRET
+GOOGLE_CLIENT_ID
+
 ## Deploy Your Own
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/vercel/tree/main/examples/remix&template=remix)
