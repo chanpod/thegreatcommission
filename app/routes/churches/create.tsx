@@ -2,7 +2,7 @@ import { ChurchOrganization } from "@prisma/client";
 import { ActionArgs, json } from "@remix-run/node";
 import { Button } from "~/src/components/button/Button";
 import { Input } from "~/src/components/forms/input/Input";
-import { prismaClient } from "~/src/components/server/dbConnection";
+import { prismaClient } from "~/server/dbConnection";
 
 export const action = async ({ request }: ActionArgs) => {
     console.log("Create church action");

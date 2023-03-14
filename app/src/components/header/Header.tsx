@@ -1,8 +1,9 @@
 import { Disclosure, Menu, Transition } from "@headlessui/react";
 import { Bars3Icon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Link, useMatches, useNavigation, useTransition } from "@remix-run/react";
-import { Fragment, useState } from "react";
+import { Fragment, useContext, useState } from "react";
 import { ColorRing, TailSpin } from "react-loader-spinner";
+import { UserContext } from "~/root";
 import SearchBar from "./SearchBar";
 
 export const navigation = [
@@ -19,6 +20,8 @@ export default function Header() {
     const transition = useNavigation();
     const loading = transition.state != "idle";
     const [searchLoading, setSearchLoading] = useState(false);
+    const userContext = useContext(UserContext);
+    const loggedIn = userContext.user != null;
 
     return (
         <Disclosure as="nav" className="bg-white">
@@ -37,17 +40,16 @@ export default function Header() {
                                     )}
                                 </Disclosure.Button>
                             </div>
-                            <div className="flex flex-none pr-4 flex-1 items-center justify-center sm:items-stretch sm:justify-start">
+                            <div
+                                style={{ width: "60px" }}
+                                className="flex flex-none flex-1 items-center justify-center sm:items-stretch sm:justify-start"
+                            >
                                 <div>
                                     {loading || searchLoading ? (
                                         <TailSpin height={40} width={40} />
                                     ) : (
                                         <Link to="/">
-                                            <img
-                                                className="hidden h-8 w-auto lg:block"
-                                                src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=500"
-                                                alt="Your Company"
-                                            />
+                                            <div className="text-1xl">TGC</div>
                                         </Link>
                                     )}
                                 </div>
@@ -66,10 +68,11 @@ export default function Header() {
 
                                 {/* Profile dropdown */}
                                 <Menu as="div" className="relative ml-3">
-                                    <div>
-                                        <Menu.Button className="flex p-2 rounded-full bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800">
+                                    <div className="">
+                                        <Menu.Button className="flex items-center">
                                             <span className="sr-only">Open user menu</span>
-                                            <PhotoIcon className="h-5 w-5 text-white" />
+                                            <PhotoIcon className="h-8 w-8 mr-1 p-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 rounded-full bg-gray-800" />
+                                            {userContext.user?.firstName}
                                         </Menu.Button>
                                     </div>
                                     <Transition
@@ -82,32 +85,50 @@ export default function Header() {
                                         leaveTo="transform opacity-0 scale-95"
                                     >
                                         <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                                            <Menu.Item>
-                                                {({ active }) => (
-                                                    <a
-                                                        href="#"
-                                                        className={classNames(
-                                                            active ? "bg-gray-100" : "",
-                                                            "block px-4 py-2 text-sm text-gray-700"
+                                            {loggedIn ? (
+                                                <>
+                                                    <Menu.Item>
+                                                        {({ active }) => (
+                                                            <a
+                                                                href="#"
+                                                                className={classNames(
+                                                                    active ? "bg-gray-100" : "",
+                                                                    "block px-4 py-2 text-sm text-gray-700"
+                                                                )}
+                                                            >
+                                                                Your Profile
+                                                            </a>
                                                         )}
-                                                    >
-                                                        Your Profile
-                                                    </a>
-                                                )}
-                                            </Menu.Item>
-                                            <Menu.Item>
-                                                {({ active }) => (
-                                                    <Link
-                                                        to="/login"
-                                                        className={classNames(
-                                                            active ? "bg-gray-100" : "",
-                                                            "block px-4 py-2 text-sm text-gray-700"
+                                                    </Menu.Item>
+                                                    <Menu.Item>
+                                                        {({ active }) => (
+                                                            <Link
+                                                                to="/logout"
+                                                                className={classNames(
+                                                                    active ? "bg-gray-100" : "",
+                                                                    "block px-4 py-2 text-sm text-gray-700"
+                                                                )}
+                                                            >
+                                                                Logout
+                                                            </Link>
                                                         )}
-                                                    >
-                                                        Login
-                                                    </Link>
-                                                )}
-                                            </Menu.Item>
+                                                    </Menu.Item>
+                                                </>
+                                            ) : (
+                                                <Menu.Item>
+                                                    {({ active }) => (
+                                                        <Link
+                                                            to="/login/google"
+                                                            className={classNames(
+                                                                active ? "bg-gray-100" : "",
+                                                                "block px-4 py-2 text-sm text-gray-700"
+                                                            )}
+                                                        >
+                                                            Login
+                                                        </Link>
+                                                    )}
+                                                </Menu.Item>
+                                            )}
                                         </Menu.Items>
                                     </Transition>
                                 </Menu>

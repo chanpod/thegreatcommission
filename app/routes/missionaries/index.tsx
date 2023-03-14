@@ -6,7 +6,7 @@ import { Button } from "~/src/components/button/Button";
 import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
 import Row from "~/src/components/listItems/Row";
 import RowItem from "~/src/components/listItems/RowItem";
-import { prismaClient } from "~/src/components/server/dbConnection";
+import { prismaClient } from "~/server/dbConnection";
 
 export const loader = async ({ request }: LoaderArgs) => {
     const url = new URL(request.url);

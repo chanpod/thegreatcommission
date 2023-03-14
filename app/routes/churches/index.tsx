@@ -1,7 +1,7 @@
 import { json, LoaderArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { Button } from "~/src/components/button/Button";
-import { prismaClient } from "~/src/components/server/dbConnection";
+import { prismaClient } from "~/server/dbConnection";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { ChurchOrganization } from "@prisma/client";
 import Row from "~/src/components/listItems/Row";

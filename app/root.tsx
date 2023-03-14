@@ -1,10 +1,15 @@
-import type { LinksFunction, MetaFunction } from "@remix-run/node";
-import { Links, LiveReload, Meta, Outlet, Scripts, ScrollRestoration } from "@remix-run/react";
+import { json, LinksFunction, LoaderArgs, MetaFunction } from "@remix-run/node";
+import { Links, LiveReload, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData } from "@remix-run/react";
 import { Analytics } from "@vercel/analytics/react";
 import stylesheet from "~/tailwind.css";
 import Header from "./src/components/header/Header";
 import { Sidenav } from "./src/components/sidenav/Sidenav";
 import { useCatch } from "@remix-run/react";
+import { User } from "@prisma/client";
+import { authenticator } from "./server/auth/strategies/authenticaiton";
+import { prismaClient } from "./server/dbConnection";
+import { getSession } from "./server/auth/session.server";
+import React from "react";
 
 export const links: LinksFunction = () => [
     { rel: "stylesheet", href: "https://rsms.me/inter/inter.css" },
@@ -17,11 +22,35 @@ export const meta: MetaFunction = () => ({
     viewport: "width=device-width,initial-scale=1",
 });
 
+export interface IUserContext {
+    user: User | undefined;
+}
+
+export const loader = async ({ request }: LoaderArgs) => {
+    const user = await authenticator.isAuthenticated(request);
+    console.log(user);
+
+    return json({
+        userContext: {
+            user: user,
+        },
+    });
+};
+
+export const UserContext = React.createContext<IUserContext>({ user: undefined });
+
 export default function App() {
+    const loaderData = useLoaderData<typeof loader>();
+    console.log("root loader", loaderData);
     return (
         <html lang="en">
             <head>
+                <meta
+                    name="google-signin-client_id"
+                    content="1034070132753-gv1tbh0sop6rr0sqlst0e6rcp8ajdv0n.apps.googleusercontent.com"
+                ></meta>
                 <Meta />
+
                 <Links />
             </head>
             <body style={{ minHeight: "100vh" }}>
@@ -30,16 +59,19 @@ export default function App() {
                         <Sidenav />
                     </div>
                     <div className="flex-col w-full">
-                        <Header />
-                        <div className="flex-col h-full bg-gray-200 pl-8 pt-4 w-full ">
-                            <div className="bg-white rounded-md p-3">
-                                <Outlet />
+                        <UserContext.Provider value={loaderData.userContext}>
+                            <Header />
+                            <div className="flex-col h-full bg-gray-200 pl-8 pt-4 w-full ">
+                                <div className="bg-white rounded-md p-3">
+                                    <Outlet />
+                                </div>
                             </div>
-                        </div>
+                        </UserContext.Provider>
                     </div>
                 </div>
                 <ScrollRestoration />
                 <Scripts />
+
                 <LiveReload />
                 <Analytics />
             </body>
