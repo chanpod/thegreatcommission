@@ -5,7 +5,7 @@ import { Fragment, useContext, useState } from "react";
 import { ColorRing, TailSpin } from "react-loader-spinner";
 import { UserContext } from "~/root";
 import SearchBar from "./SearchBar";
-
+import tgcIcon from '~/src/assets/images/tgcIcon.png'
 export const navigation = [
     { name: "Churches", href: "/churches", current: true },
     { name: "Missionaries", href: "/missionaries", current: false },
@@ -49,7 +49,7 @@ export default function Header() {
                                         <TailSpin height={40} width={40} />
                                     ) : (
                                         <Link to="/">
-                                            <div className="text-1xl">TGC</div>
+                                            <img src={tgcIcon} />
                                         </Link>
                                     )}
                                 </div>
