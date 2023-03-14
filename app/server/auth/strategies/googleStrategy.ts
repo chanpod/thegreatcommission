@@ -3,8 +3,8 @@ import { prismaClient } from "~/server/dbConnection";
 
 export let googleStrategy = new GoogleStrategy(
     {
-        clientID: "1034070132753-gv1tbh0sop6rr0sqlst0e6rcp8ajdv0n.apps.googleusercontent.com",
-        clientSecret: "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",
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
         callbackURL: process.env.GOOGLE_REDIRECT_URI ?? "http://localhost:3000/login/google",
     },
     async ({ accessToken, refreshToken, extraParams, profile }) => {
