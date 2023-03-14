@@ -25,10 +25,7 @@ export interface IUserContext {
 }
 
 export const loader = async ({ request }: LoaderArgs) => {
-    const user = await authenticator.isAuthenticated(request);
-    const session = await getSession(request.headers.get("Cookie") || "");
-    console.log(session.get("idToken"))
-    console.log("authenticated user", user);
+    const user = await authenticator.isAuthenticated(request);    
 
     return json({
         userContext: {
@@ -41,7 +38,7 @@ export const UserContext = React.createContext<IUserContext>({ user: undefined }
 
 export default function App() {
     const loaderData = useLoaderData<typeof loader>();
-    console.log("root loader", loaderData);
+
     return (
         <html lang="en">
             <head>
