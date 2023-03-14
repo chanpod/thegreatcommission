@@ -21,13 +21,15 @@ export let googleStrategy = new GoogleStrategy(
             console.log("----------------");
             if (user == undefined) {
                 const newUser = await prismaClient.user.create({
-                    data: {                        
+                    data: {
                         email: profile.emails[0].value,
                         firstName: profile.name.givenName,
                         googleId: profile.id,
                     },
                 });
                 return newUser;
+            } else {
+                return user;
             }
         } catch (error) {
             console.error("Error: ", error);
