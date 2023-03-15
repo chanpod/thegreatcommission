@@ -4,6 +4,7 @@ import { Links, LiveReload, Meta, Outlet, Scripts, ScrollRestoration, useCatch, 
 import { Analytics } from "@vercel/analytics/react";
 import React from "react";
 import stylesheet from "~/tailwind.css";
+import appStyles from "./src/styles/app.css";
 import { getSession } from "./server/auth/session.server";
 import { authenticator } from "./server/auth/strategies/authenticaiton";
 import Header from "./src/components/header/Header";
@@ -12,6 +13,7 @@ import { Sidenav } from "./src/components/sidenav/Sidenav";
 export const links: LinksFunction = () => [
     { rel: "stylesheet", href: "https://rsms.me/inter/inter.css" },
     { rel: "stylesheet", href: stylesheet },
+    { rel: "stylesheet", href: appStyles },
 ];
 
 export const meta: MetaFunction = () => ({
