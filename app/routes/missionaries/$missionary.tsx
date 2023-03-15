@@ -1,7 +1,12 @@
-import { json, LoaderArgs } from "@remix-run/node";
+import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
 import { useLoaderData, useParams } from "@remix-run/react";
 import React from "react";
 import { prismaClient } from "~/server/dbConnection";
+
+export const action = async({request}: ActionArgs) => {
+
+    return json({})
+}
 
 export const loader = async ({ request, params }: LoaderArgs) => {
     const missionary = await prismaClient.missionary.findUnique({

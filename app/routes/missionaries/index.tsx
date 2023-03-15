@@ -5,12 +5,13 @@ import { Link, useLoaderData } from "@remix-run/react";
 import { Button } from "~/src/components/button/Button";
 import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
 import Row from "~/src/components/listItems/Row";
-import RowItem from "~/src/components/listItems/RowItem";
+import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
 import { prismaClient } from "~/server/dbConnection";
+import List from "~/src/components/listItems/List";
 
 export const loader = async ({ request }: LoaderArgs) => {
     const url = new URL(request.url);
-   
+
     const missionaries = await prismaClient.missionary.findMany();
 
     return json({
@@ -20,7 +21,7 @@ export const loader = async ({ request }: LoaderArgs) => {
 
 export default function ChurchPage() {
     const loaderData = useLoaderData();
-    console.log("loaderData", loaderData);
+
     return (
         <div className="flex-col">
             <div className="flex justify-between items-center">
@@ -35,29 +36,29 @@ export default function ChurchPage() {
 
             <div className="mt-8 border-t-2 border-gray-400">
                 <h1 className="mt-4 text-2xl">Missionaries</h1>
-                <ul className="max-w-md divide-y  divide-gray-200 dark:divide-gray-700">
+                <List>
                     {loaderData?.missionaries?.map((missionary: Missionary) => {
                         return (
-                            <Link key={missionary.id} to={`/missionaries/${missionary.id}`}>
-                                <Row>
+                            <Row key={missionary.id}>
+                                <Link to={`/missionaries/${missionary.id}`}>
                                     <RowItem>
                                         <div className="flex-shrink-0">
                                             <EmptyAvatar />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                            <p className={primaryText}>
                                                 {missionary.firstName}, {missionary.lastName}
                                             </p>
-                                            <p className="text-sm text-gray-500 truncate dark:text-gray-400">
+                                            <p className={secondaryText}>
                                                 {missionary.city} {missionary.city ? "," : null} {missionary.state}
                                             </p>
                                         </div>
                                     </RowItem>
-                                </Row>
-                            </Link>
+                                </Link>
+                            </Row>
                         );
                     })}
-                </ul>
+                </List>
             </div>
         </div>
     );

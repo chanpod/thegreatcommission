@@ -1,11 +1,11 @@
 import { Disclosure, Menu, Transition } from "@headlessui/react";
 import { Bars3Icon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { Link, useMatches, useNavigation, useTransition } from "@remix-run/react";
-import { Fragment, useContext, useState } from "react";
-import { ColorRing, TailSpin } from "react-loader-spinner";
-import { UserContext } from "~/root";
+import { Link, useMatches, useNavigation } from "@remix-run/react";
+import { Fragment, useState } from "react";
+import { TailSpin } from "react-loader-spinner";
+import tgcIcon from "~/src/assets/images/tgcIcon.png";
+import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import SearchBar from "./SearchBar";
-import tgcIcon from '~/src/assets/images/tgcIcon.png'
 export const navigation = [
     { name: "Churches", href: "/churches", current: true },
     { name: "Missionaries", href: "/missionaries", current: false },
@@ -19,9 +19,8 @@ export default function Header() {
     const matches = useMatches();
     const transition = useNavigation();
     const loading = transition.state != "idle";
-    const [searchLoading, setSearchLoading] = useState(false);
-    const userContext = useContext(UserContext);
-    const loggedIn = userContext.user != null;
+    const [searchLoading, setSearchLoading] = useState(false);    
+    const { isLoggedIn, user } = useIsLoggedIn();
 
     return (
         <Disclosure as="nav" className="bg-white">
@@ -72,7 +71,7 @@ export default function Header() {
                                         <Menu.Button className="flex items-center">
                                             <span className="sr-only">Open user menu</span>
                                             <PhotoIcon className="h-8 w-8 mr-1 p-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 rounded-full bg-gray-800" />
-                                            {userContext.user?.firstName}
+                                            {user?.firstName}
                                         </Menu.Button>
                                     </div>
                                     <Transition
@@ -85,7 +84,7 @@ export default function Header() {
                                         leaveTo="transform opacity-0 scale-95"
                                     >
                                         <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                                            {loggedIn ? (
+                                            {isLoggedIn ? (
                                                 <>
                                                     <Menu.Item>
                                                         {({ active }) => (
