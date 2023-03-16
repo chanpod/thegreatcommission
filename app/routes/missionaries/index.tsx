@@ -8,6 +8,7 @@ import Row from "~/src/components/listItems/Row";
 import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
 import { prismaClient } from "~/server/dbConnection";
 import List from "~/src/components/listItems/List";
+import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 
 export const loader = async ({ request }: LoaderArgs) => {
     const url = new URL(request.url);
@@ -21,17 +22,19 @@ export const loader = async ({ request }: LoaderArgs) => {
 
 export default function ChurchPage() {
     const loaderData = useLoaderData();
-
+    const { isLoggedIn, user } = useIsLoggedIn();
     return (
         <div className="flex-col">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl">Create or find Missionaries</h1>
-                <Link to="/missionaries/create">
-                    <Button className="w-40 flex items-center justify-center space-x-2">
-                        <PlusIcon className="w-5 h-5" />
-                        <span>Create</span>
-                    </Button>
-                </Link>
+                {isLoggedIn && (
+                    <Link to="/missionaries/create">
+                        <Button className="w-40 flex items-center justify-center space-x-2">
+                            <PlusIcon className="w-5 h-5" />
+                            <span>Create</span>
+                        </Button>
+                    </Link>
+                )}
             </div>
 
             <div className="mt-8 border-t-2 border-gray-400">

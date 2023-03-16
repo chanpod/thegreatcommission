@@ -27,7 +27,7 @@ export interface IUserContext {
 }
 
 export const loader = async ({ request }: LoaderArgs) => {
-    const user = await authenticator.isAuthenticated(request);    
+    const user = await authenticator.isAuthenticated(request);
 
     return json({
         userContext: {

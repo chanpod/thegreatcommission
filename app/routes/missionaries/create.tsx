@@ -3,9 +3,13 @@ import { ActionArgs, json } from "@remix-run/node";
 import { Button } from "~/src/components/button/Button";
 import { Input } from "~/src/components/forms/input/Input";
 import { prismaClient } from "~/server/dbConnection";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
+import { Form } from "@remix-run/react";
 
 export const action = async ({ request }: ActionArgs) => {
     console.log("Create missionary action");
+
+    const user = await authenticator.isAuthenticated(request);
 
     if (request.method === "POST") {
         const form = await request.formData();
@@ -39,7 +43,7 @@ export default function CreateChurch() {
         <div className="flex-col">
             <h1 className="text-3xl">Create a Missionary</h1>
 
-            <form method="post">
+            <Form method="post">
                 <Input name="firstName" label="First Name" />
                 <Input name="lastName" label="Last Name" />
                 <Input name="middleName" label="Middle Name" />
@@ -49,7 +53,7 @@ export default function CreateChurch() {
                 <Input name="zip" label="Zip Code" />
 
                 <Button type="submit">Submit</Button>
-            </form>
+            </Form>
         </div>
     );
 }

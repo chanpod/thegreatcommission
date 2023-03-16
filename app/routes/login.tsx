@@ -1,7 +1,7 @@
 import { TrashIcon } from "@heroicons/react/24/outline";
 import { User } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
-import { useFetcher, useLoaderData, useNavigation } from "@remix-run/react";
+import { Form, useFetcher, useLoaderData, useNavigation } from "@remix-run/react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import googleIcon from "~/src/assets/images/googleIcon.svg";
 
@@ -49,7 +49,7 @@ export default function LoginPage() {
                     <h1 className="text-5xl"> Login </h1>
                 </div>
                 <div>
-                    <form method="post" className="flex-col items-center justify-center w-48 space-y-2">
+                    <Form method="post" className="flex-col items-center justify-center w-48 space-y-2">
                         <div>
                             <button
                                 className="google-btn transition duration-150 w-60 mt-10 ease-in-out hover:bg-primary-700 hover:shadow-lg hover:text-white focus:bg-primary-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-primary-800 active:shadow-lg"
@@ -62,7 +62,7 @@ export default function LoginPage() {
                                 <span className="google-text">Sign in with Google</span>
                             </button>
                         </div>
-                    </form>
+                    </Form>
                 </div>
                 {/*
                 <h1 className="text-3xl mt-5"> Existing Users</h1>

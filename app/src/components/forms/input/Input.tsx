@@ -6,11 +6,12 @@ interface Props {
     className?: string;
     value?: string;
     id?: string;
+    defaultValue?: string;
     onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export function Input(props: Props) {
-    const { label, name, id, type, className, placeholder, value, onChange, ...others } = props;
+    const { label, name, id, type, className, placeholder, value, onChange, defaultValue, ...others } = props;
 
     return (
         <div className="input">
@@ -20,6 +21,7 @@ export function Input(props: Props) {
             <input
                 name={name}
                 type="text"
+                defaultValue={defaultValue ?? ""}
                 id={id}
                 className={
                     className +

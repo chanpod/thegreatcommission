@@ -20,7 +20,7 @@ export const loader = async ({ request }: LoaderArgs) => {
 export default function ChurchPage() {
     const loaderData = useLoaderData();
     const { isLoggedIn, user } = useIsLoggedIn();
-    console.log("loaderData", loaderData);
+    
     return (
         <div className="flex-col">
             <div className="flex justify-between items-center">
