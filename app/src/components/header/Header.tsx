@@ -21,7 +21,7 @@ export default function Header() {
     const loading = transition.state != "idle";
     const [searchLoading, setSearchLoading] = useState(false);    
     const { isLoggedIn, user } = useIsLoggedIn();
-
+    console.log(user)
     return (
         <Disclosure as="nav" className="bg-white">
             {({ open }) => (
@@ -71,7 +71,7 @@ export default function Header() {
                                         <Menu.Button className="flex items-center">
                                             <span className="sr-only">Open user menu</span>
                                             <PhotoIcon className="h-8 w-8 mr-1 p-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 rounded-full bg-gray-800" />
-                                            {user?.firstName}
+                                            Name: ?{user?.firstName}
                                         </Menu.Button>
                                     </div>
                                     <Transition
