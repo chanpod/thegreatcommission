@@ -8,7 +8,7 @@ module.exports = {
     ignoredRouteFiles: ["**/.*"],
     future: {
         unstable_tailwind: true,
-    },
+    },    
     // appDirectory: "app",
     // assetsBuildDirectory: "public/build",
     // serverBuildPath: "api/index.js",

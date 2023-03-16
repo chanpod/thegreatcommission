@@ -5,7 +5,7 @@ export let googleStrategy = new GoogleStrategy(
     {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-        callbackURL: process.env.GOOGLE_REDIRECT_URI ?? "http://localhost:3000/login/google",
+        callbackURL: process.env.GOOGLE_REDIRECT_URI ?? "http://localhost:3101/login/google",
     },
     async ({ accessToken, refreshToken, extraParams, profile }) => {
         console.log(profile);
