@@ -21,7 +21,7 @@ export default function Header() {
     const loading = transition.state != "idle";
     const [searchLoading, setSearchLoading] = useState(false);    
     const { isLoggedIn, user } = useIsLoggedIn();
-    console.log(user)
+    console.log("User from header", user)
     return (
         <Disclosure as="nav" className="bg-white">
             {({ open }) => (
