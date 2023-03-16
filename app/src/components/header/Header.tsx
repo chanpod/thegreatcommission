@@ -71,7 +71,7 @@ export default function Header() {
                                         <Menu.Button className="flex items-center">
                                             <span className="sr-only">Open user menu</span>
                                             <PhotoIcon className="h-8 w-8 mr-1 p-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 rounded-full bg-gray-800" />
-                                            Name: ?{user?.firstName}
+                                            {user?.firstName}
                                         </Menu.Button>
                                     </div>
                                     <Transition

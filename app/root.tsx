@@ -54,19 +54,19 @@ export default function App() {
             </head>
             <body style={{ minHeight: "100vh" }}>
                 <div className="flex h-full">
-                    <div className="w-60 max-w-5xl">
-                        <Sidenav />
-                    </div>
-                    <div className="flex-col w-full">
-                        <UserContext.Provider value={loaderData.userContext}>
+                    <UserContext.Provider value={loaderData.userContext as IUserContext}>
+                        <div className="w-60 max-w-5xl">
+                            <Sidenav />
+                        </div>
+                        <div className="flex-col w-full">
                             <Header />
                             <div className="flex-col h-full bg-gray-200 pl-8 pt-4 w-full ">
                                 <div className="bg-white rounded-md p-3">
                                     <Outlet />
                                 </div>
                             </div>
-                        </UserContext.Provider>
-                    </div>
+                        </div>
+                    </UserContext.Provider>
                 </div>
                 <ScrollRestoration />
                 <Scripts />
