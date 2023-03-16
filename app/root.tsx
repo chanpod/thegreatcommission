@@ -40,7 +40,7 @@ export const UserContext = React.createContext<IUserContext>({ user: undefined }
 
 export default function App() {
     const loaderData = useLoaderData<typeof loader>();
-
+    console.log(loaderData);
     return (
         <html lang="en">
             <head>
