@@ -1,5 +1,5 @@
 import { ChurchOrganization } from "@prisma/client";
-import { ActionArgs, json } from "@remix-run/node";
+import { ActionArgs, json, redirect } from "@remix-run/node";
 import { Button } from "~/src/components/button/Button";
 import { Input } from "~/src/components/forms/input/Input";
 import { prismaClient } from "~/server/dbConnection";
@@ -21,14 +21,15 @@ export const action = async ({ request }: ActionArgs) => {
         if (!user) return json({ status: 401, message: "Not authorized", formData: newChurch }, { status: 401 });
 
         const response = await prismaClient.churchOrganization.create({
-            data: newChurch,
+            data: {
+                ...newChurch,
+                createdById: user.id,
+            },
         });
 
         console.log("response", response);
 
-        return json({
-            newChurch: response,
-        });
+        return redirect("/churches/" + response.id);
     }
 
     return json({ message: "Hello World" });

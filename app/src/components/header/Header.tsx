@@ -9,6 +9,7 @@ import SearchBar from "./SearchBar";
 export const navigation = [
     { name: "Churches", href: "/churches", current: true },
     { name: "Missionaries", href: "/missionaries", current: false },
+    { name: "Missions", href: "/missions", current: false },
 ];
 
 function classNames(...classes) {
@@ -19,9 +20,9 @@ export default function Header() {
     const matches = useMatches();
     const transition = useNavigation();
     const loading = transition.state != "idle";
-    const [searchLoading, setSearchLoading] = useState(false);    
+    const [searchLoading, setSearchLoading] = useState(false);
     const { isLoggedIn, user } = useIsLoggedIn();
-    console.log("User from header", user)
+    console.log("User from header", user);
     return (
         <Disclosure as="nav" className="bg-white">
             {({ open }) => (
