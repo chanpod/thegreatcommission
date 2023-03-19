@@ -2,13 +2,12 @@ import { User } from "@prisma/client";
 import { json, LinksFunction, LoaderArgs, MetaFunction } from "@remix-run/node";
 import { Links, LiveReload, Meta, Outlet, Scripts, ScrollRestoration, useCatch, useLoaderData } from "@remix-run/react";
 import { Analytics } from "@vercel/analytics/react";
-import React from "react";
+import React, { useCallback, useState } from "react";
 import stylesheet from "~/tailwind.css";
-import appStyles from "./src/styles/app.css";
-import { getSession } from "./server/auth/session.server";
 import { authenticator } from "./server/auth/strategies/authenticaiton";
 import Header from "./src/components/header/Header";
 import { Sidenav } from "./src/components/sidenav/Sidenav";
+import appStyles from "./src/styles/app.css";
 
 export const links: LinksFunction = () => [
     { rel: "stylesheet", href: "https://rsms.me/inter/inter.css" },
@@ -40,7 +39,19 @@ export const UserContext = React.createContext<IUserContext>({ user: undefined }
 
 export default function App() {
     const loaderData = useLoaderData<typeof loader>();
-    console.log(loaderData);
+
+    const [mapContainer, setMapContainer] = useState(null);
+    const mapRef = useCallback((node) => {
+        node && setMapContainer(node);
+    }, []);
+
+    const mapOptions = {
+        // Add your map options here
+        // `center` and `zoom` are required for every map to be displayed
+        center: { lat: 53.5582447, lng: 9.647645 },
+        zoom: 6,
+    };
+
     return (
         <html lang="en">
             <head>

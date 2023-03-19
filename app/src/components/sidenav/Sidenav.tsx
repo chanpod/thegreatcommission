@@ -6,9 +6,9 @@ export function Sidenav() {
     const matches = useMatches();
     return (
         <div className="flex-col fixed h-screen w-full relative ">
-            <div className="flex bg-gray-900 h-32 divide-y items-center justify-center">
+            <div className="flex bg-[#0a192f] h-32 divide-y items-center justify-center">
                 <Link to="/" className="text-white flex-col items-center justify-center">
-                    <div className="flex items-center justify-center" >
+                    <div className="flex items-center justify-center">
                         <div className="bg-white rounded-xl mr-2 " style={{ maxWidth: "60px" }}>
                             <img src={tgcIcon} style={{ width: "60px", height: "60px" }} />
                         </div>
@@ -17,13 +17,14 @@ export function Sidenav() {
                 </Link>
             </div>
 
-            <div className="flex bg-gray-800 h-full flex-col ">
+            <hr />
+            <div className="flex bg-[#0a192f] h-full flex-col ">
                 {navigation.map((item) => {
                     const current = matches.find((match) => match.pathname === item.href) != undefined;
                     return (
                         <Link
                             className={`text-lg flex items-center text-gray-200 text-center p-3 m-2 ${
-                                current ? "bg-gray-900 text-white justify-items-between rounded-md" : ""
+                                current ? "bg-[#182c4c] text-white justify-items-between rounded-md" : "bg-[#0a192f]"
                             }`}
                             style={
                                 current

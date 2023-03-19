@@ -23,10 +23,10 @@ export function Input(props: Props) {
                 type="text"
                 defaultValue={defaultValue ?? ""}
                 id={id}
-                className={
-                    className +
-                    " bg-gray-900 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-900 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                }
+                style={{
+                    "--tw-ring-shadow": "0 0 #000 !important",
+                }}
+                className="block rounded-md w-full p-2.5 bg-[#0a192f] border-gray-600 placeholder-gray-400 text-white border-none focus:border-none focus:border-ring-none"
                 placeholder={placeholder}
                 {...others}
             />
