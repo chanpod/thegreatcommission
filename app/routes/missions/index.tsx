@@ -24,9 +24,9 @@ export default function ChurchPage() {
     return (
         <div className="flex-col">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl">Create or find Missionaries</h1>
+                <h1 className="text-3xl">Missions</h1>
                 {isLoggedIn && (
-                    <Link to="/missionaries/create">
+                    <Link to="/missions/create">
                         <Button className="w-40 flex items-center justify-center space-x-2">
                             <PlusIcon className="w-5 h-5" />
                             <span>Create</span>
@@ -34,9 +34,8 @@ export default function ChurchPage() {
                     </Link>
                 )}
             </div>
-
-            <div className="mt-8 border-t-2 border-gray-400">
-                <h1 className="mt-4 text-2xl">Missionaries</h1>
+            <hr className="my-4" />
+            <div>
                 <List>
                     {loaderData?.missions?.map((mission: Missions) => {
                         return (
@@ -47,12 +46,8 @@ export default function ChurchPage() {
                                             <EmptyAvatar />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className={primaryText}>
-                                                {mission.title}
-                                            </p>
-                                            <p className={secondaryText}>
-                                                {mission.churchOrganizationId}
-                                            </p>
+                                            <p className={primaryText}>{mission.title}</p>
+                                            <p className={secondaryText}>{mission.churchOrganizationId}</p>
                                         </div>
                                     </RowItem>
                                 </Link>

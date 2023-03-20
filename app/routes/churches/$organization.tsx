@@ -1,20 +1,27 @@
 import { TrashIcon } from "@heroicons/react/24/outline";
-import { ChurchOrganization } from "@prisma/client";
+import { ChurchOrganization, Missions } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs, redirect } from "@remix-run/node";
-import { Form, useActionData, useFetcher, useLoaderData } from "@remix-run/react";
-import { Button, Toast } from "flowbite-react";
+import { Form, Link, useActionData, useFetcher, useLoaderData } from "@remix-run/react";
+import { Button, Card, Toast } from "flowbite-react";
 import { useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
 import { ChurchService } from "~/services/ChurchService";
+import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
 
 import CreateChurchForm from "~/src/components/forms/createChurch/CreateChurchForm";
+import List from "~/src/components/listItems/List";
+import Row from "~/src/components/listItems/Row";
+import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 
 export const loader = async ({ request, params }: LoaderArgs) => {
     const organization = await prismaClient.churchOrganization.findUnique({
         where: {
             id: params.organization,
+        },
+        include: {
+            missions: true,
         },
     });
 
@@ -80,10 +87,10 @@ const ChurchPage = () => {
     }, [actionData]);
 
     return (
-        <div className="flex-col space-y-4">
+        <Card className="flex-col text-black space-y-4">
             <div className="flex">
                 <div className="flex-1">
-                    <h1 className="text-3xl"> Update {loaderData.organization?.name} </h1>
+                    <h1 className="text-3xl"> {loaderData.organization?.name} </h1>
                     <div className="text-sm text-gray-500">Last Updated: {loaderData.organization?.updatedAt}</div>
                 </div>
                 {isLoggedIn && user?.id === loaderData.organization?.createdById && (
@@ -97,16 +104,44 @@ const ChurchPage = () => {
                     </Button>
                 )}
             </div>
-            <div className="flex-col">
-                <div className="p-5 max-w-xl shadow-md">
+            <div className="flex space-x-3">
+                <Card className="flex-1">
+                    <h1 className="text-3xl">Missions</h1>
+                    <hr className="my-2" />
+                    <div>
+                        <List>
+                            {loaderData?.organization?.missions?.map((mission: Missions) => {
+                                return (
+                                    // <div key={church.id} className={`w-full rounded-lg hover:shadow-md shadow-sm p-2`}>Test</div>
+                                    <Row key={mission.id}>
+                                        <Link to={`/missions/${mission.id}`}>
+                                            <RowItem>
+                                                <div className="mr-3">
+                                                    <EmptyAvatar />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={primaryText}>{mission.title}</p>
+                                                    <p className={secondaryText}>{mission.description}</p>
+                                                </div>
+                                                <div className={secondaryText}>{mission.zip}</div>
+                                            </RowItem>
+                                        </Link>
+                                    </Row>
+                                );
+                            })}
+                        </List>
+                    </div>
+                </Card>
+
+                <Card className="flex-1">
                     <h1 className="text-3xl">Information</h1>
                     <hr className="my-2" />
                     <Form method="put" className="space-y-4" onSubmit={() => setShowUpdateToast(false)}>
-                        <CreateChurchForm initialValues={loaderData?.organization} />
+                        <CreateChurchForm readOnly={true} initialValues={loaderData?.organization} />
 
                         <Button type="submit">Update</Button>
                     </Form>
-                </div>
+                </Card>
             </div>
             {showUpdateToast && (
                 <Toast>
@@ -117,7 +152,7 @@ const ChurchPage = () => {
                     <Toast.Toggle />
                 </Toast>
             )}
-        </div>
+        </Card>
     );
 };
 

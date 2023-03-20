@@ -6,7 +6,7 @@ export function Sidenav() {
     const matches = useMatches();
     return (
         <div className="flex-col fixed h-screen w-full relative ">
-            <div className="flex bg-[#0a192f] h-32 divide-y items-center justify-center">
+            <div className="flex bg-[#172b4d] h-32 divide-y items-center justify-center">
                 <Link to="/" className="text-white flex-col items-center justify-center">
                     <div className="flex items-center justify-center">
                         <div className="bg-white rounded-xl mr-2 " style={{ maxWidth: "60px" }}>
@@ -18,13 +18,13 @@ export function Sidenav() {
             </div>
 
             <hr />
-            <div className="flex bg-[#0a192f] h-full flex-col ">
+            <div className="flex bg-[#172b4d] h-full flex-col ">
                 {navigation.map((item) => {
                     const current = matches.find((match) => match.pathname === item.href) != undefined;
                     return (
                         <Link
                             className={`text-lg flex items-center text-gray-200 text-center p-3 m-2 ${
-                                current ? "bg-[#182c4c] text-white justify-items-between rounded-md" : "bg-[#0a192f]"
+                                current ? "bg-[#0a192f] text-white justify-items-between rounded-md" : "bg-[#172b4d]"
                             }`}
                             style={
                                 current

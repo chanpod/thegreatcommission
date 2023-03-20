@@ -1,3 +1,3 @@
-export const primaryColor = "bg-slate-900"
+export const primaryColor = "#0a192f"
 export const primaryTextColor = 'text-white'
 export const secondaryColor = "bg-slate-800"

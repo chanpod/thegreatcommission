@@ -21,7 +21,6 @@ function MyComponent() {
 
     const onLoad = useCallback((map: google.maps.Map) => {
         map.setMapTypeId("satellite");
-                
     }, []);
 
     const onUnmount = useCallback((map: google.maps.Map) => {
@@ -31,11 +30,11 @@ function MyComponent() {
     return isLoaded ? (
         <GoogleMap
             mapContainerStyle={containerStyle}
-            zoom={1}
+            zoom={3}
             center={center}
             options={{
                 streetViewControl: false,
-                
+                mapTypeControl: false,
             }}
             mapTypeId="satellite"
             onLoad={onLoad}

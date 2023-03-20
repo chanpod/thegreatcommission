@@ -55,7 +55,7 @@ export default function Header() {
                                 </div>
                             </div>
                             <div className="flex flex-1 items-start align-items-start sm:items-stretch sm:justify-start relative">
-                                <SearchBar setLoading={(loading) => setSearchLoading(loading)} />
+                                <SearchBar inputStyle="header" setLoading={(loading) => setSearchLoading(loading)} />
                             </div>
                             <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                                 {/* <button

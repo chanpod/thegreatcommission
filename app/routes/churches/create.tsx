@@ -8,6 +8,7 @@ import { Form, useActionData } from "@remix-run/react";
 import { useEffect } from "react";
 import CreateChurchForm, { IChurchFormData } from "~/src/components/forms/createChurch/CreateChurchForm";
 import { ChurchService } from "~/services/ChurchService";
+import { Card } from "flowbite-react";
 
 export const action = async ({ request }: ActionArgs) => {
     console.log("Create church action");
@@ -53,10 +54,10 @@ export default function CreateChurch() {
     }, [actionData?.status]);
 
     return (
-        <div className="flex-col">
+        <div className="flex-col space-y-5 ">
             <h1 className="text-3xl">Create a Missions Organization</h1>
 
-            <div className="p-5 max-w-xl shadow-md">
+            <Card className="text-black max-w-[700px]">
                 <h1 className="text-3xl">Information</h1>
                 <hr className="my-2" />
                 <Form method="post" className="space-y-4">
@@ -64,7 +65,7 @@ export default function CreateChurch() {
 
                     <Button type="submit">Submit</Button>
                 </Form>
-            </div>
+            </Card>
         </div>
     );
 }

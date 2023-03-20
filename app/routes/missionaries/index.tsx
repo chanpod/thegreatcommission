@@ -26,7 +26,7 @@ export default function ChurchPage() {
     return (
         <div className="flex-col">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl">Create or find Missionaries</h1>
+                <h1 className="text-3xl">Missionaries</h1>
                 {isLoggedIn && (
                     <Link to="/missionaries/create">
                         <Button className="w-40 flex items-center justify-center space-x-2">
@@ -36,9 +36,8 @@ export default function ChurchPage() {
                     </Link>
                 )}
             </div>
-
-            <div className="mt-8 border-t-2 border-gray-400">
-                <h1 className="mt-4 text-2xl">Missionaries</h1>
+            <hr className="my-4" />
+            <div>
                 <List>
                     {loaderData?.missionaries?.map((missionary: Missionary) => {
                         return (
