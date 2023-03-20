@@ -1,21 +1,19 @@
 import { ChurchOrganization, Missionary, Missions } from "@prisma/client";
 import { ActionArgs, json } from "@remix-run/node";
-import { Button } from "~/src/components/button/Button";
-import { Input } from "~/src/components/forms/input/Input";
-import { prismaClient } from "~/server/dbConnection";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { Form, useFetcher } from "@remix-run/react";
-import { Card, Label, Textarea, TextInput } from "flowbite-react";
-import { useEffect, useState } from "react";
-import Datepicker from "react-tailwindcss-datepicker";
+import { Card } from "flowbite-react";
+import { useState } from "react";
 import { DateValueType } from "react-tailwindcss-datepicker/dist/types";
-import SearchBar from "~/src/components/header/SearchBar";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
+import { prismaClient } from "~/server/dbConnection";
+import { Button } from "~/src/components/button/Button";
+import CreateMissionForm from "~/src/components/forms/createMission/CreateMissionForm";
 
 export const action = async ({ request }: ActionArgs) => {
     console.log("Create missionary action");
 
     const user = await authenticator.isAuthenticated(request);
-
+    
     if (request.method === "POST") {
         const form = await request.formData();
 
@@ -29,7 +27,8 @@ export const action = async ({ request }: ActionArgs) => {
             title: form.get("title") as string,
             beginDate: new Date(startDate),
             endDate: endDate ? new Date(endDate) : null,
-            churchOrganizationId: form.get("churchOrganizationId") as string,
+            description: form.get("description") as string,
+            churchOrganizationId: form.get("churchOrganizationId") as string,            
         };
 
         const response = await prismaClient.missions.create({
@@ -47,26 +46,7 @@ export const action = async ({ request }: ActionArgs) => {
 };
 
 export default function CreateChurch() {
-    const [startDate, setStartDate] = useState<DateValueType | undefined>();
-    const [endDate, setEndDate] = useState<DateValueType | undefined>();
-    const [selectedOrg, setSelectedOrg] = useState<ChurchOrganization | undefined>();
 
-    const fetcher = useFetcher();
-
-    const startDateChanged = (newValue: DateValueType) => {
-        console.log("newValue:", newValue);
-        setStartDate(newValue);
-    };
-
-    const endDateChanged = (newValue: DateValueType) => {
-        console.log("newValue:", newValue);
-        setEndDate(newValue);
-    };
-
-    function onChurchSelection(selected: ChurchOrganization | Missionary) {
-        console.log(selected);
-        setSelectedOrg(selected as ChurchOrganization);
-    }
 
     return (
         <div className="flex-col space-y-5 ">
@@ -75,44 +55,8 @@ export default function CreateChurch() {
             <Card className="text-black max-w-[700px]">
                 <h1 className="text-3xl">Information</h1>
                 <hr className="my-2" />
-                <Form method="post" className="space-y-3">
-                    <Input label="Title" name="title" />
-
-                    <SearchBar
-                        label="Associated Org"
-                        showHeaders={false}
-                        loadMissionaries={false}
-                        onSelected={onChurchSelection}
-                    />
-                    <input style={{ display: "none" }} name="churchOrganizationId" value={selectedOrg?.id} />
-
-                    <label className="input__label">Start Date</label>
-                    <Datepicker
-                        useRange={false}
-                        name="beginDate"
-                        asSingle={true}
-                        value={startDate}
-                        onChange={startDateChanged}
-                    />
-                    <input style={{ display: "none" }} name="beginDate" value={startDate?.startDate} />
-
-                    <label className="input__label">Start Date</label>
-                    <Datepicker
-                        useRange={false}
-                        name="endDate"
-                        asSingle={true}
-                        value={endDate}
-                        onChange={endDateChanged}
-                    />
-
-                    <input style={{ display: "none" }} name="endDate" value={endDate?.startDate} />
-
-                    <div id="textarea">
-                        <div className="mb-2 block">
-                            <Label htmlFor="comment" value="Description" />
-                        </div>
-                        <Textarea name="description" id="comment" required={true} rows={4} />
-                    </div>
+                <Form method="post" className="space-y-5">
+                    <CreateMissionForm />
                     <Button type="submit">Submit</Button>
                 </Form>
             </Card>

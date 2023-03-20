@@ -22,7 +22,8 @@ model Missions {
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
   title                String
-  Missionaries         Missionary[]
+  missionaries         Missionary[]        @relation(fields: [missionaryIds], references: [id])
+  missionaryIds        String[]            @db.ObjectId
   ChurchOrganization   ChurchOrganization? @relation(fields: [churchOrganizationId], references: [id])
   churchOrganizationId String?             @db.ObjectId
   beginDate            DateTime
@@ -32,16 +33,15 @@ model Missions {
   sensitive            Boolean?            @default(false)
 }
 
-
 model Missionary {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  user       User?     @relation(fields: [userId], references: [id])
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  user       User?      @relation(fields: [userId], references: [id])
   firstName  String?
   middleName String?
   lastName   String?
-  userId     String?   @db.ObjectId
+  userId     String?    @db.ObjectId
   phone      String?
   email      String?
   address    String?
@@ -49,8 +49,8 @@ model Missionary {
   state      String?
   zip        String?
   country    String?
-  Missions   Missions? @relation(fields: [missionsId], references: [id])
-  missionsId String?   @db.ObjectId
+  missions   Missions[] @relation(fields: [missionIds], references: [id])
+  missionIds String[]   @db.ObjectId
 }
 
 model ChurchOrganization {

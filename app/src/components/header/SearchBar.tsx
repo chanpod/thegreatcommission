@@ -23,12 +23,13 @@ interface Props {
     showHeaders?: boolean | undefined;
     inputStyle?: "normal" | "header";
     label?: string;
+    initialValue?: string;
 }
 
 const SearchBar = (props: Props) => {
     const searchFetcher = useFetcher();
     const [openPopover, setOpenPopover] = useState(false);
-    const [search, setSearch] = useState("");
+    const [search, setSearch] = useState(props.initialValue ?? "");
     const [churches, setChurches] = useState<ChurchOrganization[]>([]);
     const [missionaries, setMissionaries] = useState<Missionary[]>([]);
     const ref = useRef();
@@ -38,6 +39,7 @@ const SearchBar = (props: Props) => {
     const [selectedEntity, setSelectedEntity] = useState(undefined);
 
     const loading = searchFetcher.state != "idle";
+    const headerStyle = props.inputStyle === "header";
 
     useEffect(() => {
         if (search.length > 1) {
@@ -59,14 +61,22 @@ const SearchBar = (props: Props) => {
 
     useEffect(() => {
         console.log(searchFetcher.data);
-        if (searchFetcher.data?.churches) {
-            setChurches(searchFetcher.data.churches);
-        }
-
-        if (searchFetcher.data?.missionary) {
-            setMissionaries(searchFetcher.data.missionary);
-        }
+        handleSearchFinished(setChurches, searchFetcher.data?.churches, (props.loadChurches || props.loadAll) ?? true);
+        handleSearchFinished(
+            setMissionaries,
+            searchFetcher.data?.missionary,
+            (props.loadMissionaries || props.loadAll) ?? true
+        );
     }, [searchFetcher.data]);
+
+    function handleSearchFinished(setValue: React.Dispatch<React.SetStateAction<any>>, data: any, shouldLoad: boolean) {
+        if (data && shouldLoad) {
+            if (data.length === 1 && props.onSelected) {
+                onSelected(data[0]);
+            }
+            setValue(data);
+        }
+    }
 
     function closePopover() {
         setOpenPopover(false);
@@ -84,9 +94,9 @@ const SearchBar = (props: Props) => {
         closePopover();
     }
 
-    const headerStyle = props.inputStyle === "header";
     return (
         <div ref={ref} className={`pt-1 pb-1 relative z-10 text-white text-sm rounded-lg w-11/12 block z-10`}>
+            
             {headerStyle ? (
                 <input
                     onFocus={() => setOpenPopover(true)}
@@ -105,7 +115,7 @@ const SearchBar = (props: Props) => {
                 <Input
                     className="rounded-md focus:border-none focus:border-ring-none "
                     onFocus={() => setOpenPopover(true)}
-                    label={props.label ? props.label : "Search"}                    
+                    label={props.label ? props.label : "Search"}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />

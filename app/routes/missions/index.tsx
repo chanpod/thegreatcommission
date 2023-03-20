@@ -11,7 +11,11 @@ import List from "~/src/components/listItems/List";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 
 export const loader = async ({ request }: LoaderArgs) => {
-    const missions = await prismaClient.missions.findMany();
+    const missions = await prismaClient.missions.findMany({
+        include: {
+            ChurchOrganization: true,
+        },
+    });
 
     return json({
         missions: missions,
@@ -40,14 +44,14 @@ export default function ChurchPage() {
                     {loaderData?.missions?.map((mission: Missions) => {
                         return (
                             <Row key={mission.id}>
-                                <Link to={`/missionaries/${mission.id}`}>
+                                <Link to={`/missions/${mission.id}`}>
                                     <RowItem>
                                         <div className="flex-shrink-0">
                                             <EmptyAvatar />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className={primaryText}>{mission.title}</p>
-                                            <p className={secondaryText}>{mission.churchOrganizationId}</p>
+                                            <p className={secondaryText}>{mission.ChurchOrganization.name}</p>
                                         </div>
                                     </RowItem>
                                 </Link>

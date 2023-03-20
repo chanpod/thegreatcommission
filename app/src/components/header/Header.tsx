@@ -4,6 +4,7 @@ import { Link, useMatches, useNavigation } from "@remix-run/react";
 import { Fragment, useState } from "react";
 import { TailSpin } from "react-loader-spinner";
 import tgcIcon from "~/src/assets/images/tgcIcon.png";
+import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import SearchBar from "./SearchBar";
 export const navigation = [
@@ -12,9 +13,7 @@ export const navigation = [
     { name: "Missions", href: "/missions", current: false },
 ];
 
-function classNames(...classes) {
-    return classes.filter(Boolean).join(" ");
-}
+
 
 export default function Header() {
     const matches = useMatches();
