@@ -28,7 +28,7 @@ export const loader = async ({ request, params }: LoaderArgs) => {
         },
         include: {
             ChurchOrganization: true,
-            missionaries: true,            
+            missionaries: true,
         },
     });
 
@@ -81,7 +81,7 @@ const MissionaryPage = () => {
                         {format(new Date(loaderData.mission?.beginDate), "MM-dd-yyyy")} until {getEndTime()}
                     </div>
                     <div className="text-sm text-gray-500">
-                        Association:{" "}
+                        Association:
                         <Link to={`/churches/${loaderData.mission?.ChurchOrganization?.id}`}>
                             {loaderData.mission?.ChurchOrganization?.name}
                         </Link>

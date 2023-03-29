@@ -10,7 +10,12 @@ import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import List from "~/src/components/listItems/List";
 export const loader = async ({ request }: LoaderArgs) => {
-    const churches = await prismaClient.churchOrganization.findMany();
+    const churches = await prismaClient.churchOrganization.findMany({
+        include: {
+            missions: false,            
+            associations: false, 
+        }
+    });
 
     return json({
         churches: churches,
