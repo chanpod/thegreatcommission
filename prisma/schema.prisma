@@ -8,13 +8,28 @@ datasource db {
 }
 
 model User {
-  id                 String               @id @default(auto()) @map("_id") @db.ObjectId
-  email              String               @unique
-  firstName          String?
-  lastName           String?
-  googleId           String?              @unique
-  Missionary         Missionary[]
-  ChurchOrganization ChurchOrganization[]
+  id                    String               @id @default(auto()) @map("_id") @db.ObjectId
+  email                 String               @unique
+  firstName             String?
+  lastName              String?
+  googleId              String?              @unique
+  Missionarys           Missionary[]
+  churchOrganizations   ChurchOrganization[] @relation("UserChurch", fields: [churchOrganizationIds], references: [id])
+  churchOrganizationIds String[]             @db.ObjectId
+  adminOrganizations    ChurchOrganization[] @relation("AdminChurch", fields: [adminChurchIds], references: [id])
+  adminChurchIds        String[]             @db.ObjectId
+  ChurchOrganization    ChurchOrganization[]
+  roles                 Role[]               @relation(fields: [roleIds], references: [id])
+  roleIds               String[]             @db.ObjectId
+}
+
+model Role {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  users     User[]   @relation(fields: [userIds], references: [id])
+  userIds   String[] @db.ObjectId
 }
 
 model Missions {
@@ -66,6 +81,9 @@ model ChurchOrganization {
   parentOrganizationId String?              @db.ObjectId
   parentOrganization   ChurchOrganization?  @relation("OrgChurch", fields: [parentOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   associations         ChurchOrganization[] @relation("OrgChurch")
-
-  missions Missions[]
+  members              User[]               @relation("UserChurch", fields: [mebersIds], references: [id])
+  mebersIds            String[]             @db.ObjectId
+  admins               User[]               @relation("AdminChurch", fields: [adminsIds], references: [id])
+  adminsIds            String[]             @db.ObjectId
+  missions             Missions[]
 }

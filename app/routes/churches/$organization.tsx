@@ -1,8 +1,17 @@
 import { Menu, Transition } from "@headlessui/react";
-import { PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { ChurchOrganization, Missions } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs, redirect } from "@remix-run/node";
-import { Form, Link, Outlet, useActionData, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import {
+    Form,
+    Link,
+    Outlet,
+    useActionData,
+    useFetcher,
+    useLoaderData,
+    useLocation,
+    useNavigate,
+} from "@remix-run/react";
 import { Button, Card, Toast } from "flowbite-react";
 import { Fragment, useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
@@ -24,6 +33,8 @@ export const loader = async ({ request, params }: LoaderArgs) => {
         },
         include: {
             missions: true,
+            admins: true,
+            members: true,
         },
     });
 
@@ -78,6 +89,10 @@ const ChurchPage = () => {
     const deleteFetcher = useFetcher();
     const loading = deleteFetcher.state === "submitting" || deleteFetcher.state === "loading";
     const navigate = useNavigate();
+    const location = useLocation();
+    const churchService = new ChurchService(loaderData?.organization!);
+    const subRouteDetected = location.pathname.includes("update") || location.pathname.includes("associate");
+
     function deleteChurch() {
         deleteFetcher.submit({}, { method: "delete", action: `/churches/${loaderData.organization?.id}` });
     }
@@ -95,83 +110,74 @@ const ChurchPage = () => {
                     <h1 className="text-3xl"> {loaderData.organization?.name} </h1>
                     <div className="text-sm text-gray-500">Last Updated: {loaderData.organization?.updatedAt}</div>
                 </div>
+                {churchService.userIsAdmin(user) && ( 
+                    <Menu as="div" className="relative ml-3">
+                        <div className="">
+                            <Menu.Button className="flex items-center">
+                                <Button pill outline>
+                                    <span className="sr-only">Open user menu</span>
+                                    <PencilIcon className="h-6 w-6 " />
+                                </Button>
+                            </Menu.Button>
+                        </div>
+                        <Transition
+                            as={Fragment}
+                            enter="transition ease-out duration-100"
+                            enterFrom="transform opacity-0 scale-95"
+                            enterTo="transform opacity-100 scale-100"
+                            leave="transition ease-in duration-75"
+                            leaveFrom="transform opacity-100 scale-100"
+                            leaveTo="transform opacity-0 scale-95"
+                        >
+                            <Menu.Items className="absolute space-y-2 right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                <Menu.Item>
+                                    {({ active }) => (
+                                        <div
+                                            onClick={() => navigate(`update`)}
+                                            className={classNames(
+                                                active ? "bg-gray-100" : "",
+                                                "cursor-pointer block px-4 py-2 text-sm text-gray-700"
+                                            )}
+                                        >
+                                            Edit
+                                        </div>
+                                    )}
+                                </Menu.Item>
+                                <Menu.Item>
+                                    {({ active }) => (
+                                        <div
+                                            onClick={() => navigate(`associate`)}
+                                            className={classNames(
+                                                active ? "bg-gray-100" : "",
+                                                "cursor-pointer block px-4 py-2 text-sm text-gray-700"
+                                            )}
+                                        >
+                                            Associate Org
+                                        </div>
+                                    )}
+                                </Menu.Item>
 
-                <Menu as="div" className="relative ml-3">
-                    <div className="">
-                        <Menu.Button className="flex items-center">
-                            <Button pill outline>
-                                <span className="sr-only">Open user menu</span>
-                                <PencilIcon className="h-6 w-6 " />
-                            </Button>
-                        </Menu.Button>
-                    </div>
-                    <Transition
-                        as={Fragment}
-                        enter="transition ease-out duration-100"
-                        enterFrom="transform opacity-0 scale-95"
-                        enterTo="transform opacity-100 scale-100"
-                        leave="transition ease-in duration-75"
-                        leaveFrom="transform opacity-100 scale-100"
-                        leaveTo="transform opacity-0 scale-95"
-                    >
-                        <Menu.Items className="absolute space-y-2 right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                            <Menu.Item>
-                                {({ active }) => (
-                                    <div
-                                        onClick={() => navigate(`update`)}
-                                        className={classNames(
-                                            active ? "bg-gray-100" : "",
-                                            "cursor-pointer block px-4 py-2 text-sm text-gray-700"
-                                        )}
-                                    >
-                                        Edit
-                                    </div>
-                                )}
-                            </Menu.Item>
-                            <Menu.Item>
-                                {({ active }) => (
-                                    <div
-                                        onClick={() => navigate(`associate`)}
-                                        className={classNames(
-                                            active ? "bg-gray-100" : "",
-                                            "cursor-pointer block px-4 py-2 text-sm text-gray-700"
-                                        )}
-                                    >
-                                        Associate Org
-                                    </div>
-                                )}
-                            </Menu.Item>
-                            <Menu.Item>
-                                {({ active }) => (
-                                    <Button
-                                        className=" bg-red-800 h-11  w-full flex items-center"
-                                        onClick={() => navigate(`/missions/${loaderData.mission?.id}/edit`)}
-                                    >
-                                        <TrashIcon className="h-4 w-4 mr-2" />
-                                        Delete
-                                    </Button>
-                                )}
-                            </Menu.Item>
-                        </Menu.Items>
-                    </Transition>
-                </Menu>
-
-                {isLoggedIn && user?.id === loaderData.organization?.createdById && (
-                    <Button
-                        loading={loading}
-                        className="rounded-xl bg-red-800 h-11 flex items-center"
-                        onClick={deleteChurch}
-                    >
-                        <TrashIcon className="h-4 w-4 mr-2" />
-                        Delete
-                    </Button>
+                                <Menu.Item>
+                                    {({ active }) => (
+                                        <Button
+                                            className=" bg-red-800 h-11  w-full flex items-center"
+                                            onClick={deleteChurch}
+                                        >
+                                            <TrashIcon className="h-4 w-4 mr-2" />
+                                            Delete
+                                        </Button>
+                                    )}
+                                </Menu.Item>
+                            </Menu.Items>
+                        </Transition>
+                    </Menu>
                 )}
             </div>
             <div className="flex space-x-3">
                 <Card className="flex-1">
                     <h1 className="text-3xl">Missions</h1>
                     <hr className="my-2" />
-                    <div>
+                    <div className="h-full">
                         <List>
                             {loaderData?.organization?.missions?.map((mission: Missions) => {
                                 return (
@@ -197,6 +203,13 @@ const ChurchPage = () => {
                 </Card>
 
                 <Card className="flex-1">
+                    {!subRouteDetected && <CreateChurchForm readOnly={true} initialValues={loaderData?.organization} />}
+                    {subRouteDetected && (
+                        <Button className="w-36" onClick={() => navigate("")}>
+                            <ArrowLeftIcon className="w-5 h-5 mr-2" />
+                            Back
+                        </Button>
+                    )}
                     <Outlet />
                 </Card>
             </div>

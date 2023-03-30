@@ -15,6 +15,9 @@ export let googleStrategy = new GoogleStrategy(
                 where: {
                     googleId: profile.id,
                 },
+                include: {
+                    roles: true,                    
+                }
             });
 
             console.log(user);

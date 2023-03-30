@@ -1,5 +1,6 @@
-import { ChurchOrganization } from "@prisma/client";
+import { ChurchOrganization, User } from "@prisma/client";
 import { IChurchFormData } from "~/src/components/forms/createChurch/CreateChurchForm";
+import { UserService } from "./UserService";
 
 export class ChurchService {
     currentChurch: ChurchOrganization | undefined;
@@ -17,5 +18,10 @@ export class ChurchService {
         } as IChurchFormData;
 
         return church;
+    }
+
+    userIsAdmin(user: User): boolean {
+        const userService = new UserService(user);
+        return this.currentChurch?.adminsIds.includes(user?.id) || userService.userIsAdmin() || false;
     }
 }

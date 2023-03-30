@@ -5,8 +5,7 @@ export const loader = async ({ request, params }: LoaderArgs) => {
     const url = new URL(request.url);
     const searchParams = url.searchParams;
     const search = searchParams.get("search");
-
-    console.log(search);
+    
     const missionary = await prismaClient.missionary.findMany({
         where: {
             OR: [
