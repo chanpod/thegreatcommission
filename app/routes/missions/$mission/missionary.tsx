@@ -11,13 +11,35 @@ import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/
 export const loader = async ({ request, params }: LoaderArgs) => {
     const url = new URL(request.url);
 
+    const missionsWithMissionaries = await prismaClient.missions.findUnique({
+        where: {
+            id: params.mission,
+        },
+        include: {
+            missionaries: true,
+        },
+    });
+
     const missionaries = await prismaClient.missionary.findMany({
         where: {
-            missions: {
-                none: {},
+            id: {
+                not: params.mission,
+            },
+            AND: {
+                NOT: {
+                    id: { in: missionsWithMissionaries?.missionaries.map((org) => org.id) },
+                },
             },
         },
     });
+
+    // const missionaries = await prismaClient.missionary.findMany({
+    //     where: {
+    //         missions: {
+    //             none: {},
+    //         },
+    //     },
+    // });
 
     return json({
         missionaries: missionaries,

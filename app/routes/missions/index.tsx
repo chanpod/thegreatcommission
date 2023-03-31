@@ -51,7 +51,7 @@ export default function ChurchPage() {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className={primaryText}>{mission.title}</p>
-                                            <p className={secondaryText}>{mission.ChurchOrganization.name}</p>
+                                            <p className={secondaryText}>{mission.ChurchOrganization?.name}</p>
                                         </div>
                                     </RowItem>
                                 </Link>
