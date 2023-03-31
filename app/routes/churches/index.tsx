@@ -9,12 +9,13 @@ import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/
 import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import List from "~/src/components/listItems/List";
+import OrganizationListItem from "~/src/components/listItems/components/OrganizationListItem";
 export const loader = async ({ request }: LoaderArgs) => {
     const churches = await prismaClient.churchOrganization.findMany({
         include: {
-            missions: false,            
-            associations: false, 
-        }
+            missions: false,
+            associations: false,
+        },
     });
 
     return json({
@@ -42,25 +43,13 @@ export default function ChurchPage() {
 
             <hr className="my-4" />
 
-            <div >
+            <div>
                 <List>
                     {loaderData?.churches?.map((church: ChurchOrganization) => {
                         return (
-                            // <div key={church.id} className={`w-full rounded-lg hover:shadow-md shadow-sm p-2`}>Test</div>
                             <Row key={church.id}>
                                 <Link to={`/churches/${church.id}`}>
-                                    <RowItem>
-                                        <div className="mr-3">
-                                            <EmptyAvatar />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className={primaryText}>{church.name}</p>
-                                            <p className={secondaryText}>
-                                                {church.city}, {church.state}
-                                            </p>
-                                        </div>
-                                        <div className={secondaryText}>{church.zip}</div>
-                                    </RowItem>
+                                    <OrganizationListItem church={church} />
                                 </Link>
                             </Row>
                         );

@@ -20,6 +20,8 @@ import { ChurchService } from "~/services/ChurchService";
 import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
 
 import CreateChurchForm from "~/src/components/forms/createChurch/CreateChurchForm";
+import MissionRowItem from "~/src/components/listItems/components/MissionRowItem";
+import OrganizationListItem from "~/src/components/listItems/components/OrganizationListItem";
 import List from "~/src/components/listItems/List";
 import Row from "~/src/components/listItems/Row";
 import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
@@ -35,6 +37,7 @@ export const loader = async ({ request, params }: LoaderArgs) => {
             missions: true,
             admins: true,
             members: true,
+            associations: true,
         },
     });
 
@@ -48,7 +51,7 @@ export const action = async ({ request, params }: ActionArgs) => {
         const user = await authenticator.isAuthenticated(request);
         if (!user) return json({ message: "Not Authenticated" }, { status: 401 });
 
-        console.log("UPdating the church");
+        console.log("Updating the church");
         const churchService = new ChurchService();
         const newChurch: ChurchOrganization = await churchService.getChurchFormDataFromRequest(request);
 
@@ -97,6 +100,16 @@ const ChurchPage = () => {
         deleteFetcher.submit({}, { method: "delete", action: `/churches/${loaderData.organization?.id}` });
     }
 
+    function removeChurchAssociation(org: ChurchOrganization) {
+        deleteFetcher.submit(
+            {
+                orgId: org.id,
+                parentOrgId: loaderData.organization?.id,
+            },
+            { method: "delete", action: `/churches/${loaderData.organization?.id}/associate` }
+        );
+    }
+
     useEffect(() => {
         if (actionData?.success) {
             setShowUpdateToast(actionData.success);
@@ -110,7 +123,7 @@ const ChurchPage = () => {
                     <h1 className="text-3xl"> {loaderData.organization?.name} </h1>
                     <div className="text-sm text-gray-500">Last Updated: {loaderData.organization?.updatedAt}</div>
                 </div>
-                {churchService.userIsAdmin(user) && ( 
+                {churchService.userIsAdmin(user) && (
                     <Menu as="div" className="relative ml-3">
                         <div className="">
                             <Menu.Button className="flex items-center">
@@ -184,17 +197,25 @@ const ChurchPage = () => {
                                     // <div key={church.id} className={`w-full rounded-lg hover:shadow-md shadow-sm p-2`}>Test</div>
                                     <Row key={mission.id}>
                                         <Link to={`/missions/${mission.id}`}>
-                                            <RowItem>
-                                                <div className="mr-3">
-                                                    <EmptyAvatar />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={primaryText}>{mission.title}</p>
-                                                    <p className={secondaryText}>{mission.description}</p>
-                                                </div>
-                                                <div className={secondaryText}>{mission.zip}</div>
-                                            </RowItem>
+                                            <MissionRowItem mission={mission} />
                                         </Link>
+                                    </Row>
+                                );
+                            })}
+                        </List>
+                    </div>
+                    <h1 className="text-3xl">Associated Orgs</h1>
+                    <hr className="my-2" />
+                    <div className="h-full">
+                        <List>
+                            {loaderData?.organization?.associations?.map((org: ChurchOrganization) => {
+                                return (
+                                    // <div key={church.id} className={`w-full rounded-lg hover:shadow-md shadow-sm p-2`}>Test</div>
+                                    <Row key={org.id}>
+                                        <Link to={`/missions/${org.id}`}>
+                                            <OrganizationListItem church={org} />
+                                        </Link>
+                                        <Button onClick={() => removeChurchAssociation(org)}>Remove</Button>
                                     </Row>
                                 );
                             })}
