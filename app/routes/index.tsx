@@ -1,11 +1,31 @@
-import { Outlet, useNavigation } from "@remix-run/react";
+import { Outlet, useLoaderData, useNavigation } from "@remix-run/react";
 import Header from "~/src/components/header/Header";
 import TheGreatCommissionImage from "~/src/assets/images/mainSplash.png";
 import tgcIcon from "~/src/assets/images/tgcIcon.png";
 import { useGoogleMap } from "@ubilabs/google-maps-react-hooks";
 import WorldMap from "~/src/components/maps/WorldMap";
+import { json, LoaderArgs } from "@remix-run/node";
+import { prismaClient } from "~/server/dbConnection";
+import { map } from "lodash";
+import { Location, Missions } from "@prisma/client";
+
+export const loader = async ({ request, params }: LoaderArgs) => {
+    const missionMarkers = await prismaClient.missions.findMany({
+        select: {
+            location: true,
+        },
+        where: {
+            location: {
+                isNot: null,
+            },
+        },
+    });
+
+    return json({ missionMarkers });
+};
 
 export default function Index() {
+    const loaderData = useLoaderData();
     return (
         <div style={{ minHeight: "80vh" }}>
             <div className="text-4xl p-3" style={{ width: "800px" }}>
@@ -14,7 +34,9 @@ export default function Index() {
                 with you always, to the very end of the age.
             </div>
 
-            <WorldMap coordinatesChanged={(coordinates) => console.log(coordinates)} />
+            <WorldMap
+                pins={map(loaderData.missionMarkers, (missionMarker: Partial<Missions>) => missionMarker.location)}
+            />
             {/* <div style={{ width: "750px" }} className="text-2xl bg-[#0a192f] text-white rounded-md p-5 ml-10 ">
                 The Great Commission website is a valuable resource for those looking to connect with churches and
                 mission programs around the world. With a user-friendly interface and a vast database of information,

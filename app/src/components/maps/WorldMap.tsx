@@ -1,4 +1,4 @@
-import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
+import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import { memo, useCallback, useState } from "react";
 
 const containerStyle = {
@@ -12,7 +12,8 @@ const center = {
 } as google.maps.LatLngLiteral;
 
 interface Props {
-    coordinatesChanged: (coordinates: google.maps.LatLngLiteral) => void;
+    coordinatesChanged?: (coordinates: google.maps.LatLngLiteral) => void;
+    pins?: google.maps.LatLngLiteral[];
 }
 
 function WorldMap(props: Props) {
@@ -25,15 +26,8 @@ function WorldMap(props: Props) {
 
     const onLoad = useCallback((map: google.maps.Map) => {
         const myLatlng = { lat: -25.363, lng: 131.044 };
+
         map.setMapTypeId("satellite");
-
-        // Create the initial InfoWindow.
-        let infoWindow = new google.maps.InfoWindow({
-            content: "<div style = 'color:black;'>Click the map to get Lat/Lng!</div>",
-            position: myLatlng,
-        });
-
-        infoWindow.open(map);
 
         map.addListener("click", (mapsMouseEvent: any) => {
             if (props.coordinatesChanged) {
@@ -50,7 +44,7 @@ function WorldMap(props: Props) {
         <GoogleMap
             mapContainerStyle={containerStyle}
             zoom={3}
-            center={center}
+            center={props.pins && props.pins[0] ? props.pins[0] : center}
             options={{
                 streetViewControl: false,
                 mapTypeControl: false,
@@ -59,7 +53,9 @@ function WorldMap(props: Props) {
             onLoad={onLoad}
             onUnmount={onUnmount}
         >
-            <></>
+            {props.pins?.map((pin, index) => (
+                <Marker key={index} position={pin} />
+            ))}
         </GoogleMap>
     ) : (
         <></>

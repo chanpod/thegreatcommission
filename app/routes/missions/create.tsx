@@ -23,12 +23,16 @@ export const action = async ({ request }: ActionArgs) => {
         console.log("startDate", startDate);
         console.log("endDate", endDate);
 
-        const newMissionary: Missions = {
+        const newMissionary: Partial<Missions> = {
             title: form.get("title") as string,
             beginDate: new Date(startDate),
             endDate: endDate ? new Date(endDate) : null,
             description: form.get("description") as string,
-            churchOrganizationId: form.get("churchOrganizationId") as string,            
+            churchOrganizationId: form.get("churchOrganizationId") as string,        
+            location: {
+                lat: parseFloat(form.get("lat") as string),
+                lng: parseFloat(form.get("lng") as string),
+            }    
         };
 
         const response = await prismaClient.missions.create({

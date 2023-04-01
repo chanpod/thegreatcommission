@@ -63,6 +63,8 @@ const CreateMissionForm = (props: Props) => {
                 label="Location"
                 name="location"
             />
+            <input style={{ display: "none" }} name="lat" value={selectedCoordinates?.lat} />
+            <input style={{ display: "none" }} name="lng" value={selectedCoordinates?.lng} />
 
             <SearchBar
                 label="Associated Org"
