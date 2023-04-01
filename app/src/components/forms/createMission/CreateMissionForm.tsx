@@ -1,10 +1,12 @@
 import { ChurchOrganization, Missionary, Missions } from "@prisma/client";
 import { format } from "date-fns";
-import { Label, Textarea } from "flowbite-react";
+import { Button, Label, Modal, Textarea } from "flowbite-react";
 import { useState } from "react";
 import Datepicker from "react-tailwindcss-datepicker";
 import { DateValueType } from "react-tailwindcss-datepicker/dist/types";
+import { ClientOnly } from "remix-utils";
 import SearchBar from "../../header/SearchBar";
+import WorldMap from "../../maps/WorldMap";
 import { Input } from "../input/Input";
 
 export interface IMissionForm extends Missions {
@@ -18,11 +20,15 @@ interface Props {
 
 const CreateMissionForm = (props: Props) => {
     const [startDate, setStartDate] = useState<DateValueType | undefined>({
-        startDate: props.initialValues?.beginDate ? format(new Date(props.initialValues?.beginDate), "yyyy-mm-dd") : new Date(),
+        startDate: props.initialValues?.beginDate
+            ? format(new Date(props.initialValues?.beginDate), "yyyy-mm-dd")
+            : new Date(),
         endDate: null,
     });
     const [endDate, setEndDate] = useState<DateValueType | undefined>();
     const [selectedOrg, setSelectedOrg] = useState<ChurchOrganization | undefined>();
+    const [showLocationSelect, setShowLocationSelect] = useState(false);
+    const [selectedCoordinates, setSelectedCoordinates] = useState({ lat: 0, lng: 0 });
 
     const startDateChanged = (newValue: DateValueType) => {
         console.log("newValue:", newValue);
@@ -46,6 +52,16 @@ const CreateMissionForm = (props: Props) => {
                 disabled={props.readOnly ?? false}
                 label="Title"
                 name="title"
+            />
+
+            <Input
+                onFocus={(e) => {
+                    setShowLocationSelect(true);
+                }}
+                defaultValue={props.initialValues?.title}
+                disabled={props.readOnly ?? false}
+                label="Location"
+                name="location"
             />
 
             <SearchBar
@@ -99,6 +115,25 @@ const CreateMissionForm = (props: Props) => {
                     rows={4}
                 />
             </div>
+            <ClientOnly>
+                {() => (
+                    <Modal size="7xl" show={showLocationSelect} onClose={() => setShowLocationSelect(false)}>
+                        <Modal.Header>Terms of Service</Modal.Header>
+                        <Modal.Body>
+                            <div className="space-y-6">
+                                <WorldMap coordinatesChanged={(coordinates) => setSelectedCoordinates(coordinates)} />
+                                Lat: {selectedCoordinates.lat} Lng: {selectedCoordinates.lng}
+                            </div>
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button onClick={() => setShowLocationSelect(false)}>I accept</Button>
+                            <Button color="gray" onClick={() => setShowLocationSelect(false)}>
+                                Decline
+                            </Button>
+                        </Modal.Footer>
+                    </Modal>
+                )}
+            </ClientOnly>
         </div>
     );
 };

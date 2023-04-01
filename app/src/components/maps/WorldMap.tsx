@@ -11,7 +11,11 @@ const center = {
     lat: 36.823,
 } as google.maps.LatLngLiteral;
 
-function MyComponent() {
+interface Props {
+    coordinatesChanged: (coordinates: google.maps.LatLngLiteral) => void;
+}
+
+function WorldMap(props: Props) {
     const { isLoaded } = useJsApiLoader({
         id: "google-map-script",
         googleMapsApiKey: "AIzaSyCfegy8_oZx8eMWjpQxzM1SpzV1J9IoJ0Y",
@@ -20,7 +24,22 @@ function MyComponent() {
     const [map, setMap] = useState<google.maps.Map | null>(null);
 
     const onLoad = useCallback((map: google.maps.Map) => {
+        const myLatlng = { lat: -25.363, lng: 131.044 };
         map.setMapTypeId("satellite");
+
+        // Create the initial InfoWindow.
+        let infoWindow = new google.maps.InfoWindow({
+            content: "<div style = 'color:black;'>Click the map to get Lat/Lng!</div>",
+            position: myLatlng,
+        });
+
+        infoWindow.open(map);
+
+        map.addListener("click", (mapsMouseEvent: any) => {
+            if (props.coordinatesChanged) {
+                props.coordinatesChanged(mapsMouseEvent.latLng.toJSON());
+            }
+        });
     }, []);
 
     const onUnmount = useCallback((map: google.maps.Map) => {
@@ -47,4 +66,4 @@ function MyComponent() {
     );
 }
 
-export default memo(MyComponent);
+export default memo(WorldMap);
