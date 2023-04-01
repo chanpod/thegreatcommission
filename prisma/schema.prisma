@@ -69,21 +69,37 @@ model Missionary {
 }
 
 model ChurchOrganization {
-  id                   String               @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt            DateTime             @default(now())
-  createdBy            User                 @relation(fields: [createdById], references: [id])
-  createdById          String               @db.ObjectId
-  updatedAt            DateTime             @updatedAt
-  name                 String
-  city                 String
-  state                String
-  zip                  String
-  parentOrganizationId String?              @db.ObjectId
-  parentOrganization   ChurchOrganization?  @relation("OrgChurch", fields: [parentOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  associations         ChurchOrganization[] @relation("OrgChurch")
-  members              User[]               @relation("UserChurch", fields: [mebersIds], references: [id])
-  mebersIds            String[]             @db.ObjectId
-  admins               User[]               @relation("AdminChurch", fields: [adminsIds], references: [id])
-  adminsIds            String[]             @db.ObjectId
-  missions             Missions[]
+  id                                String                          @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt                         DateTime                        @default(now())
+  createdBy                         User                            @relation(fields: [createdById], references: [id])
+  createdById                       String                          @db.ObjectId
+  updatedAt                         DateTime                        @updatedAt
+  name                              String
+  city                              String
+  state                             String
+  zip                               String
+  parentOrganizationId              String?                         @db.ObjectId
+  parentOrganization                ChurchOrganization?             @relation("OrgChurch", fields: [parentOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  associations                      ChurchOrganization[]            @relation("OrgChurch")
+  members                           User[]                          @relation("UserChurch", fields: [mebersIds], references: [id])
+  mebersIds                         String[]                        @db.ObjectId
+  admins                            User[]                          @relation("AdminChurch", fields: [adminsIds], references: [id])
+  adminsIds                         String[]                        @db.ObjectId
+  missions                          Missions[]
+  organizationMembershipSubmissions OrganizationMemberShipRequest[] @relation("requesting")
+  organizationMembershipRequest     OrganizationMemberShipRequest[] @relation("request")
+}
+
+model OrganizationMemberShipRequest {
+  id                             String             @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt                      DateTime           @default(now())
+  updatedAt                      DateTime           @updatedAt
+  requestingChurchOrganization   ChurchOrganization @relation("requesting", fields: [requestingChurchOrganizationId], references: [id])
+  requestingChurchOrganizationId String             @db.ObjectId
+  parentOrganization             ChurchOrganization @relation("request", fields: [parentOrganizationId], references: [id])
+  parentOrganizationId           String             @db.ObjectId
+  status                         String             @default("pending")
+  type                           String             @default("organization")
+
+  @@unique([requestingChurchOrganizationId, parentOrganizationId])
 }

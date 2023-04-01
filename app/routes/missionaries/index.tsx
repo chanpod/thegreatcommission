@@ -9,6 +9,7 @@ import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/
 import { prismaClient } from "~/server/dbConnection";
 import List from "~/src/components/listItems/List";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
+import { Card } from "flowbite-react";
 
 export const loader = async ({ request }: LoaderArgs) => {
     const url = new URL(request.url);
@@ -24,7 +25,8 @@ export default function ChurchPage() {
     const loaderData = useLoaderData();
     const { isLoggedIn, user } = useIsLoggedIn();
     return (
-        <div className="flex-col">
+        
+        <Card className="flex-col text-black space-y-4">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl">Missionaries</h1>
                 {isLoggedIn && (
@@ -62,6 +64,6 @@ export default function ChurchPage() {
                     })}
                 </List>
             </div>
-        </div>
+        </Card>
     );
 }

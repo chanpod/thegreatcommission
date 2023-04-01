@@ -10,6 +10,7 @@ import OrganizationListItem from "~/src/components/listItems/components/Organiza
 import List from "~/src/components/listItems/List";
 import Row from "~/src/components/listItems/Row";
 import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
+import { InvitationTypes } from "~/src/types/invitation.types";
 
 export const loader = async ({ request, params }: LoaderArgs) => {
     const organization = await prismaClient.churchOrganization.findUnique({
@@ -95,14 +96,16 @@ const AssociateChurch = () => {
     function associateOrg(org: ChurchOrganization) {
         addOrgFetcher.submit(
             {
-                org: JSON.stringify(org),
-                parentOrgId: loaderData.parentOrg.id,
+                requestingChurchOrganizationId: org.id,
+                parentOrganizationId: loaderData.parentOrg.id,
+                type: InvitationTypes.Organization,
             },
             {
                 method: "post",
+                action: `/api/invitation`,
             }
         );
-    }    
+    }
 
     return (
         <div>

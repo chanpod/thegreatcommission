@@ -27,6 +27,7 @@ import Row from "~/src/components/listItems/Row";
 import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
 import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
+import { InvitationStatus } from "~/src/types/invitation.types";
 
 export const loader = async ({ request, params }: LoaderArgs) => {
     const organization = await prismaClient.churchOrganization.findUnique({
@@ -38,6 +39,11 @@ export const loader = async ({ request, params }: LoaderArgs) => {
             admins: true,
             members: true,
             associations: true,
+            organizationMembershipRequest: {
+                where: {
+                    status: InvitationStatus.pending,
+                },
+            },
         },
     });
 
@@ -122,6 +128,7 @@ const ChurchPage = () => {
                 <div className="flex-1">
                     <h1 className="text-3xl"> {loaderData.organization?.name} </h1>
                     <div className="text-sm text-gray-500">Last Updated: {loaderData.organization?.updatedAt}</div>
+                    <div className="text-sm text-gray-500">Pending Membership Request: {loaderData.organization?.organizationMembershipRequest?.length}</div>
                 </div>
                 {churchService.userIsAdmin(user) && (
                     <Menu as="div" className="relative ml-3">
@@ -212,7 +219,7 @@ const ChurchPage = () => {
                                 return (
                                     // <div key={church.id} className={`w-full rounded-lg hover:shadow-md shadow-sm p-2`}>Test</div>
                                     <Row key={org.id}>
-                                        <Link to={`/missions/${org.id}`}>
+                                        <Link to={`/churches/${org.id}`}>
                                             <OrganizationListItem church={org} />
                                         </Link>
                                         <Button onClick={() => removeChurchAssociation(org)}>Remove</Button>
