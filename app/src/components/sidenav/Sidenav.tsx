@@ -27,21 +27,25 @@ export function Sidenav() {
         };
     }, []);
 
-    const sidebarStyle = isMobile
-        ? {
-              width: "0",
-              transition: "width 0.5s ease-out",
-              overflow: "hidden",
-          }
-        : {};
+    const sidebarStyle =
+        isMobile && !menuOpen
+            ? {
+                  width: "0",
+                  transition: "width 0.5s ease-out",
+                  overflow: "hidden",
+              }
+            : {
+                  width: "100%",
+              };
 
-    const containerclassName = isMobile && menuOpen
-        ? "sm:animate-w-1 flex flex-row min-h-screen bg-gray-100 text-gray-800  md:w-64 md:shadow transform -translate-x-full md:translate-x-0 transition-transform duration-150 ease-in"
-        : "flex flex-row min-h-screen bg-gray-100 text-gray-800 md:w-64 md:shadow transform -translate-x-full md:translate-x-0 transition-transform duration-150 ease-in";
+    const containerclassName =
+        isMobile && !menuOpen
+            ? "flex flex-row min-h-screen bg-gray-100 text-gray-800 w-0 md:shadow transform -translate-x-full "
+            : "sm:animate-w-1 flex flex-row min-h-screen bg-gray-100 text-gray-800 w-64 md:shadow transform -translate-x-full translate-x-0 transition-transform duration-150 ease-in";
 
     return (
         <div className={containerclassName}>
-            <aside style={sidebarStyle} className="sidebar w-full  bg-[#172b4d]">
+            <aside style={sidebarStyle} className="sidebar   bg-[#172b4d]">
                 <div className="sidebar-header flex items-center justify-center py-4">
                     <div className="inline-flex">
                         <Link to="/" className="text-white flex-col items-center justify-center">
