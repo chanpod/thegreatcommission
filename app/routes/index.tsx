@@ -24,27 +24,49 @@ export const loader = async ({ request, params }: LoaderArgs) => {
     return json({ missionMarkers });
 };
 
+const mapContainerStyle = {
+    position: "relative",
+};
+
+const quoteContainerStyle = {
+    position: "absolute",
+    top: "2%",
+    left: "1%",
+    zIndex: 1,
+    textAlign: "center",
+    maxWidth: "800px",
+};
+
+const quoteStyle = {
+    fontSize: "2rem",
+    fontWeight: "bold",
+    color: "#fff",
+    textShadow: "0px 0px 5px rgba(0, 0, 0, 0.8)",
+};
+
+const containerStyle = {
+    background: "rgba(44, 39, 39, 0.35)",
+    borderRadius: "16px",
+    boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
+    backdropFilter: "blur(5px)",
+    WebkitBackdropFilter: "blur(5px)",
+    border: "1px solid rgba(34, 29, 29, 0.24)",
+};
+
 export default function Index() {
     const loaderData = useLoaderData();
     return (
-        <div style={{ minHeight: "80vh" }}>
-            <div className="text-4xl p-3" style={{ width: "800px" }}>
-                Therefore go and make disciples of all nations, baptizing them in the name of the Father and of the Son
-                and of the Holy Spirit, 20 and teaching them to obey everything I have commanded you. And surely I am
-                with you always, to the very end of the age.
+        <div style={mapContainerStyle}>
+            <div style={{ ...quoteContainerStyle, ...containerStyle }}>
+                <blockquote style={quoteStyle}>
+                    "Therefore go and make disciples of all nations, baptizing them in the name of the Father and of the
+                    Son and of the Holy Spirit, 20 and teaching them to obey everything I have commanded you. And surely
+                    I am with you always, to the very end of the age." - Matthew 28:19-20
+                </blockquote>
             </div>
-
             <WorldMap
                 pins={map(loaderData.missionMarkers, (missionMarker: Partial<Missions>) => missionMarker.location)}
             />
-            {/* <div style={{ width: "750px" }} className="text-2xl bg-[#0a192f] text-white rounded-md p-5 ml-10 ">
-                The Great Commission website is a valuable resource for those looking to connect with churches and
-                mission programs around the world. With a user-friendly interface and a vast database of information,
-                finding the right fit for your mission work has never been easier. Whether you're looking for a local
-                church or an international mission opportunity, The Great Commission offers a comprehensive directory of
-                organizations and programs, making it the go-to destination for all things mission-related. Join the
-                global community of believers and fulfill your calling to spread the gospel with The Great Commission.
-            </div> */}
         </div>
     );
 }

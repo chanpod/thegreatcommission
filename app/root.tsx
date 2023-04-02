@@ -63,13 +63,12 @@ export default function App() {
 
                 <Links />
             </head>
-            <body style={{ minHeight: "100vh" }} className = "bg-[#0a192f]">
+            <body style={{ minHeight: "100vh" }} className="bg-[#0a192f]">
                 <div className="flex h-full">
                     <UserContext.Provider value={loaderData.userContext as IUserContext}>
-                        <div className="w-60 max-w-5xl fixed">
-                            <Sidenav />
-                        </div>
-                        <div className="flex-col w-full ml-60 ">
+                        <Sidenav />
+
+                        <div className="flex-col w-full">
                             <Header />
                             <div className="flex-col h-full  text-white pt-4 w-full ">
                                 <div className="p-3">
