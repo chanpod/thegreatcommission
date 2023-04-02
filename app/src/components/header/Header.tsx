@@ -7,13 +7,12 @@ import tgcIcon from "~/src/assets/images/tgcIcon.png";
 import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import SearchBar from "./SearchBar";
+
 export const navigation = [
     { name: "Churches", href: "/churches", current: true },
     { name: "Missionaries", href: "/missionaries", current: false },
     { name: "Missions", href: "/missions", current: false },
 ];
-
-
 
 export default function Header() {
     const matches = useMatches();
@@ -21,14 +20,24 @@ export default function Header() {
     const loading = transition.state != "idle";
     const [searchLoading, setSearchLoading] = useState(false);
     const { isLoggedIn, user } = useIsLoggedIn();
-    console.log("User from header", user);
+
     return (
         <Disclosure as="nav" className="bg-white">
             {({ open }) => (
                 <>
                     <div className="mx-auto px-2 sm:px-6 lg:px-8">
                         <div className="relative flex h-16 items-center justify-between">
-                            
+                            <div className="inset-y-0 left-0 items-center sm:hidden">
+                                {/* Mobile menu button*/}
+                                <Disclosure.Button className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
+                                    <span className="sr-only">Open main menu</span>
+                                    {open ? (
+                                        <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
+                                    ) : (
+                                        <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
+                                    )}
+                                </Disclosure.Button>
+                            </div>
                             <div
                                 style={{ width: "60px" }}
                                 className="flex flex-none flex-1 items-center justify-center sm:items-stretch sm:justify-start"
@@ -38,7 +47,7 @@ export default function Header() {
                                         <TailSpin height={40} width={40} />
                                     ) : (
                                         <Link to="/">
-                                            <img src={tgcIcon} />
+                                            <img src={tgcIcon} className="xs:w-10 xs:h-10 sm:w-10 sm:h-10 md:w-full md:h-full" />
                                         </Link>
                                     )}
                                 </div>

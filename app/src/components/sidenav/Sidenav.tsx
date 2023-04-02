@@ -12,7 +12,7 @@ export function Sidenav() {
     const [menuOpen, setMenuOpen] = useState(false);
 
     useEffect(() => {
-        const mediaQuery = window.matchMedia("(max-width: 767px)");
+        const mediaQuery = window.matchMedia("(max-width: 639px)");
 
         setIsMobile(mediaQuery.matches);
 
