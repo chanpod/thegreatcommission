@@ -123,7 +123,7 @@ const ChurchPage = () => {
     }, [actionData]);
 
     return (
-        <Card className="flex-col text-black space-y-4">
+        <Card className="md:flex-col sm:flex text-black space-y-4">
             <div className="flex">
                 <div className="flex-1">
                     <h1 className="text-3xl"> {loaderData.organization?.name} </h1>
@@ -193,7 +193,7 @@ const ChurchPage = () => {
                     </Menu>
                 )}
             </div>
-            <div className="flex space-x-3">
+            <div className="lg:flex space-x-3">
                 <Card className="flex-1">
                     <h1 className="text-3xl">Missions</h1>
                     <hr className="my-2" />

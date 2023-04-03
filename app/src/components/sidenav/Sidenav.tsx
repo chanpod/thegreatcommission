@@ -18,7 +18,7 @@ export function Sidenav() {
     const { sideNavOpen, setSideNavOpen } = useContext(ApplicationContext);
 
     useEffect(() => {
-        const mediaQuery = window.matchMedia("(max-width: 639px)");
+        const mediaQuery = window.matchMedia("(max-width: 1024px)");
 
         setIsMobile(mediaQuery.matches);
 
@@ -101,19 +101,17 @@ export function Sidenav() {
                             </Link>
                         </div>
                     </div>
-                    <div className="sidebar-content px-4 py-6">
+                    <div className="sidebar-content px-4 ">
                         <ul className="flex flex-col w-full">
                             <li className="my-px">
-                                <span className="flex font-medium text-sm text-gray-300 px-4 my-4 uppercase">
-                                    Projects
-                                </span>
+                                <span className="flex font-medium text-sm text-gray-300 px-4 my-4 uppercase"></span>
                             </li>
                             {navigation.map((item) => {
                                 const current = matches.find((match) => match.pathname === item.href) != undefined;
                                 return (
                                     <Link
                                         onClick={() => setSideNavOpen(false)}
-                                        className={`flex flex-row items-center h-10 px-3 rounded-lg text-gray-300 hover:bg-gray-100 hover:text-gray-700 ${
+                                        className={`flex flex-row items-center h-10 px-4 rounded-lg text-gray-300 hover:bg-gray-100 hover:text-gray-700 ${
                                             current
                                                 ? "bg-[#0a192f] text-white justify-items-between rounded-md"
                                                 : "bg-[#172b4d]"
@@ -338,7 +336,7 @@ export function Sidenav() {
                         </li> */}
                         </ul>
                     </div>
-                    <Button onClick={() => setSideNavOpen(!sideNavOpen)}>close</Button>
+                    {isMobile && <Button onClick={() => setSideNavOpen(!sideNavOpen)}>close</Button>}
                 </motion.aside>
             )}
         </AnimatePresence>

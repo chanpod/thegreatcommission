@@ -30,7 +30,7 @@ export default function ChurchPage() {
 
     return (
         <Card className="flex-col text-black space-y-4">
-            <div className="flex-col ">
+            <div className="md:flex-col sm:flex-row">
                 <div className="flex justify-between items-center">
                     <h1 className="text-3xl">Organizations</h1>
                     {isLoggedIn && (

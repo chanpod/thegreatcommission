@@ -24,12 +24,12 @@ export default function Header() {
     const { isLoggedIn, user } = useIsLoggedIn();
 
     return (
-        <Disclosure as="nav" className="bg-white">
+        <Disclosure  as="nav" className="bg-white">
             {({ open }) => (
                 <>
                     <div className="mx-auto px-2 sm:px-6 lg:px-8">
                         <div className="relative flex h-16 items-center justify-between">
-                            <div className="inset-y-0 left-0 items-center sm:hidden">
+                            <div className="inset-y-0 left-0 items-center lg:hidden">
                                 {/* Mobile menu button*/}
                                 <Disclosure.Button
                                     onClick={() => applicationContext.setSideNavOpen(!applicationContext.sideNavOpen)}
