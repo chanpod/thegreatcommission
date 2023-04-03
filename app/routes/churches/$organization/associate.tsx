@@ -3,7 +3,7 @@ import { ChurchOrganization, OrganizationMemberShipRequest } from "@prisma/clien
 import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { format } from "date-fns";
-import { Button } from "flowbite-react";
+import { Button, Tabs } from "flowbite-react";
 import React from "react";
 import { prismaClient } from "~/server/dbConnection";
 import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
@@ -20,6 +20,7 @@ export const loader = async ({ request, params }: LoaderArgs) => {
         },
         include: {
             associations: true,
+            parentOrganization: true,
         },
     });
 
@@ -51,15 +52,14 @@ export const loader = async ({ request, params }: LoaderArgs) => {
     const previousRequest = await prismaClient.organizationMemberShipRequest.findMany({
         where: {
             requestingChurchOrganizationId: params.organization,
-            AND: {
-                status: {
-                    not: InvitationStatus.accepted,
-                },
-            },
         },
         include: {
             requestingChurchOrganization: true,
+            parentOrganization: true,
         },
+        orderBy: {
+            createdAt: "desc",
+        }
     });
 
     // const previousRequest = await prismaClient.churchOrganization.findMany({
@@ -138,6 +138,7 @@ export const action = async ({ request, params }: ActionArgs) => {
 const AssociateChurch = () => {
     const loaderData = useLoaderData();
     const addOrgFetcher = useFetcher();
+    const leaveOrgFetcher = useFetcher();
 
     function associateOrg(org: ChurchOrganization) {
         addOrgFetcher.submit(
@@ -153,10 +154,72 @@ const AssociateChurch = () => {
         );
     }
 
-    return (
-        <div className="space-y-3">
-            <h1 className="text-3xl">Associate</h1>
-            <hr className="my-2" />
+    function leaveOrganization() {
+        leaveOrgFetcher.submit(
+            {
+                orgId: loaderData.requestingOrg.id,
+                parentOrgId: loaderData.requestingOrg.parentOrganization.id,
+            },
+            {
+                method: "delete",
+            }
+        );
+    }
+
+    function currentOrganizations() {
+        return (
+            <div>
+                {loaderData.requestingOrg?.parentOrganization?.name}{" "}
+                <Button onClick={() => leaveOrganization()} className="bg-red">
+                    Leave Org{" "}
+                </Button>
+            </div>
+        );
+    }
+
+    function request() {
+        return (
+            <>
+                <List>
+                    {loaderData?.previousRequest?.map((request: OrganizationMemberShipRequest) => {
+                        let bgColor = "";
+                        switch (request.status) {
+                            case InvitationStatus.pending:
+                                bgColor = "bg-yellow-400";
+                                break;
+                            case InvitationStatus.accepted:
+                                bgColor = "bg-green-800";
+                                break;
+                            case InvitationStatus.declined:
+                                bgColor = "bg-red-800";
+                                break;
+                        }
+
+                        return (
+                            <div key={request.id} className="flex items-center">
+                                <Row className={bgColor}>
+                                    <RowItem>
+                                        <Link to={`/churches/${request.parentOrganization.id}`}>
+                                            <OrganizationListItem
+                                                church={request.parentOrganization}
+                                            ></OrganizationListItem>
+                                        </Link>
+
+                                        {format(new Date(request.createdAt), "MM-dd-yyyy")}
+                                    </RowItem>
+
+                                    <RowItem>{request.status}</RowItem>
+                                </Row>
+                            </div>
+                        );
+                    })}
+                </List>
+            </>
+        );
+    }
+
+    function makeNewRequest() {
+        return (
             <List>
                 {loaderData?.organizations?.map((church: ChurchOrganization) => {
                     return (
@@ -173,40 +236,17 @@ const AssociateChurch = () => {
                     );
                 })}
             </List>
-            <h1 className="text-3xl">Previous Request</h1>
-            <hr className="my-2" />
-            <List>
-                {loaderData?.previousRequest?.map((request: OrganizationMemberShipRequest) => {
-                    let bgColor = "";
-                    switch (request.status) {
-                        case InvitationStatus.pending:
-                            bgColor = "bg-yellow-400";
-                            break;
-                        case InvitationStatus.accepted:
-                            bgColor = "bg-green-800";
-                            break;
-                        case InvitationStatus.declined:
-                            bgColor = "bg-red-800";
-                            break;
-                    }
+        );
+    }
 
-                    return (
-                        <div key={request.id} className="flex items-center">
-                            <Row className={bgColor}>
-                                <RowItem>
-                                    <OrganizationListItem
-                                        church={request.requestingChurchOrganization}
-                                    ></OrganizationListItem>
-
-                                    {format(new Date(request.createdAt), "MM-dd-yyyy")}
-                                </RowItem>
-
-                                <RowItem>{request.status}</RowItem>
-                            </Row>
-                        </div>
-                    );
-                })}
-            </List>
+    return (
+        <div className="space-y-3">
+            <h1 className="text-3xl">Associate</h1>
+            <Tabs.Group aria-label="Tabs with underline" style="underline">
+                <Tabs.Item title="Current Parent Organization">{currentOrganizations()}</Tabs.Item>
+                <Tabs.Item title="Make New Request">{makeNewRequest()}</Tabs.Item>
+                <Tabs.Item title="Request">{request()}</Tabs.Item>
+            </Tabs.Group>
         </div>
     );
 };

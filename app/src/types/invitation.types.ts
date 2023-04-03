@@ -11,4 +11,5 @@ export enum InvitationStatus {
     pending = "pending",
     accepted = "accepted",
     declined = "declined",
+    cancel = "cancel",
 }
