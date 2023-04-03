@@ -1,8 +1,9 @@
 import { Disclosure, Menu, Transition } from "@headlessui/react";
 import { Bars3Icon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Link, useMatches, useNavigation } from "@remix-run/react";
-import { Fragment, useState } from "react";
+import { Fragment, useContext, useState } from "react";
 import { TailSpin } from "react-loader-spinner";
+import { ApplicationContext } from "~/root";
 import tgcIcon from "~/src/assets/images/tgcIcon.png";
 import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
@@ -16,6 +17,7 @@ export const navigation = [
 
 export default function Header() {
     const matches = useMatches();
+    const applicationContext = useContext(ApplicationContext);
     const transition = useNavigation();
     const loading = transition.state != "idle";
     const [searchLoading, setSearchLoading] = useState(false);
@@ -29,9 +31,12 @@ export default function Header() {
                         <div className="relative flex h-16 items-center justify-between">
                             <div className="inset-y-0 left-0 items-center sm:hidden">
                                 {/* Mobile menu button*/}
-                                <Disclosure.Button className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
+                                <Disclosure.Button
+                                    onClick={() => applicationContext.setSideNavOpen(!applicationContext.sideNavOpen)}
+                                    className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                                >
                                     <span className="sr-only">Open main menu</span>
-                                    {open ? (
+                                    {applicationContext.sideNavOpen ? (
                                         <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
                                     ) : (
                                         <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
@@ -47,7 +52,10 @@ export default function Header() {
                                         <TailSpin height={40} width={40} />
                                     ) : (
                                         <Link to="/">
-                                            <img src={tgcIcon} className="xs:w-10 xs:h-10 sm:w-10 sm:h-10 md:w-full md:h-full" />
+                                            <img
+                                                src={tgcIcon}
+                                                className="xs:w-10 xs:h-10 sm:w-10 sm:h-10 md:w-full md:h-full"
+                                            />
                                         </Link>
                                     )}
                                 </div>
@@ -133,29 +141,6 @@ export default function Header() {
                             </div>
                         </div>
                     </div>
-
-                    <Disclosure.Panel className="sm:hidden">
-                        <div className="space-y-1 px-2 pt-2 pb-3">
-                            {navigation.map((item) => {
-                                const current = matches.find((match) => match.pathname === item.href) != undefined;
-                                return (
-                                    <Link
-                                        key={item.name}
-                                        to={item.href}
-                                        className={classNames(
-                                            current
-                                                ? "bg-gray-900 text-white"
-                                                : "text-gray-300 hover:bg-gray-700 hover:text-white",
-                                            "block rounded-md px-3 py-2 text-base font-medium"
-                                        )}
-                                        aria-current={current ? "page" : undefined}
-                                    >
-                                        {item.name}
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    </Disclosure.Panel>
                 </>
             )}
         </Disclosure>

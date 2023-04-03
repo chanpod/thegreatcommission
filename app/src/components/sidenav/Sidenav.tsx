@@ -2,14 +2,20 @@ import { Link, useMatches } from "@remix-run/react";
 import { navigation } from "../header/Header";
 import { ArrowLongRightIcon, BuildingLibraryIcon } from "@heroicons/react/24/outline";
 import tgcIcon from "~/src/assets/images/tgcIcon.png";
-import { Sidebar } from "flowbite-react";
+import { Button, Sidebar } from "flowbite-react";
 import { ChurchIcon } from "~/src/assets/icons/churchIcon";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { ApplicationContext } from "~/root";
+import { useClickOutside } from "~/src/hooks/useClickOutside";
+import { AnimatePresence, motion } from "framer-motion";
 export function Sidenav() {
     const matches = useMatches();
+    const ref = useRef();
+    const outsideClicked = useClickOutside(ref);
 
     const [isMobile, setIsMobile] = useState(false);
-    const [menuOpen, setMenuOpen] = useState(false);
+
+    const { sideNavOpen, setSideNavOpen } = useContext(ApplicationContext);
 
     useEffect(() => {
         const mediaQuery = window.matchMedia("(max-width: 639px)");
@@ -27,68 +33,108 @@ export function Sidenav() {
         };
     }, []);
 
+    useEffect(() => {
+        if (outsideClicked) {
+            setSideNavOpen(false);
+        }
+    }, [outsideClicked]);
+
     const sidebarStyle =
-        isMobile && !menuOpen
-            ? {
-                  width: "0",
-                  transition: "width 0.5s ease-out",
-                  overflow: "hidden",
-              }
+        isMobile && !sideNavOpen
+            ? {}
             : {
                   width: "100%",
               };
 
     const containerclassName =
-        isMobile && !menuOpen
-            ? "flex flex-row min-h-screen bg-gray-100 text-gray-800 w-0 md:shadow transform -translate-x-full "
-            : "sm:animate-w-1 flex flex-row min-h-screen bg-gray-100 text-gray-800 w-64 md:shadow transform -translate-x-full translate-x-0 transition-transform duration-150 ease-in";
+        isMobile && !sideNavOpen
+            ? "flex flex-row min-h-screen bg-gray-100 text-gray-800 md:shadow"
+            : "flex flex-row min-h-screen bg-gray-100 text-gray-800 md:shadow";
+
+    const menuWidth = 300;
+
+    let showSidebar = false;
+
+    if (isMobile) {
+        showSidebar = sideNavOpen;
+    } else {
+        showSidebar = true;
+    }
 
     return (
-        <div className={containerclassName}>
-            <aside style={sidebarStyle} className="sidebar   bg-[#172b4d]">
-                <div className="sidebar-header flex items-center justify-center py-4">
-                    <div className="inline-flex">
-                        <Link to="/" className="text-white flex-col items-center justify-center">
-                            <div className="flex items-center justify-center">
-                                <div className="bg-white rounded-xl mr-2 " style={{ maxWidth: "60px" }}>
-                                    <img src={tgcIcon} style={{ width: "60px", height: "60px" }} />
+        <AnimatePresence>
+            {showSidebar && (
+                <motion.aside
+                    key="sidenav"
+                    initial={{
+                        width: 0,
+                        height: "100vh",
+                        zIndex: 100,
+                        opacity: 0,
+                        position: isMobile ? "absolute" : "relative",
+                    }}
+                    animate={{
+                        width: menuWidth,
+                        opacity: 1,
+                    }}
+                    exit={{
+                        width: 0,
+                        height: "100vh",
+                        opacity: 0,
+                        transition: { duration: 0.3 },
+                    }}
+                    ref={ref}
+                    className="sidebar bg-[#172b4d] shadow-md"
+                >
+                    <div
+                        className="sidebar-header flex items-center justify-center py-4"
+                        style={{ minWidth: 300, overflow: "hidden" }}
+                    >
+                        <div className="inline-flex">
+                            <Link to="/" className="text-white flex-col items-center justify-center">
+                                <div className="flex items-center justify-center">
+                                    <div className="bg-white rounded-xl mr-2 " style={{ maxWidth: "60px" }}>
+                                        <img src={tgcIcon} style={{ width: "60px", height: "60px" }} />
+                                    </div>
                                 </div>
-                            </div>
-                            <span className="text-sm">The Great Commission</span>
-                        </Link>
+                                <span className="text-sm">The Great Commission</span>
+                            </Link>
+                        </div>
                     </div>
-                </div>
-                <div className="sidebar-content px-4 py-6">
-                    <ul className="flex flex-col w-full">
-                        <li className="my-px">
-                            <span className="flex font-medium text-sm text-gray-300 px-4 my-4 uppercase">Projects</span>
-                        </li>
-                        {navigation.map((item) => {
-                            const current = matches.find((match) => match.pathname === item.href) != undefined;
-                            return (
-                                <Link
-                                    className={`flex flex-row items-center h-10 px-3 rounded-lg text-gray-300 hover:bg-gray-100 hover:text-gray-700 ${
-                                        current
-                                            ? "bg-[#0a192f] text-white justify-items-between rounded-md"
-                                            : "bg-[#172b4d]"
-                                    }`}
-                                    style={
-                                        current
-                                            ? {
-                                                  justifyContent: "space-between",
-                                              }
-                                            : null
-                                    }
-                                    key={item.name}
-                                    to={item.href}
-                                >
-                                    {/* <ChurchIcon /> */}
-                                    {item.name}
-                                    {current ? <ArrowLongRightIcon className="block h-6 w-6" /> : null}
-                                </Link>
-                            );
-                        })}
-                        {/* <li className="my-px">
+                    <div className="sidebar-content px-4 py-6">
+                        <ul className="flex flex-col w-full">
+                            <li className="my-px">
+                                <span className="flex font-medium text-sm text-gray-300 px-4 my-4 uppercase">
+                                    Projects
+                                </span>
+                            </li>
+                            {navigation.map((item) => {
+                                const current = matches.find((match) => match.pathname === item.href) != undefined;
+                                return (
+                                    <Link
+                                        onClick={() => setSideNavOpen(false)}
+                                        className={`flex flex-row items-center h-10 px-3 rounded-lg text-gray-300 hover:bg-gray-100 hover:text-gray-700 ${
+                                            current
+                                                ? "bg-[#0a192f] text-white justify-items-between rounded-md"
+                                                : "bg-[#172b4d]"
+                                        }`}
+                                        style={
+                                            current
+                                                ? {
+                                                      justifyContent: "space-between",
+                                                  }
+                                                : null
+                                        }
+                                        key={item.name}
+                                        to={item.href}
+                                    >
+                                        {/* <ChurchIcon /> */}
+                                        {item.name}
+                                        {current ? <ArrowLongRightIcon className="block h-6 w-6" /> : null}
+                                    </Link>
+                                );
+                            })}
+                            {/* <li className="my-px">
                             <a
                                 href="#"
                                 className="flex flex-row items-center h-10 px-3 rounded-lg text-gray-700 bg-gray-100"
@@ -290,10 +336,13 @@ export function Sidenav() {
                                 <span className="ml-3">Logout</span>
                             </a>
                         </li> */}
-                    </ul>
-                </div>
-            </aside>
-        </div>
+                        </ul>
+                    </div>
+                    <Button onClick={() => setSideNavOpen(!sideNavOpen)}>close</Button>
+                </motion.aside>
+            )}
+        </AnimatePresence>
+
         // <div className="flex-col fixed h-screen w-full relative ">
         //     <div className="flex bg-[#172b4d] h-32 divide-y items-center justify-center">
         // <Link to="/" className="text-white flex-col items-center justify-center">

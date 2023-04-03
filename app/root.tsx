@@ -25,6 +25,11 @@ export interface IUserContext {
     user: User | undefined;
 }
 
+export interface IAppContext {
+    sideNavOpen: boolean;
+    setSideNavOpen: (open: boolean) => void;
+}
+
 export const loader = async ({ request }: LoaderArgs) => {
     const user = await authenticator.isAuthenticated(request);
 
@@ -36,10 +41,14 @@ export const loader = async ({ request }: LoaderArgs) => {
 };
 
 export const UserContext = React.createContext<IUserContext>({ user: undefined });
+export const ApplicationContext = React.createContext<IAppContext>({
+    sideNavOpen: false,
+    setSideNavOpen: (open: boolean) => {},
+});
 
 export default function App() {
     const loaderData = useLoaderData<typeof loader>();
-
+    const [sideNavOpen, setSideNavOpen] = useState(false);
     const [mapContainer, setMapContainer] = useState(null);
     const mapRef = useCallback((node) => {
         node && setMapContainer(node);
@@ -65,18 +74,20 @@ export default function App() {
             </head>
             <body style={{ minHeight: "100vh" }} className="bg-[#0a192f]">
                 <div className="flex h-full">
-                    <UserContext.Provider value={loaderData.userContext as IUserContext}>
-                        <Sidenav />
+                    <ApplicationContext.Provider value={{ sideNavOpen, setSideNavOpen }}>
+                        <UserContext.Provider value={loaderData.userContext as IUserContext}>
+                            <Sidenav />
 
-                        <div className="flex-col w-full">
-                            <Header />
-                            <div className="flex-col h-full  text-white pt-4 w-full ">
-                                <div className="p-3">
-                                    <Outlet />
+                            <div className="flex-col w-full">
+                                <Header />
+                                <div className="flex-col h-full  text-white pt-4 w-full ">
+                                    <div className="p-3">
+                                        <Outlet />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </UserContext.Provider>
+                        </UserContext.Provider>
+                    </ApplicationContext.Provider>
                 </div>
                 <ScrollRestoration />
                 <Scripts />
