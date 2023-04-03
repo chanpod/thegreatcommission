@@ -39,6 +39,7 @@ export const loader = async ({ request, params }: LoaderArgs) => {
             admins: true,
             members: true,
             associations: true,
+            parentOrganization: true,
             organizationMembershipRequest: {
                 where: {
                     status: InvitationStatus.pending,
@@ -100,7 +101,7 @@ const ChurchPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const churchService = new ChurchService(loaderData?.organization!);
-    const subRouteDetected = location.pathname.includes("update") || location.pathname.includes("associate");
+    const subRouteDetected = location.pathname.includes("update") || location.pathname.includes("associate") || location.pathname.includes("request");
 
     function deleteChurch() {
         deleteFetcher.submit({}, { method: "delete", action: `/churches/${loaderData.organization?.id}` });
@@ -128,7 +129,7 @@ const ChurchPage = () => {
                 <div className="flex-1">
                     <h1 className="text-3xl"> {loaderData.organization?.name} </h1>
                     <div className="text-sm text-gray-500">Last Updated: {loaderData.organization?.updatedAt}</div>
-                    <div className="text-sm text-gray-500">Pending Membership Request: {loaderData.organization?.organizationMembershipRequest?.length}</div>
+                    <div className="text-sm text-gray-500">Parent Org: {loaderData.organization?.parentOrganization?.name}</div>
                 </div>
                 {churchService.userIsAdmin(user) && (
                     <Menu as="div" className="relative ml-3">
@@ -173,6 +174,19 @@ const ChurchPage = () => {
                                             )}
                                         >
                                             Associate Org
+                                        </div>
+                                    )}
+                                </Menu.Item>
+                                <Menu.Item>
+                                    {({ active }) => (
+                                        <div
+                                            onClick={() => navigate(`request`)}
+                                            className={classNames(
+                                                active ? "bg-gray-100" : "",
+                                                "cursor-pointer block px-4 py-2 text-sm text-gray-700"
+                                            )}
+                                        >
+                                            Manage Request - {loaderData.organization?.organizationMembershipRequest?.length}
                                         </div>
                                     )}
                                 </Menu.Item>

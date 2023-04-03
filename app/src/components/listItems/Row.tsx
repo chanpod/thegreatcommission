@@ -3,15 +3,18 @@ import { primaryColor, primaryTextColor, secondaryColor } from "~/src/styles/def
 
 interface Props {
     children: React.ReactNode;
+    others?: string;
 }
 
-const Row = ({ children }: Props) => {
+const Row = ({ children, ...others }: Props) => {
     const hoverState = `hover:${secondaryColor}`;
     return (
         // <div
         //     className={`block w-full cursor-pointer hover:shadow-[rgb(96, 231, 34)] rounded-lg ${primaryColor} p-2 ${primaryTextColor}`}
         // >
-        <div className={`w-full rounded-lg bg-[#172b4d] hover:bg-[#2a4365] ${primaryTextColor} p-2`}>
+        <div
+            className={`w-full rounded-lg bg-[#172b4d] hover:bg-[#2a4365] ${primaryTextColor} p-2 ${others.className}`}
+        >
             {children}
         </div>
     );

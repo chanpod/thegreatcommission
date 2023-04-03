@@ -33,14 +33,17 @@ export const action = async ({ request, params }: ActionArgs) => {
             parentOrganizationId: formData.get("parentOrganizationId") as string,
         };
 
-        const existingInvitation = await prismaClient.organizationMemberShipRequest.findUnique({
+        const existingInvitation = await prismaClient.organizationMemberShipRequest.findFirst({
             where: {
-                requestingChurchOrganizationId_parentOrganizationId: {
+                AND: {
+                    status: "pending",
                     requestingChurchOrganizationId: invitationRequest.requestingChurchOrganizationId as string,
                     parentOrganizationId: invitationRequest.parentOrganizationId as string,
                 },
             },
         });
+
+        console.log(existingInvitation)
 
         if (existingInvitation) {
             return json({

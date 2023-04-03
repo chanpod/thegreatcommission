@@ -1,7 +1,8 @@
 import { PlusCircleIcon } from "@heroicons/react/24/outline";
-import { ChurchOrganization } from "@prisma/client";
+import { ChurchOrganization, OrganizationMemberShipRequest } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
+import { format } from "date-fns";
 import { Button } from "flowbite-react";
 import React from "react";
 import { prismaClient } from "~/server/dbConnection";
@@ -10,7 +11,7 @@ import OrganizationListItem from "~/src/components/listItems/components/Organiza
 import List from "~/src/components/listItems/List";
 import Row from "~/src/components/listItems/Row";
 import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
-import { InvitationTypes } from "~/src/types/invitation.types";
+import { InvitationStatus, InvitationTypes } from "~/src/types/invitation.types";
 
 export const loader = async ({ request, params }: LoaderArgs) => {
     const organization = await prismaClient.churchOrganization.findUnique({
@@ -29,14 +30,59 @@ export const loader = async ({ request, params }: LoaderArgs) => {
             },
             AND: {
                 NOT: {
-                    id: { in: organization?.associations.map((org) => org.id) },
+                    organizationMembershipRequest: {
+                        some: {
+                            requestingChurchOrganizationId: params.organization,
+                            OR: [
+                                {
+                                    status: InvitationStatus.accepted,
+                                },
+                                {
+                                    status: InvitationStatus.pending,
+                                },
+                            ],
+                        },
+                    },
                 },
             },
         },
     });
 
+    const previousRequest = await prismaClient.organizationMemberShipRequest.findMany({
+        where: {
+            requestingChurchOrganizationId: params.organization,
+            AND: {
+                status: {
+                    not: InvitationStatus.accepted,
+                },
+            },
+        },
+        include: {
+            requestingChurchOrganization: true,
+        },
+    });
+
+    // const previousRequest = await prismaClient.churchOrganization.findMany({
+    //     where: {
+    //         organizationMembershipRequest: {
+    //             some: {
+    //                 requestingChurchOrganizationId: params.organization,
+    //                 AND: {
+    //                     status: {
+    //                        not: InvitationStatus.accepted,
+    //                     },
+    //                 },
+    //             },
+    //         },
+    //     },
+    //     include: {
+    //         organizationMembershipRequest: true,
+    //     },
+    // });
+
     return json({
-        parentOrg: organization,
+        requestingOrg: organization,
+        previousRequest,
         organizations,
     });
 };
@@ -45,10 +91,10 @@ export const action = async ({ request, params }: ActionArgs) => {
     const form = await request.formData();
 
     if (request.method === "POST") {
-        const org = JSON.parse(form.get("org") as string);
+        const orgId = JSON.parse(form.get("orgId") as string);
         const parentOrgId = form.get("parentOrgId") as string;
 
-        if (org.id === parentOrgId) {
+        if (orgId === parentOrgId) {
             throw new Error("Cannot associate with self");
         }
 
@@ -59,7 +105,7 @@ export const action = async ({ request, params }: ActionArgs) => {
             data: {
                 associations: {
                     connect: {
-                        id: org.id,
+                        id: orgId,
                     },
                 },
             },
@@ -96,8 +142,8 @@ const AssociateChurch = () => {
     function associateOrg(org: ChurchOrganization) {
         addOrgFetcher.submit(
             {
-                requestingChurchOrganizationId: org.id,
-                parentOrganizationId: loaderData.parentOrg.id,
+                requestingChurchOrganizationId: loaderData.requestingOrg.id,
+                parentOrganizationId: org.id,
                 type: InvitationTypes.Organization,
             },
             {
@@ -108,7 +154,7 @@ const AssociateChurch = () => {
     }
 
     return (
-        <div>
+        <div className="space-y-3">
             <h1 className="text-3xl">Associate</h1>
             <hr className="my-2" />
             <List>
@@ -116,11 +162,47 @@ const AssociateChurch = () => {
                     return (
                         <div key={church.id} className="flex items-center">
                             <Row>
-                                <OrganizationListItem church={church} />
+                                <Link to={`/churches/${church.id}`}>
+                                    <OrganizationListItem church={church} />
+                                </Link>
                             </Row>
                             <Button pill={true} className="ml-2" onClick={() => associateOrg(church)}>
                                 <PlusCircleIcon className="w-6 h-6" />
                             </Button>
+                        </div>
+                    );
+                })}
+            </List>
+            <h1 className="text-3xl">Previous Request</h1>
+            <hr className="my-2" />
+            <List>
+                {loaderData?.previousRequest?.map((request: OrganizationMemberShipRequest) => {
+                    let bgColor = "";
+                    switch (request.status) {
+                        case InvitationStatus.pending:
+                            bgColor = "bg-yellow-400";
+                            break;
+                        case InvitationStatus.accepted:
+                            bgColor = "bg-green-800";
+                            break;
+                        case InvitationStatus.declined:
+                            bgColor = "bg-red-800";
+                            break;
+                    }
+
+                    return (
+                        <div key={request.id} className="flex items-center">
+                            <Row className={bgColor}>
+                                <RowItem>
+                                    <OrganizationListItem
+                                        church={request.requestingChurchOrganization}
+                                    ></OrganizationListItem>
+
+                                    {format(new Date(request.createdAt), "MM-dd-yyyy")}
+                                </RowItem>
+
+                                <RowItem>{request.status}</RowItem>
+                            </Row>
                         </div>
                     );
                 })}
