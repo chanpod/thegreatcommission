@@ -193,7 +193,7 @@ const ChurchPage = () => {
                     </Menu>
                 )}
             </div>
-            <div className="lg:flex space-x-3">
+            <div className="lg:flex space-y-3 lg:space-x-3 lg:space-y-0">
                 <Card className="flex-1">
                     <h1 className="text-3xl">Missions</h1>
                     <hr className="my-2" />

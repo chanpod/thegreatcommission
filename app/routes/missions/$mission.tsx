@@ -136,7 +136,7 @@ const MissionaryPage = () => {
                     </Menu>
                 )}
             </div>
-            <div className="flex space-x-3">
+            <div className="lg:flex space-y-3 lg:space-x-3 lg:space-y-0">
                 <div className="flex-1">
                     <Card>
                         <>
