@@ -51,7 +51,7 @@ export function Sidenav() {
             ? "flex flex-row min-h-screen bg-gray-100 text-gray-800 md:shadow"
             : "flex flex-row min-h-screen bg-gray-100 text-gray-800 md:shadow";
 
-    const menuWidth = 300;
+    const menuWidth = 250;
 
     let showSidebar = false;
 
@@ -101,17 +101,16 @@ export function Sidenav() {
                             </Link>
                         </div>
                     </div>
-                    <div className="sidebar-content px-4 ">
+                    <hr />
+                    <div className="sidebar-content ">
                         <ul className="flex flex-col w-full">
-                            <li className="my-px">
-                                <span className="flex font-medium text-sm text-gray-300 px-4 my-4 uppercase"></span>
-                            </li>
+                            
                             {navigation.map((item) => {
                                 const current = matches.find((match) => match.pathname === item.href) != undefined;
                                 return (
                                     <Link
                                         onClick={() => setSideNavOpen(false)}
-                                        className={`flex flex-row items-center h-10 px-4 rounded-lg text-gray-300 hover:bg-gray-100 hover:text-gray-700 ${
+                                        className={`flex flex-row items-center m-2 h-14 px-4 rounded-lg text-gray-300 hover:bg-gray-100 hover:text-gray-700 ${
                                             current
                                                 ? "bg-[#0a192f] text-white justify-items-between rounded-md"
                                                 : "bg-[#172b4d]"

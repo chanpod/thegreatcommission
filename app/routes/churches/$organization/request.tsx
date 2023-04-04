@@ -3,7 +3,7 @@ import { ChurchOrganization, OrganizationMemberShipRequest } from "@prisma/clien
 import { json, LoaderArgs } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
 import { format } from "date-fns";
-import { Button } from "flowbite-react";
+import { Button, Card } from "flowbite-react";
 import React from "react";
 import { prismaClient } from "~/server/dbConnection";
 
@@ -83,29 +83,36 @@ const Request = () => {
                             const organization: ChurchOrganization =
                                 request.requestingChurchOrganization as ChurchOrganization;
                             return (
-                                <Row key={request.id}>
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex flex-col">
-                                            <span>
-                                                {organization.name} - {organization.city} {organization.state}
-                                            </span>
-                                            <span>Submitted: {format(new Date(request.createdAt), "MM-dd-yyyy")}</span>
+                                <Card key={request.id}>
+                                    <Row >
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex flex-col">
+                                                <span>
+                                                    {organization.name} - {organization.city} {organization.state}
+                                                </span>
+                                                <span>
+                                                    Submitted: {format(new Date(request.createdAt), "MM-dd-yyyy")}
+                                                </span>
+                                            </div>
                                         </div>
-
-                                        <div>
-                                            <Button
-                                                color="success"
-                                                onClick={() => acceptRequest(organization.id, request.id)}
-                                                className="btn btn-primary"
-                                            >
-                                                <CheckIcon className="w-5 h-5" />
-                                            </Button>
-                                            <Button color="red" onClick={() => rejectRequest(organization.id, request.id)} className="btn btn-primary">
-                                                <XCircleIcon className="w-5 h-5" />
-                                            </Button>
-                                        </div>
+                                    </Row>
+                                    <div className="flex space-x-2">
+                                        <Button
+                                            color="success"
+                                            onClick={() => acceptRequest(organization.id, request.id)}
+                                            className="btn btn-primary"
+                                        >
+                                            <CheckIcon className="w-5 h-5" />
+                                        </Button>
+                                        <Button
+                                            color="red"
+                                            onClick={() => rejectRequest(organization.id, request.id)}
+                                            className="btn btn-primary"
+                                        >
+                                            <XCircleIcon className="w-5 h-5" />
+                                        </Button>
                                     </div>
-                                </Row>
+                                </Card>
                             );
                         }
                     )}

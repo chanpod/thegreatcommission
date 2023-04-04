@@ -95,8 +95,7 @@ const SearchBar = (props: Props) => {
     }
 
     return (
-        <div ref={ref} className={`pt-1 pb-1 relative z-10 text-white text-sm rounded-lg w-11/12 block z-10`}>
-            
+        <div ref={ref} className={`pt-1 pb-1 relative z-20 text-white text-sm rounded-lg w-11/12 block`}>
             {headerStyle ? (
                 <input
                     onFocus={() => setOpenPopover(true)}
@@ -128,12 +127,14 @@ const SearchBar = (props: Props) => {
                             headerStyle
                                 ? {
                                       top: "50px",
+                                      minWidth: "250px",
                                   }
                                 : {
                                       top: "74px",
+                                      minWidth: "250px",
                                   }
                         }
-                        className={`p-3 pt-1 absolute top-3 bg-[#172b4d] shadow-lg text-white text-sm rounded-lg w-11/12 block z-10 ${
+                        className={`p-3 pt-1 absolute top-3 bg-[#172b4d] shadow-lg text-white -left-20 lg:left-0 text-sm rounded-lg w-11/12 block z-30 ${
                             openPopover ? "h-auto" : "h-12"
                         }`}
                         initial={{ height: 0 }}
@@ -141,20 +142,20 @@ const SearchBar = (props: Props) => {
                         exit={{ height: 0, overflow: "hidden" }}
                         transition={{ duration: 0.3 }}
                     >
-                        <div className=" left-1/2 z-10 mt-3 w-screen max-w-sm px-4 sm:px-0 lg:max-w-3xl">
+                        <div className="z-10 mt-3 w-screen max-w-sm space-y-7 px-4 sm:px-0 lg:max-w-3xl">
                             {props.loadMissionaries !== false && (
-                                <div className="relative flex-col gap-8 p-7 lg:grid-cols-2 border-gray-200">
+                                <div className="relative flex-col gap-8 lg:grid-cols-2 border-gray-200">
                                     {props.showHeaders !== false ? (
-                                        <span className="text-2xl">Missionaries</span>
+                                        <span className="text-1xl lg:text-2xl">Missionaries</span>
                                     ) : null}
                                     <MissionariesList onSelected={onSelected} missionaries={missionaries} />
                                 </div>
                             )}
 
                             {props.loadChurches !== false && (
-                                <div className="relative  flex-col gap-8 p-7 lg:grid-cols-2 border-gray-200">
+                                <div className="relative  flex-col gap-8  lg:grid-cols-2 border-gray-200">
                                     {props.showHeaders !== false ? (
-                                        <span className="text-2xl">Organizations</span>
+                                        <span className="text-1xl lg:text-2xl">Organizations</span>
                                     ) : null}
 
                                     <ChurchOrganizationList churches={churches} onSelected={onSelected} />

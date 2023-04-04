@@ -24,10 +24,6 @@ export const loader = async ({ request, params }: LoaderArgs) => {
     return json({ missionMarkers });
 };
 
-const mapContainerStyle = {
-    position: "relative",
-};
-
 const quoteContainerStyle = {
     position: "absolute",
     top: "2%",
@@ -53,20 +49,25 @@ const containerStyle = {
     border: "1px solid rgba(34, 29, 29, 0.24)",
 };
 
+{
+}
 export default function Index() {
     const loaderData = useLoaderData();
     return (
-        <div style={mapContainerStyle}>
-            <div style={{ ...quoteContainerStyle, ...containerStyle }}>
-                <blockquote style={quoteStyle}>
+        <div className="relative">
+             {/* <div style={{ ...quoteContainerStyle, ...containerStyle }}>  */}
+            <div className="absolute backdrop-blur-sm left-1 top-1 z-10 rounded-md border-solid border-[#221d1d3d] bg-[#2c272759] p-2 m-2 max-w-5xl">
+                <blockquote className="bold text-xl lg:text-4xl italic" >
                     "Therefore go and make disciples of all nations, baptizing them in the name of the Father and of the
                     Son and of the Holy Spirit, 20 and teaching them to obey everything I have commanded you. And surely
                     I am with you always, to the very end of the age." - Matthew 28:19-20
                 </blockquote>
             </div>
-            <WorldMap
-                pins={map(loaderData.missionMarkers, (missionMarker: Partial<Missions>) => missionMarker.location)}
-            />
+            <div>
+                <WorldMap
+                    pins={map(loaderData.missionMarkers, (missionMarker: Partial<Missions>) => missionMarker.location)}
+                />
+            </div>
         </div>
     );
 }
