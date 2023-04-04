@@ -3,7 +3,7 @@ import { Missionary, Missions } from "@prisma/client";
 import { json, LoaderArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { Button } from "~/src/components/button/Button";
-import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
+import EmptyAvatar from "~/src/components/avatar/EmptyAvatar";
 import Row from "~/src/components/listItems/Row";
 import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
 import { prismaClient } from "~/server/dbConnection";

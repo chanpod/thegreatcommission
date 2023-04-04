@@ -1,6 +1,6 @@
 import { ChurchOrganization, Missionary } from "@prisma/client";
 import { Link } from "@remix-run/react";
-import EmptyAvatar from "../emptyAvatar/EmptyAvatar";
+import EmptyAvatar from "../avatar/EmptyAvatar";
 import Row from "../listItems/Row";
 import RowItem from "../listItems/RowItem";
 

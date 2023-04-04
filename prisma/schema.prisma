@@ -21,6 +21,7 @@ model User {
   ChurchOrganization    ChurchOrganization[]
   roles                 Role[]               @relation(fields: [roleIds], references: [id])
   roleIds               String[]             @db.ObjectId
+  avatarUrl             String?
 }
 
 model Role {
@@ -51,6 +52,7 @@ model Missions {
   endDate              DateTime?
   description          String?
   sensitive            Boolean?            @default(false)
+  photoUrls            String[]
 }
 
 model Missionary {
@@ -69,6 +71,7 @@ model Missionary {
   state      String?
   zip        String?
   country    String?
+  avatarUrl  String?
   missions   Missions[] @relation(fields: [missionIds], references: [id])
   missionIds String[]   @db.ObjectId
 }
@@ -93,6 +96,7 @@ model ChurchOrganization {
   missions                          Missions[]
   organizationMembershipSubmissions OrganizationMemberShipRequest[] @relation("requesting")
   organizationMembershipRequest     OrganizationMemberShipRequest[] @relation("request")
+  avatarUrl                         String?
 }
 
 model OrganizationMemberShipRequest {

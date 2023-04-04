@@ -1,6 +1,6 @@
 import { Missions } from "@prisma/client";
 import React from "react";
-import EmptyAvatar from "../../emptyAvatar/EmptyAvatar";
+import EmptyAvatar from "../../avatar/EmptyAvatar";
 import RowItem, { primaryText, secondaryText } from "../RowItem";
 
 interface Props {

@@ -1,12 +1,14 @@
 import { Disclosure, Menu, Transition } from "@headlessui/react";
 import { Bars3Icon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Link, useMatches, useNavigation } from "@remix-run/react";
+import { Avatar } from "flowbite-react";
 import { Fragment, useContext, useState } from "react";
 import { TailSpin } from "react-loader-spinner";
 import { ApplicationContext } from "~/root";
 import tgcIcon from "~/src/assets/images/tgcIcon.png";
 import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
+import { UserAvatar } from "../avatar/UserAvatar";
 import SearchBar from "./SearchBar";
 
 export const navigation = [
@@ -24,7 +26,7 @@ export default function Header() {
     const { isLoggedIn, user } = useIsLoggedIn();
 
     return (
-        <Disclosure  as="nav" className="bg-white">
+        <Disclosure as="nav" className="bg-white">
             {({ open }) => (
                 <>
                     <div className="mx-auto px-2 sm:px-6 lg:px-8">
@@ -77,7 +79,7 @@ export default function Header() {
                                     <div className="">
                                         <Menu.Button className="flex items-center">
                                             <span className="sr-only">Open user menu</span>
-                                            <PhotoIcon className="h-8 w-8 mr-1 p-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 rounded-full bg-[#0a192f]" />
+                                            <UserAvatar user={user} />
                                             {user?.firstName}
                                         </Menu.Button>
                                     </div>

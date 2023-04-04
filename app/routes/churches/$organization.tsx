@@ -17,7 +17,7 @@ import { Fragment, useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
 import { ChurchService } from "~/services/ChurchService";
-import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
+import EmptyAvatar from "~/src/components/avatar/EmptyAvatar";
 
 import CreateChurchForm from "~/src/components/forms/createChurch/CreateChurchForm";
 import MissionRowItem from "~/src/components/listItems/components/MissionRowItem";

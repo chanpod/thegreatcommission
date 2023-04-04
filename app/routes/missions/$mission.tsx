@@ -8,7 +8,7 @@ import { Button, Card, Modal } from "flowbite-react";
 import React, { Fragment, useState } from "react";
 import { ClientOnly } from "remix-utils";
 import { prismaClient } from "~/server/dbConnection";
-import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
+import EmptyAvatar from "~/src/components/avatar/EmptyAvatar";
 
 import CreateMissionForm from "~/src/components/forms/createMission/CreateMissionForm";
 import List from "~/src/components/listItems/List";

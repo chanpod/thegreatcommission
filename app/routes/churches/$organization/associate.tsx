@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { Button, Tabs } from "flowbite-react";
 import React from "react";
 import { prismaClient } from "~/server/dbConnection";
-import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
+import EmptyAvatar from "~/src/components/avatar/EmptyAvatar";
 import OrganizationListItem from "~/src/components/listItems/components/OrganizationListItem";
 import List from "~/src/components/listItems/List";
 import Row from "~/src/components/listItems/Row";

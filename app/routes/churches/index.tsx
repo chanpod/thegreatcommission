@@ -6,7 +6,7 @@ import { PlusIcon } from "@heroicons/react/24/outline";
 import { ChurchOrganization } from "@prisma/client";
 import Row from "~/src/components/listItems/Row";
 import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
-import EmptyAvatar from "~/src/components/emptyAvatar/EmptyAvatar";
+import EmptyAvatar from "~/src/components/avatar/EmptyAvatar";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import List from "~/src/components/listItems/List";
 import OrganizationListItem from "~/src/components/listItems/components/OrganizationListItem";

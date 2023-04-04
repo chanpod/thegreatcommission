@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import React, { Fragment, useEffect, useRef, useState } from "react";
 import { useClickOutside } from "~/src/hooks/useClickOutside";
 import useDebounce from "~/src/hooks/useDebounce";
-import EmptyAvatar from "../emptyAvatar/EmptyAvatar";
+import EmptyAvatar from "../avatar/EmptyAvatar";
 import { Input } from "../forms/input/Input";
 import Row from "../listItems/Row";
 import RowItem from "../listItems/RowItem";
