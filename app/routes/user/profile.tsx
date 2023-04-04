@@ -6,6 +6,7 @@ import { useContext, useState } from "react";
 import { UserContext } from "~/root";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
+import { UserService } from "~/services/UserService";
 import { UserAvatar } from "~/src/components/avatar/UserAvatar";
 import { Input } from "~/src/components/forms/input/Input";
 
@@ -70,6 +71,7 @@ const UserProfilePage = () => {
     const userContext = useContext(UserContext);
     const addRoleFetcher = useFetcher();
     const [editing, setEditing] = useState(false);
+    const userService = new UserService(userContext.user);
 
     function addRole(role: Role) {
         addRoleFetcher.submit(
@@ -117,7 +119,9 @@ const UserProfilePage = () => {
                             />
                             <div className="flex space-x-5">
                                 <Button type="submit">Save</Button>
-                                <Button color="grey" outline onClick={toggleEditing}>Cancel</Button>
+                                <Button color="grey" outline onClick={toggleEditing}>
+                                    Cancel
+                                </Button>
                             </div>
                         </Form>
                     ) : (
@@ -147,18 +151,19 @@ const UserProfilePage = () => {
                         </>
                     )}
                 </Card>
-
-                <Card className="h-full flex-1">
-                    <span className="text-2xl">Roles</span>
-                    {loaderData.roles?.map((role: Role) => {
-                        return (
-                            <div className="flex items-center space-x-3" key={role.id}>
-                                <span>{role.name}</span>
-                                <Button onClick={() => addRole(role)}>Add</Button>
-                            </div>
-                        );
-                    })}
-                </Card>
+                {userService.userIsSiteAdmin() && (
+                    <Card className="h-full flex-1">
+                        <span className="text-2xl">Roles</span>
+                        {loaderData.roles?.map((role: Role) => {
+                            return (
+                                <div className="flex items-center space-x-3" key={role.id}>
+                                    <span>{role.name}</span>
+                                    <Button onClick={() => addRole(role)}>Add</Button>
+                                </div>
+                            );
+                        })}
+                    </Card>
+                )}
             </div>
         </Card>
     );

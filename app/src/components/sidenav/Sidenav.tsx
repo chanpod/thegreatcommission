@@ -14,6 +14,7 @@ export function Sidenav() {
     const outsideClicked = useClickOutside(ref);
 
     const [isMobile, setIsMobile] = useState(false);
+    const [showSidebar, setShowSidebar] = useState(false);
 
     const { sideNavOpen, setSideNavOpen } = useContext(ApplicationContext);
 
@@ -39,39 +40,27 @@ export function Sidenav() {
         }
     }, [outsideClicked]);
 
-    const sidebarStyle =
-        isMobile && !sideNavOpen
-            ? {}
-            : {
-                  width: "100%",
-              };
-
-    const containerclassName =
-        isMobile && !sideNavOpen
-            ? "flex flex-row min-h-screen bg-gray-100 text-gray-800 md:shadow"
-            : "flex flex-row min-h-screen bg-gray-100 text-gray-800 md:shadow";
+    useEffect(() => {
+        if (isMobile) {
+            setShowSidebar(sideNavOpen);
+        } else {
+            setShowSidebar(true);
+        }
+    }, [isMobile, sideNavOpen]);
 
     const menuWidth = 250;
-
-    let showSidebar = false;
-
-    if (isMobile) {
-        showSidebar = sideNavOpen;
-    } else {
-        showSidebar = true;
-    }
 
     return (
         <AnimatePresence>
             {showSidebar && (
                 <motion.aside
                     key="sidenav"
+                    style={{ position: isMobile ? "absolute" : "relative" }}
                     initial={{
                         width: 0,
                         height: "100vh",
                         zIndex: 100,
                         opacity: 0,
-                        position: isMobile ? "absolute" : "relative",
                     }}
                     animate={{
                         width: menuWidth,
@@ -88,7 +77,7 @@ export function Sidenav() {
                 >
                     <div
                         className="sidebar-header flex items-center justify-center py-4"
-                        style={{ minWidth: 300, overflow: "hidden" }}
+                        style={{ minWidth: menuWidth, overflow: "hidden" }}
                     >
                         <div className="inline-flex">
                             <Link to="/" className="text-white flex-col items-center justify-center">
@@ -104,7 +93,6 @@ export function Sidenav() {
                     <hr />
                     <div className="sidebar-content ">
                         <ul className="flex flex-col w-full">
-                            
                             {navigation.map((item) => {
                                 const current = matches.find((match) => match.pathname === item.href) != undefined;
                                 return (
@@ -335,7 +323,16 @@ export function Sidenav() {
                         </li> */}
                         </ul>
                     </div>
-                    {isMobile && <Button onClick={() => setSideNavOpen(!sideNavOpen)}>close</Button>}
+                    {isMobile && (
+                        <Button
+                            outline
+                            color="grey"
+                            className="w-full mt-10"
+                            onClick={() => setSideNavOpen(!sideNavOpen)}
+                        >
+                            Close
+                        </Button>
+                    )}
                 </motion.aside>
             )}
         </AnimatePresence>
