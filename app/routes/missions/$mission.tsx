@@ -1,5 +1,5 @@
 import { Menu, Transition } from "@headlessui/react";
-import { Bars3Icon, CheckCircleIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, CalendarIcon, CheckCircleIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { MissionariesOnMissions, Missionary } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
 import { Form, Link, Outlet, useActionData, useFetcher, useLoaderData, useNavigate, useParams } from "@remix-run/react";
@@ -77,11 +77,12 @@ const MissionaryPage = () => {
             <div className="flex">
                 <div className="flex-1">
                     <h1 className="text-3xl"> Mission: {loaderData.mission?.title} </h1>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-500 items-center flex">
+                        <CalendarIcon className="w-4 h-4 mr-2" />
                         {format(new Date(loaderData.mission?.beginDate), "MM-dd-yyyy")} until {getEndTime()}
                     </div>
                     <div className="text-sm text-gray-500">
-                        Association:
+                        Association:{" "}
                         <Link to={`/churches/${loaderData.mission?.ChurchOrganization?.id}`}>
                             {loaderData.mission?.ChurchOrganization?.name}
                         </Link>
@@ -122,6 +123,19 @@ const MissionaryPage = () => {
                                 </Menu.Item>
                                 <Menu.Item>
                                     {({ active }) => (
+                                        <div
+                                            onClick={() => navigate(`/missions/${loaderData.mission.id}/missionary`)}
+                                            className={classNames(
+                                                active ? "bg-gray-100" : "",
+                                                "cursor-pointer block px-4 py-2 text-sm text-gray-700"
+                                            )}
+                                        >
+                                            Edit Missionaries
+                                        </div>
+                                    )}
+                                </Menu.Item>
+                                <Menu.Item>
+                                    {({ active }) => (
                                         <Button
                                             className=" bg-red-800 h-11  w-full flex items-center"
                                             onClick={() => setShowDialog(true)}
@@ -137,19 +151,25 @@ const MissionaryPage = () => {
                 )}
             </div>
             <div className="lg:flex space-y-3 lg:space-x-3 lg:space-y-0">
-                <div className="flex-1">
+                <div className="flex-1 space-y-3">
                     <Card>
                         <>
                             <h1 className="text-2xl">Description</h1>
                             {loaderData.mission?.description}
                         </>
+                    </Card>
+
+                    <Card>
                         <>
                             <div className="flex justify-between">
                                 <h1 className="text-2xl">Missionaries</h1>
-                                <Button onClick={() => navigate(`/missions/${loaderData.mission.id}/missionary`)}>
-                                    Add Missionary
-                                </Button>
+                                <div className="text-sm text-gray-500 items-center flex">                                    
+                                    Volunteers Needed: {loaderData.mission?.volunteersNeeded}
+                                </div>
                             </div>
+                            {loaderData.mission?.missionaries?.length === 0 && (
+                                <div className="text-center text-gray-500">No Missionaries</div>
+                            )}
                             <List>
                                 {loaderData.mission?.missionaries?.map((missionary: Missionary) => (
                                     <Row key={missionary.id}>

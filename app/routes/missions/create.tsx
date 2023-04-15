@@ -28,6 +28,7 @@ export const action = async ({ request }: ActionArgs) => {
             beginDate: new Date(startDate),
             endDate: endDate ? new Date(endDate) : null,
             description: form.get("description") as string,
+            volunteersNeeded: Number(form.get("volunteersNeeded")) || 0,
             churchOrganizationId: form.get("churchOrganizationId") as string,        
             location: {
                 lat: parseFloat(form.get("lat") as string),

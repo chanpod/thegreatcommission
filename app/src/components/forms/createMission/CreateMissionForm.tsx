@@ -55,12 +55,35 @@ const CreateMissionForm = (props: Props) => {
             />
 
             <Input
+                defaultValue={props.initialValues?.volunteersNeeded}
+                disabled={props.readOnly ?? false}
+                label="How many Volunteers Needed?"
+                type="number"
+                name="volunteersNeeded"
+            />
+            <Input
+                defaultValue={props.initialValues?.fundingRaised?.toString()}
+                disabled={props.readOnly ?? false}
+                label="Funding Raised"
+                type="text"
+                name="fundingRaised"
+            />
+            <Input
+                defaultValue={props.initialValues?.investment?.toString()}
+                disabled={props.readOnly ?? false}
+                label="Invested"
+                type="text"
+                name="investment"
+            />
+
+            <Input
                 onFocus={(e) => {
                     setShowLocationSelect(true);
                 }}
-                defaultValue={props.initialValues?.title}
+                defaultValue={`${props.initialValues?.location?.lat} - ${props.initialValues?.location?.lng}`}
                 disabled={props.readOnly ?? false}
                 label="Location"
+                value={`${selectedCoordinates?.lat} - ${selectedCoordinates?.lng}`}
                 name="location"
             />
             <input style={{ display: "none" }} name="lat" value={selectedCoordinates?.lat} />

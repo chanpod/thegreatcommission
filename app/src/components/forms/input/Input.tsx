@@ -22,7 +22,7 @@ export function Input(props: Props) {
             <div className="mb-2 block">
                 <Label htmlFor="title" value={label} />
             </div>
-            <TextInput disabled={disabled} {...others} defaultValue={defaultValue ?? ""} value={value} name={name} onChange={onChange} id="title" />
+            <TextInput disabled={disabled} {...others} defaultValue={defaultValue ?? ""} type={type} value={value} name={name} onChange={onChange} id="title" />
         </div>
 
     );

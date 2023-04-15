@@ -22,6 +22,8 @@ model User {
   roles                 Role[]               @relation(fields: [roleIds], references: [id])
   roleIds               String[]             @db.ObjectId
   avatarUrl             String?
+  volunteering          Missions[]           @relation(fields: [missionsIds], references: [id])
+  missionsIds           String[]             @db.ObjectId
 }
 
 model Role {
@@ -45,6 +47,8 @@ model Missions {
   title                String
   missionaries         Missionary[]        @relation(fields: [missionaryIds], references: [id])
   missionaryIds        String[]            @db.ObjectId
+  volunteers           User[]              @relation(fields: [missionaryIds], references: [id])
+  volunteerIds         String[]            @db.ObjectId
   ChurchOrganization   ChurchOrganization? @relation(fields: [churchOrganizationId], references: [id])
   churchOrganizationId String?             @db.ObjectId
   location             Location?
@@ -52,6 +56,9 @@ model Missions {
   endDate              DateTime?
   description          String?
   sensitive            Boolean?            @default(false)
+  volunteersNeeded     Int?
+  investment           Int?
+  fundingRaised        Int?
   photoUrls            String[]
 }
 

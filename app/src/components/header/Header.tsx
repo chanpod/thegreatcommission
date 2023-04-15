@@ -9,6 +9,7 @@ import tgcIcon from "~/src/assets/images/tgcIcon.png";
 import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import { UserAvatar } from "../avatar/UserAvatar";
+import LoginModal from "./LoginModal";
 import SearchBar from "./SearchBar";
 
 export const navigation = [
@@ -21,9 +22,15 @@ export default function Header() {
     const matches = useMatches();
     const applicationContext = useContext(ApplicationContext);
     const transition = useNavigation();
+    const [showLoginModal, setShowLoginModal] = useState(false);
     const loading = transition.state != "idle";
     const [searchLoading, setSearchLoading] = useState(false);
     const { isLoggedIn, user } = useIsLoggedIn();
+
+    function handleClose(success = false){
+        console.log("Closing")
+        setShowLoginModal(false);
+    }
 
     return (
         <Disclosure as="nav" className="bg-white">
@@ -125,15 +132,15 @@ export default function Header() {
                                             ) : (
                                                 <Menu.Item>
                                                     {({ active }) => (
-                                                        <Link
-                                                            to="/login/google"
+                                                        <a
+                                                            onClick={() => setShowLoginModal(true)}
                                                             className={classNames(
                                                                 active ? "bg-gray-100" : "",
                                                                 "block px-4 py-2 text-sm text-gray-700"
                                                             )}
                                                         >
                                                             Login
-                                                        </Link>
+                                                        </a>
                                                     )}
                                                 </Menu.Item>
                                             )}
@@ -142,6 +149,7 @@ export default function Header() {
                                 </Menu>
                             </div>
                         </div>
+                        <LoginModal showDialog={showLoginModal} onClose={handleClose} />
                     </div>
                 </>
             )}
