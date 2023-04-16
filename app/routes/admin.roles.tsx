@@ -1,6 +1,7 @@
 import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import { Button, Card } from "flowbite-react";
+import { map } from "lodash";
 import { prismaClient } from "~/server/dbConnection";
 
 export const loader = async ({ request, params }: LoaderArgs) => {
@@ -34,7 +35,7 @@ const Roles = () => {
     return (
         <Card className="flex-col text-black space-y-4">
             Manage Roles
-            {loaderData.roles.map((role) => {
+            {map(loaderData.roles, (role) => {
                 return <div key={role.id}>{role.name}</div>;
             })}
             <Form method="post">

@@ -7,6 +7,7 @@ import EmptyAvatar from "~/src/components/avatar/EmptyAvatar";
 import List from "~/src/components/listItems/List";
 import Row from "~/src/components/listItems/Row";
 import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
+import MissionaryListItem from "~/src/components/missions/MissionListItem";
 
 export const loader = async ({ request, params }: LoaderArgs) => {
     const url = new URL(request.url);
@@ -105,25 +106,7 @@ const AddMissionary = () => {
                 {loaderData?.missionaries.length === 0 ? <span>No missionaries to add right now</span> : null}
                 <List>
                     {loaderData?.missionaries?.map((missionary: Missionary) => {
-                        return (
-                            <Row key={missionary.id}>
-                                <div className="cursor-pointer" onClick={() => addMissionary(missionary)}>
-                                    <RowItem>
-                                        <div className="flex-shrink-0">
-                                            <EmptyAvatar />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className={primaryText}>
-                                                {missionary.firstName}, {missionary.lastName}
-                                            </p>
-                                            <p className={secondaryText}>
-                                                {missionary.city} {missionary.city ? "," : null} {missionary.state}
-                                            </p>
-                                        </div>
-                                    </RowItem>
-                                </div>
-                            </Row>
-                        );
+                        return <MissionaryListItem editing key={missionary.id} missionary={missionary} />;
                     })}
                 </List>
             </div>

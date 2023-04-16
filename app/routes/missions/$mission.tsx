@@ -1,24 +1,43 @@
 import { Menu, Transition } from "@headlessui/react";
-import { Bars3Icon, CalendarIcon, CheckCircleIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
-import { MissionariesOnMissions, Missionary } from "@prisma/client";
-import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
-import { Form, Link, Outlet, useActionData, useFetcher, useLoaderData, useNavigate, useParams } from "@remix-run/react";
+import { CalendarIcon, CurrencyDollarIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { Missionary, Missions } from "@prisma/client";
+import { ActionArgs, LoaderArgs, json } from "@remix-run/node";
+import { Link, Outlet, useActionData, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { format } from "date-fns";
-import { Button, Card, Modal } from "flowbite-react";
-import React, { Fragment, useState } from "react";
+import { Button, Card, Modal, Tabs } from "flowbite-react";
+import { Fragment, useState } from "react";
 import { ClientOnly } from "remix-utils";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
-import EmptyAvatar from "~/src/components/avatar/EmptyAvatar";
+import { MissionsService } from "~/services/MissionsService";
 
-import CreateMissionForm from "~/src/components/forms/createMission/CreateMissionForm";
-import List from "~/src/components/listItems/List";
-import Row from "~/src/components/listItems/Row";
-import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
+import MissionDescription from "~/src/components/missions/Description";
+import MissionMissionaries from "~/src/components/missions/Missionaries";
 import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 
-export const action = async ({ request }: ActionArgs) => {
-    return json({});
+export const action = async ({ request, params }: ActionArgs) => {
+    const user = await authenticator.isAuthenticated(request);
+
+    if (request.method === "PUT") {
+        const missionsService = new MissionsService();
+        const newMission = (await missionsService.getMissionsFormData(request)) as Missions;
+        console.log("newMission", newMission);
+        const response = await prismaClient.missions.update({
+            where: {
+                id: params.mission,
+            },
+            data: newMission,
+        });
+
+        console.log("response", response);
+
+        return json({
+            newChurch: response,
+        });
+    }
+
+    throw new Error("Method not allowed");
 };
 
 export const loader = async ({ request, params }: LoaderArgs) => {
@@ -76,7 +95,15 @@ const MissionaryPage = () => {
         <Card className="flex-col text-black space-y-4">
             <div className="flex">
                 <div className="flex-1">
-                    <h1 className="text-3xl"> Mission: {loaderData.mission?.title} </h1>
+                    <div className="flex items-center justify-start">
+                        <h1 className="text-3xl"> Mission: {loaderData.mission?.title} </h1>
+                        <div className="flex flex-col justify-center items-center">
+                            <div className="text-green-700 text-3xl flex items-center">
+                                <CurrencyDollarIcon className="w-8 h-8" /> {loaderData.mission?.investment ?? 1000}
+                            </div>
+                            <div className="text-gray-500 ml-3 ">Community Investment </div>
+                        </div>
+                    </div>
                     <div className="text-sm text-gray-500 items-center flex">
                         <CalendarIcon className="w-4 h-4 mr-2" />
                         {format(new Date(loaderData.mission?.beginDate), "MM-dd-yyyy")} until {getEndTime()}
@@ -152,57 +179,17 @@ const MissionaryPage = () => {
             </div>
             <div className="lg:flex space-y-3 lg:space-x-3 lg:space-y-0">
                 <div className="flex-1 space-y-3">
-                    <Card>
-                        <>
-                            <h1 className="text-2xl">Description</h1>
-                            {loaderData.mission?.description}
-                        </>
-                    </Card>
-
-                    <Card>
-                        <>
-                            <div className="flex justify-between">
-                                <h1 className="text-2xl">Missionaries</h1>
-                                <div className="text-sm text-gray-500 items-center flex">                                    
-                                    Volunteers Needed: {loaderData.mission?.volunteersNeeded}
-                                </div>
-                            </div>
-                            {loaderData.mission?.missionaries?.length === 0 && (
-                                <div className="text-center text-gray-500">No Missionaries</div>
-                            )}
-                            <List>
-                                {loaderData.mission?.missionaries?.map((missionary: Missionary) => (
-                                    <Row key={missionary.id}>
-                                        <Link to={`/missionaries/${missionary.id}`}>
-                                            <RowItem>
-                                                <div className="flex-shrink-0">
-                                                    <EmptyAvatar />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={primaryText}>
-                                                        {missionary.firstName} {missionary.lastName}
-                                                    </p>
-                                                    <p className={secondaryText}>{missionary.email}</p>
-                                                </div>
-                                                <div>
-                                                    <Button
-                                                        onClick={(event) => {
-                                                            event.preventDefault();
-                                                            deleteMissionary(missionary);
-                                                        }}
-                                                        className="bg-red-800"
-                                                        pill
-                                                    >
-                                                        <TrashIcon className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </RowItem>
-                                        </Link>
-                                    </Row>
-                                ))}
-                            </List>
-                        </>
-                    </Card>
+                    <Tabs.Group aria-label="Tabs with icons" style="underline">
+                        <Tabs.Item title="Details">
+                            <MissionDescription mission={loaderData.mission} />
+                        </Tabs.Item>
+                        <Tabs.Item title="Missionaries">
+                            <MissionMissionaries mission={loaderData.mission} />
+                        </Tabs.Item>
+                        {/* <Tabs.Item title="Volunteers">
+                            <MissionDescription mission={loaderData.mission} />
+                        </Tabs.Item> */}
+                    </Tabs.Group>
                 </div>
                 <div className="flex-1">
                     <Card>

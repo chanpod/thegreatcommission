@@ -13,6 +13,7 @@ import {
     useNavigate,
 } from "@remix-run/react";
 import { Button, Card, Toast } from "flowbite-react";
+import { map } from "lodash";
 import { Fragment, useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
@@ -101,7 +102,10 @@ const ChurchPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const churchService = new ChurchService(loaderData?.organization!);
-    const subRouteDetected = location.pathname.includes("update") || location.pathname.includes("associate") || location.pathname.includes("request");
+    const subRouteDetected =
+        location.pathname.includes("update") ||
+        location.pathname.includes("associate") ||
+        location.pathname.includes("request");
 
     function deleteChurch() {
         deleteFetcher.submit({}, { method: "delete", action: `/churches/${loaderData.organization?.id}` });
@@ -129,7 +133,9 @@ const ChurchPage = () => {
                 <div className="flex-1">
                     <h1 className="text-3xl"> {loaderData.organization?.name} </h1>
                     <div className="text-sm text-gray-500">Last Updated: {loaderData.organization?.updatedAt}</div>
-                    <div className="text-sm text-gray-500">Parent Org: {loaderData.organization?.parentOrganization?.name}</div>
+                    <div className="text-sm text-gray-500">
+                        Parent Org: {loaderData.organization?.parentOrganization?.name}
+                    </div>
                 </div>
                 {churchService.userIsAdmin(user) && (
                     <Menu as="div" className="relative ml-3">
@@ -186,7 +192,8 @@ const ChurchPage = () => {
                                                 "cursor-pointer block px-4 py-2 text-sm text-gray-700"
                                             )}
                                         >
-                                            Manage Request - {loaderData.organization?.organizationMembershipRequest?.length}
+                                            Manage Request -{" "}
+                                            {loaderData.organization?.organizationMembershipRequest?.length}
                                         </div>
                                     )}
                                 </Menu.Item>
@@ -229,7 +236,7 @@ const ChurchPage = () => {
                     <hr className="my-2" />
                     <div className="h-full">
                         <List>
-                            {loaderData?.organization?.associations?.map((org: ChurchOrganization) => {
+                            {map(loaderData?.organization?.associations, (org: ChurchOrganization) => {
                                 return (
                                     // <div key={church.id} className={`w-full rounded-lg hover:shadow-md shadow-sm p-2`}>Test</div>
                                     <Row key={org.id}>

@@ -3,17 +3,19 @@ import { Link } from "@remix-run/react";
 import EmptyAvatar from "../avatar/EmptyAvatar";
 import Row from "../listItems/Row";
 import RowItem from "../listItems/RowItem";
+import { ISearchEntityTypes } from "./SearchBar";
+import { map } from "lodash";
 
 interface Props {
     missionaries: Missionary[];
 
-    onSelected: (selected: ChurchOrganization | Missionary) => void;
+    onSelected: (selected: ISearchEntityTypes) => void;
 }
 
 const MissionariesList = ({ missionaries, onSelected }: Props) => {
     return (
         <ul className="max-w-md divide-y flex-col divide-gray-200 dark:divide-gray-700">
-            {missionaries?.map((missionary: Missionary) => {
+            {map(missionaries, (missionary: Missionary) => {
                 return (
                     <div key={missionary.id} onClick={() => onSelected(missionary)} className="cursor-pointer">
                         <Row>

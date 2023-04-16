@@ -1,6 +1,6 @@
 import { Popover, Transition } from "@headlessui/react";
 import { ChevronDownIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { ChurchOrganization, Missionary } from "@prisma/client";
+import { ChurchOrganization, Missionary, Missions } from "@prisma/client";
 import { Link, useFetcher, useNavigate, useNavigation } from "@remix-run/react";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { Fragment, useEffect, useRef, useState } from "react";
@@ -12,10 +12,24 @@ import Row from "../listItems/Row";
 import RowItem from "../listItems/RowItem";
 import ChurchOrganizationList from "./ChurchOrganizationList";
 import MissionariesList from "./MissionariesList";
+import MissionRowItem from "../listItems/components/MissionRowItem";
+import MissionsList from "./MissionsList";
+
+enum SearchEntityType {
+    ChurchOrganization = "ChurchOrganization",
+    Missionary = "Missionary",
+    Mission = "Mission",
+}
+
+export type ISearchEntityTypes = ChurchOrganization | Missionary | Missions;
+
+function NoResults() {
+    return <div className="text-sm text-gray-300"> - No Results</div>;
+}
 
 interface Props {
     setLoading?: (loading: boolean) => void;
-    onSelected?: (selected: ChurchOrganization | Missionary) => void;
+    onSelected?: (selected: ISearchEntityTypes) => void;
     loadChurches?: boolean | undefined;
     loadMissionaries?: boolean | undefined;
     loadMissions?: boolean | undefined;
@@ -32,11 +46,12 @@ const SearchBar = (props: Props) => {
     const [search, setSearch] = useState(props.initialValue ?? "");
     const [churches, setChurches] = useState<ChurchOrganization[]>([]);
     const [missionaries, setMissionaries] = useState<Missionary[]>([]);
+    const [missions, setMissions] = useState<Missions[]>([]);
     const ref = useRef();
     const outsideClicked = useClickOutside(ref);
     const shortDebounce = useDebounce({ value: search, debounceDelay: 500 });
     const navigate = useNavigate();
-    const [selectedEntity, setSelectedEntity] = useState(undefined);
+    const [selectedEntity, setSelectedEntity] = useState<ISearchEntityTypes | undefined>(undefined);
 
     const loading = searchFetcher.state != "idle";
     const headerStyle = props.inputStyle === "header";
@@ -61,12 +76,23 @@ const SearchBar = (props: Props) => {
 
     useEffect(() => {
         console.log(searchFetcher.data);
-        handleSearchFinished(setChurches, searchFetcher.data?.churches, (props.loadChurches || props.loadAll) ?? true);
-        handleSearchFinished(
-            setMissionaries,
-            searchFetcher.data?.missionary,
-            (props.loadMissionaries || props.loadAll) ?? true
-        );
+        if (searchFetcher.data) {
+            handleSearchFinished(
+                setChurches,
+                searchFetcher.data?.churches,
+                (props.loadChurches || props.loadAll) ?? true
+            );
+            handleSearchFinished(
+                setMissionaries,
+                searchFetcher.data?.missionary,
+                (props.loadMissionaries || props.loadAll) ?? true
+            );
+            handleSearchFinished(
+                setMissions,
+                searchFetcher.data?.missions,
+                (props.loadMissions || props.loadAll) ?? true
+            );
+        }
     }, [searchFetcher.data]);
 
     function handleSearchFinished(setValue: React.Dispatch<React.SetStateAction<any>>, data: any, shouldLoad: boolean) {
@@ -82,10 +108,22 @@ const SearchBar = (props: Props) => {
         setOpenPopover(false);
     }
 
-    function onSelected(selected: ChurchOrganization | Missionary) {
+    function onSelected(selected: ISearchEntityTypes, entityType?: SearchEntityType) {
         setSelectedEntity(selected);
         if (props.onSelected) {
-            setSearch(selected.firstName === undefined ? selected.name : `${selected.firstName} ${selected.lastName}`);
+            switch (entityType) {
+                case SearchEntityType.ChurchOrganization:
+                    setSearch((selected as ChurchOrganization).name);
+                    break;
+                case SearchEntityType.Missionary:
+                    setSearch((selected as Missionary).firstName + " " + (selected as Missionary).lastName);
+                    break;
+                case SearchEntityType.Mission:
+                    setSearch((selected as Missions).title);
+                default:
+                    break;
+            }
+
             props.onSelected(selected);
         } else {
             navigate(selected.firstName === undefined ? `/churches/${selected.id}` : `/missionaries/${selected.id}`);
@@ -146,16 +184,32 @@ const SearchBar = (props: Props) => {
                             {props.loadMissionaries !== false && (
                                 <div className="relative flex-col gap-8 lg:grid-cols-2 border-gray-200">
                                     {props.showHeaders !== false ? (
-                                        <span className="text-1xl lg:text-2xl">Missionaries</span>
+                                        <span className="lg:text-lg flex items-center">
+                                            Missionaries{" "}
+                                            {missionaries.length === 0 && search.length >= 2 && <NoResults />}
+                                        </span>
                                     ) : null}
                                     <MissionariesList onSelected={onSelected} missionaries={missionaries} />
+                                </div>
+                            )}
+
+                            {props.loadMissions !== false && (
+                                <div className="relative flex-col gap-8 lg:grid-cols-2 border-gray-200">
+                                    {props.showHeaders !== false ? (
+                                        <span className="lg:text-lg flex items-center">
+                                            Missions {missions.length === 0 && search.length >= 2 && <NoResults />}
+                                        </span>
+                                    ) : null}
+                                    <MissionsList onSelected={onSelected} missions={missions} />
                                 </div>
                             )}
 
                             {props.loadChurches !== false && (
                                 <div className="relative  flex-col gap-8  lg:grid-cols-2 border-gray-200">
                                     {props.showHeaders !== false ? (
-                                        <span className="text-1xl lg:text-2xl">Organizations</span>
+                                        <span className="lg:text-lg flex items-center">
+                                            Organizations {churches.length === 0 && search.length >= 2 && <NoResults />}
+                                        </span>
                                     ) : null}
 
                                     <ChurchOrganizationList churches={churches} onSelected={onSelected} />

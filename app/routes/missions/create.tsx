@@ -1,4 +1,4 @@
-import { ChurchOrganization, Missionary, Missions } from "@prisma/client";
+import { ChurchOrganization, Location, Missionary, Missions } from "@prisma/client";
 import { ActionArgs, json } from "@remix-run/node";
 import { Form, useFetcher } from "@remix-run/react";
 import { Card } from "flowbite-react";
@@ -6,14 +6,27 @@ import { useState } from "react";
 import { DateValueType } from "react-tailwindcss-datepicker/dist/types";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
+import { MissionsService } from "~/services/MissionsService";
 import { Button } from "~/src/components/button/Button";
 import CreateMissionForm from "~/src/components/forms/createMission/CreateMissionForm";
+
+export interface IMissionsFormData {
+    title: string;
+    beginDate: string;
+    endDate: string;
+    description: string;
+    volunteersNeeded: number;
+    churchOrganizationId: string;
+    location: Location | undefined;
+    investment?: number;
+    fundingRaised?: number;
+}
 
 export const action = async ({ request }: ActionArgs) => {
     console.log("Create missionary action");
 
     const user = await authenticator.isAuthenticated(request);
-    
+
     if (request.method === "POST") {
         const form = await request.formData();
 
@@ -23,21 +36,11 @@ export const action = async ({ request }: ActionArgs) => {
         console.log("startDate", startDate);
         console.log("endDate", endDate);
 
-        const newMissionary: Partial<Missions> = {
-            title: form.get("title") as string,
-            beginDate: new Date(startDate),
-            endDate: endDate ? new Date(endDate) : null,
-            description: form.get("description") as string,
-            volunteersNeeded: Number(form.get("volunteersNeeded")) || 0,
-            churchOrganizationId: form.get("churchOrganizationId") as string,        
-            location: {
-                lat: parseFloat(form.get("lat") as string),
-                lng: parseFloat(form.get("lng") as string),
-            }    
-        };
+        const missionsService = new MissionsService();
+        const newMission = await missionsService.getMissionsFormData(request) as Missions;
 
         const response = await prismaClient.missions.create({
-            data: newMissionary,
+            data: newMission,
         });
 
         console.log("response", response);
@@ -51,8 +54,6 @@ export const action = async ({ request }: ActionArgs) => {
 };
 
 export default function CreateChurch() {
-
-
     return (
         <div className="flex-col space-y-5 ">
             <h1 className="text-3xl">Create a Missions Organization</h1>

@@ -10,6 +10,7 @@ import { prismaClient } from "~/server/dbConnection";
 import List from "~/src/components/listItems/List";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import { Card } from "flowbite-react";
+import MissionaryListItem from "~/src/components/missions/MissionListItem";
 
 export const loader = async ({ request }: LoaderArgs) => {
     const url = new URL(request.url);
@@ -43,23 +44,7 @@ export default function ChurchPage() {
                 <List>
                     {loaderData?.missionaries?.map((missionary: Missionary) => {
                         return (
-                            <Row key={missionary.id}>
-                                <Link to={`/missionaries/${missionary.id}`}>
-                                    <RowItem>
-                                        <div className="flex-shrink-0">
-                                            <EmptyAvatar />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className={primaryText}>
-                                                {missionary.firstName}, {missionary.lastName}
-                                            </p>
-                                            <p className={secondaryText}>
-                                                {missionary.city} {missionary.city ? "," : null} {missionary.state}
-                                            </p>
-                                        </div>
-                                    </RowItem>
-                                </Link>
-                            </Row>
+                            <MissionaryListItem  key={missionary.id} missionary={missionary} />
                         );
                     })}
                 </List>
