@@ -58,7 +58,8 @@ export function Sidenav() {
                     style={{ position: isMobile ? "absolute" : "relative" }}
                     initial={{
                         width: 0,
-                        height: "100vh",
+                        minHeight: "100vh",
+                        height: "auto",
                         zIndex: 100,
                         opacity: 0,
                     }}

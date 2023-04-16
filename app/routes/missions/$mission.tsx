@@ -70,15 +70,6 @@ const MissionaryPage = () => {
         deleteFetcher.submit({}, { method: "delete", action: `/missions/${loaderData.mission?.id}` });
     }
 
-    function deleteMissionary(missionary: Missionary) {
-        deleteFetcher.submit(
-            {
-                linkId: missionary.id,
-            },
-            { method: "delete", action: `/missions/${loaderData.mission?.id}/missionary` }
-        );
-    }
-
     function onClose() {
         setShowDialog(false);
     }
@@ -92,7 +83,7 @@ const MissionaryPage = () => {
     }
 
     return (
-        <Card className="flex-col text-black space-y-4">
+        <div className="bg-white rounded-lg p-2 flex-col p-1 text-black space-y-4">
             <div className="flex">
                 <div className="flex-1">
                     <div className="flex items-center justify-start">
@@ -217,7 +208,7 @@ const MissionaryPage = () => {
                     </Modal>
                 )}
             </ClientOnly>
-        </Card>
+        </div>
     );
 };
 

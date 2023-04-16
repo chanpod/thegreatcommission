@@ -1,11 +1,12 @@
 import { Outlet } from "@remix-run/react";
 import React from "react";
+import RouteWrapper from "~/src/components/navigation/RouteWrapper";
 
 const missions = () => {
     return (
-        <div className="rounded-md p-4">
+        <RouteWrapper>
             <Outlet />
-        </div>
+        </RouteWrapper>
     );
 };
 

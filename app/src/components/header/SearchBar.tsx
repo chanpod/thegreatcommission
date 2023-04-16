@@ -173,11 +173,11 @@ const SearchBar = (props: Props) => {
                             headerStyle
                                 ? {
                                       top: "50px",
-                                      minWidth: "250px",
+                                      minWidth: "350px",
                                   }
                                 : {
                                       top: "74px",
-                                      minWidth: "250px",
+                                      minWidth: "350px",
                                   }
                         }
                         className={`p-3 pt-1 absolute top-3 bg-[#172b4d] shadow-lg text-white -left-20 lg:left-0 text-sm rounded-lg w-11/12 block z-30 ${

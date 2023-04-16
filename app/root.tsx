@@ -73,15 +73,15 @@ export default function App() {
                 <Links />
             </head>
             <body style={{ minHeight: "100vh" }} className="bg-[#0a192f]">
-                <div className="flex h-full">
+                <div className="flex h-full relative">
                     <ApplicationContext.Provider value={{ sideNavOpen, setSideNavOpen }}>
                         <UserContext.Provider value={loaderData.userContext as IUserContext}>
                             <Sidenav />
 
-                            <div className="flex-col w-full">
+                            <div className="flex-col w-full h-full">
                                 <Header />
                                 <div className="flex-col h-full  text-white pt-4 w-full ">
-                                    <div className="p-3">
+                                    <div className="p-0 md:p-3">
                                         <Outlet />
                                     </div>
                                 </div>
