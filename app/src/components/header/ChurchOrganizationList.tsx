@@ -3,12 +3,12 @@ import { Link } from "@remix-run/react";
 import EmptyAvatar from "../avatar/EmptyAvatar";
 import Row from "../listItems/Row";
 import RowItem from "../listItems/RowItem";
-import { ISearchEntityTypes } from "./SearchBar";
+import { ISearchEntityTypes, SearchEntityType } from "./SearchBar";
 import { map } from "lodash";
 
 interface Props {
     churches: ChurchOrganization[];
-    onSelected: (selected: ISearchEntityTypes) => void;
+    onSelected: (selected: ISearchEntityTypes, entityType: SearchEntityType) => void;
 }
 
 const ChurchOrganizationList = ({ churches, onSelected }: Props) => {
@@ -16,7 +16,7 @@ const ChurchOrganizationList = ({ churches, onSelected }: Props) => {
         <ul className="max-w-md divide-y  divide-gray-200 dark:divide-gray-700">
             {map(churches, (church: ChurchOrganization) => {
                 return (
-                    <div className="cursor-pointer" key={church.id} onClick={() => onSelected(church)}>
+                    <div className="cursor-pointer" key={church.id} onClick={() => onSelected(church, SearchEntityType.ChurchOrganization)}>
                         <Row>
                             <RowItem>
                                 <div className="flex-shrink-0">

@@ -1,21 +1,16 @@
-import { Popover, Transition } from "@headlessui/react";
-import { ChevronDownIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { ChurchOrganization, Missionary, Missions } from "@prisma/client";
-import { Link, useFetcher, useNavigate, useNavigation } from "@remix-run/react";
+import { useFetcher, useNavigate } from "@remix-run/react";
 import { AnimatePresence, motion } from "framer-motion";
-import React, { Fragment, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useClickOutside } from "~/src/hooks/useClickOutside";
 import useDebounce from "~/src/hooks/useDebounce";
-import EmptyAvatar from "../avatar/EmptyAvatar";
 import { Input } from "../forms/input/Input";
-import Row from "../listItems/Row";
-import RowItem from "../listItems/RowItem";
 import ChurchOrganizationList from "./ChurchOrganizationList";
 import MissionariesList from "./MissionariesList";
-import MissionRowItem from "../listItems/components/MissionRowItem";
 import MissionsList from "./MissionsList";
 
-enum SearchEntityType {
+export enum SearchEntityType {
     ChurchOrganization = "ChurchOrganization",
     Missionary = "Missionary",
     Mission = "Mission",
@@ -108,7 +103,20 @@ const SearchBar = (props: Props) => {
         setOpenPopover(false);
     }
 
-    function onSelected(selected: ISearchEntityTypes, entityType?: SearchEntityType) {
+    function getEntityRoute(entityType: SearchEntityType) {
+        switch (entityType) {
+            case SearchEntityType.ChurchOrganization:
+                return `/churches/`;
+            case SearchEntityType.Missionary:
+                return `/missionaries/`;
+            case SearchEntityType.Mission:
+                return "/missions/";
+            default:
+                return "";
+        }
+    }
+
+    function onSelected(selected: ISearchEntityTypes, entityType: SearchEntityType) {
         setSelectedEntity(selected);
         if (props.onSelected) {
             switch (entityType) {
@@ -126,7 +134,7 @@ const SearchBar = (props: Props) => {
 
             props.onSelected(selected);
         } else {
-            navigate(selected.firstName === undefined ? `/churches/${selected.id}` : `/missionaries/${selected.id}`);
+            navigate(`${getEntityRoute(entityType) + selected.id}`);
         }
 
         closePopover();
