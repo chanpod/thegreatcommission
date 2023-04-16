@@ -7098,6 +7098,10 @@ input:checked + .toggle-bg {
   .xl\:h-80 {
     height: 20rem;
   }
+
+  .xl\:flex-row {
+    flex-direction: row;
+  }
 }
 
 @media (min-width: 1536px) {

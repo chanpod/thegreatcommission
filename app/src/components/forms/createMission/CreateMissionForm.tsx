@@ -1,6 +1,6 @@
 import { ChurchOrganization, Missionary, Missions } from "@prisma/client";
 import { addDays, format, subDays } from "date-fns";
-import { Button, Label, Modal, Textarea } from "flowbite-react";
+import { Button, Checkbox, Label, Modal, Select, Textarea, Tooltip } from "flowbite-react";
 import { useState } from "react";
 import Datepicker from "react-tailwindcss-datepicker";
 import { DateValueType } from "react-tailwindcss-datepicker/dist/types";
@@ -8,6 +8,7 @@ import { ClientOnly } from "remix-utils";
 import SearchBar from "../../header/SearchBar";
 import WorldMap from "../../maps/WorldMap";
 import { Input } from "../input/Input";
+import { InformationCircleIcon } from "@heroicons/react/24/outline";
 
 export interface IMissionForm extends Missions {
     ChurchOrganization: ChurchOrganization;
@@ -27,7 +28,7 @@ const CreateMissionForm = (props: Props) => {
     });
     const [endDateForm, setEndDate] = useState<DateValueType | undefined>({
         startDate: endDate,
-        endDate: addDays(endDate, 2)
+        endDate: addDays(endDate, 2),
     });
     const [selectedOrg, setSelectedOrg] = useState<ChurchOrganization | undefined>();
     const [showLocationSelect, setShowLocationSelect] = useState(false);
@@ -53,6 +54,17 @@ const CreateMissionForm = (props: Props) => {
 
     return (
         <div className="space-y-3">
+            <div>
+                <div className="mb-2 block">
+                    <Label htmlFor="countries" value="Mission Event Type" />
+                </div>
+                <Select>
+                    <option value="1">Community</option>
+                    <option value="2">Domestic</option>
+                    <option value="3">International</option>
+                </Select>
+            </div>
+
             <Input
                 defaultValue={props.initialValues?.title}
                 disabled={props.readOnly ?? false}
@@ -60,27 +72,29 @@ const CreateMissionForm = (props: Props) => {
                 name="title"
             />
 
-            <Input
-                defaultValue={props.initialValues?.volunteersNeeded}
-                disabled={props.readOnly ?? false}
-                label="How many Volunteers Needed?"
-                type="number"
-                name="volunteersNeeded"
-            />
-            <Input
-                defaultValue={props.initialValues?.fundingRaised?.toString()}
-                disabled={props.readOnly ?? false}
-                label="Funding Raised"
-                type="text"
-                name="fundingRaised"
-            />
-            <Input
-                defaultValue={props.initialValues?.investment?.toString()}
-                disabled={props.readOnly ?? false}
-                label="Invested"
-                type="text"
-                name="investment"
-            />
+            <div className="flex flex-col xl:flex-row space-x-2">
+                <Input
+                    defaultValue={props.initialValues?.volunteersNeeded}
+                    disabled={props.readOnly ?? false}
+                    label="Volunteers Needed"
+                    type="number"
+                    name="volunteersNeeded"
+                />
+                <Input
+                    defaultValue={props.initialValues?.fundingRaised?.toString()}
+                    disabled={props.readOnly ?? false}
+                    label="Funding Raised"
+                    type="text"
+                    name="fundingRaised"
+                />
+                <Input
+                    defaultValue={props.initialValues?.investment?.toString()}
+                    disabled={props.readOnly ?? false}
+                    label="Invested"
+                    type="text"
+                    name="investment"
+                />
+            </div>
 
             <Input
                 onFocus={(e) => {
@@ -95,6 +109,17 @@ const CreateMissionForm = (props: Props) => {
             <input style={{ display: "none" }} name="lat" value={selectedCoordinates?.lat} />
             <input style={{ display: "none" }} name="lng" value={selectedCoordinates?.lng} />
 
+            <div className="flex items-center gap-2">
+                <Checkbox id="accept" defaultChecked={true} />
+                <Label htmlFor="accept">Sensitive</Label>
+                <Tooltip
+                    content="Select this if you do not wish to expose information about missionaries or location to anyone not a member of the organization"
+                    style="light"
+                >
+                    <InformationCircleIcon className="w-5 h-5" />
+                </Tooltip>
+            </div>
+
             <SearchBar
                 label="Associated Org"
                 initialValue={props.initialValues?.ChurchOrganization?.name}
@@ -104,40 +129,44 @@ const CreateMissionForm = (props: Props) => {
             />
             <input style={{ display: "none" }} name="churchOrganizationId" value={selectedOrg?.id} />
 
-            <div className="mb-2 block">
-                <Label htmlFor="title" value={"Start Date"} />
-            </div>
-            <Datepicker
-                disabled={props.readOnly ?? false}
-                useRange={false}
-                name="beginDate"
-                asSingle={true}
-                value={startDate}
-                onChange={startDateChanged}
-            />
-            <Input
-                style={{ display: "none" }}
-                defaultValue={beginDate.toISOString()}
-                name="beginDate"
-                value={startDate?.startDate}
-            />
-
-            <>
-                <div className="mb-2 block">
-                    <Label htmlFor="title" value={"End Date"} />
+            <div className="flex flex-col xl:flex-row space-x-2">
+                <div className="flex-col">
+                    <div className="mb-2 block">
+                        <Label htmlFor="title" value={"Start Date"} />
+                    </div>
+                    <Datepicker
+                        disabled={props.readOnly ?? false}
+                        useRange={false}
+                        name="beginDate"
+                        asSingle={true}
+                        value={startDate}
+                        onChange={startDateChanged}
+                    />
+                    <Input
+                        style={{ display: "none" }}
+                        defaultValue={beginDate.toISOString()}
+                        name="beginDate"
+                        value={startDate?.startDate}
+                    />
                 </div>
-                <Datepicker
-                    disabled={props.readOnly ?? false}
-                    useRange={false}
-                    name="endDate"
-                    asSingle={true}
-                    value={endDateForm}
-                    onChange={endDateChanged}
-                />
-            </>
+                <div className="flex-col">
+                    <>
+                        <div className="mb-2 block">
+                            <Label htmlFor="title" value={"End Date"} />
+                        </div>
+                        <Datepicker
+                            disabled={props.readOnly ?? false}
+                            useRange={false}
+                            name="endDate"
+                            asSingle={true}
+                            value={endDateForm}
+                            onChange={endDateChanged}
+                        />
+                    </>
 
-            <input style={{ display: "none" }} name="endDate" value={endDateForm?.startDate} />
-
+                    <input style={{ display: "none" }} name="endDate" value={endDateForm?.startDate} />
+                </div>
+            </div>
             <div id="textarea">
                 <div className="mb-2 block">
                     <Label htmlFor="comment" value="Description" />
