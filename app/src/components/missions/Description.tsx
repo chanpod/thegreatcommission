@@ -3,6 +3,7 @@ import { Card, Carousel } from "flowbite-react";
 import React from "react";
 import PlaceholderImageOne from "app/src/assets/images/placeholderImage1.jpg";
 import PlaceholderImageTwo from "app/src/assets/images/placeholderImage2.jpg";
+import CurrencyFormatter from "../forms/currencyFormat/CurrencyFormatter";
 
 const MissionDescription = ({ mission }: { mission: Missions }) => {
     return (
@@ -30,7 +31,7 @@ const MissionDescription = ({ mission }: { mission: Missions }) => {
                             <div className="text-gray-500">Funding Raised: </div>${mission?.fundingRaised ?? 0}
                         </div>
                         <div className="flex">
-                            <div className="text-gray-500">Community Investment: </div>${mission?.investment ?? 0}
+                            <div className="text-gray-500">Community Investment: </div><CurrencyFormatter value = {mission?.investment ?? 0} />
                         </div>
                     </section>
                 </>

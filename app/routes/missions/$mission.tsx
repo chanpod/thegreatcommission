@@ -16,6 +16,7 @@ import { ClientOnly } from "remix-utils";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
 import { MissionsService } from "~/services/MissionsService";
+import CurrencyFormatter from "~/src/components/forms/currencyFormat/CurrencyFormatter";
 
 import MissionDescription from "~/src/components/missions/Description";
 import MissionMissionaries from "~/src/components/missions/Missionaries";
@@ -96,7 +97,7 @@ const MissionaryPage = () => {
                         <h1 className="text-3xl"> Mission: {loaderData.mission?.title} </h1>
                         <div className="flex flex-col justify-center items-center">
                             <div className="text-green-700 text-3xl flex items-center">
-                                <CurrencyDollarIcon className="w-8 h-8" /> {loaderData.mission?.investment ?? 0}
+                                <CurrencyDollarIcon className="w-8 h-8" /> <CurrencyFormatter skipDollarSign value = {loaderData.mission?.investment ?? 0} />
                             </div>
                             <div className="text-gray-500 ml-3 ">Community Investment </div>
                         </div>

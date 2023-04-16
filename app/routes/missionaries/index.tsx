@@ -1,12 +1,15 @@
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { Missionary } from "@prisma/client";
 import { json, LoaderArgs } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { Card } from "flowbite-react";
+import { map } from "lodash";
 import { prismaClient } from "~/server/dbConnection";
 import { Button } from "~/src/components/button/Button";
+import { SearchEntityType } from "~/src/components/header/SearchBar";
 import List from "~/src/components/listItems/List";
 import MissionaryListItem from "~/src/components/missions/MissionaryListItem";
+import Toolbar from "~/src/components/toolbar/Toolbar";
 
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 
@@ -23,6 +26,15 @@ export const loader = async ({ request }: LoaderArgs) => {
 export default function ChurchPage() {
     const loaderData = useLoaderData();
     const { isLoggedIn, user } = useIsLoggedIn();
+
+    const fetcher = useFetcher();
+
+    function onSearchChange(searchText: string) {
+        fetcher.load(`/api/search?search=${encodeURI(searchText)}&type=${SearchEntityType.Missionary}`);
+    }
+
+    const missionaries = fetcher.data?.missionary || loaderData.missionaries;
+
     return (
         <Card className="flex-col text-black space-y-4">
             <div className="flex justify-between items-center">
@@ -37,9 +49,10 @@ export default function ChurchPage() {
                 )}
             </div>
             <hr className="my-4" />
+            <Toolbar onChange={onSearchChange} />
             <div>
                 <List>
-                    {loaderData?.missionaries?.map((missionary: Missionary) => {
+                    {map(missionaries, (missionary: Missionary) => {
                         return <MissionaryListItem key={missionary.id} missionary={missionary} />;
                     })}
                 </List>

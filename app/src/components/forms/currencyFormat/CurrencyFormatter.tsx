@@ -4,10 +4,11 @@ import React from "react";
 
 interface CurrencyFormatterProps {
     value: string | number;
+    skipDollarSign?: boolean;
 }
 
 // Currency formatter component
-const CurrencyFormatter: React.FC<CurrencyFormatterProps> = ({ value }) => {
+const CurrencyFormatter: React.FC<CurrencyFormatterProps> = ({ value, skipDollarSign }) => {
     // Convert the value to a number if it's a string
     const numValue = typeof value === "string" ? parseFloat(value) : value;
 
@@ -18,7 +19,7 @@ const CurrencyFormatter: React.FC<CurrencyFormatterProps> = ({ value }) => {
 
     // Format the value with currency symbol and thousand separators
     const formattedValue = new Intl.NumberFormat("en-US", {
-        style: "currency",
+        style: skipDollarSign ? "decimal" : "currency",        
         currency: "USD", // Change to the desired currency code
         minimumFractionDigits: 2,
     }).format(numValue);

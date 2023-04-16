@@ -58,7 +58,7 @@ export const loader = async ({ request, params }: LoaderArgs) => {
             case SearchEntityType.Missionary:
                 missionaryPromise = prismaClient.missionary.findMany(missionaryPrismaSearch(search) as any);
                 break;
-            case SearchEntityType.Church:
+            case SearchEntityType.ChurchOrganization:
                 churchesPromise = prismaClient.churchOrganization.findMany(orgPrismaSearch(search) as any);
                 break;
             case SearchEntityType.Mission:
