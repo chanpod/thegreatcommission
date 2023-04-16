@@ -1,5 +1,5 @@
 import { ChurchOrganization, Missionary, Missions } from "@prisma/client";
-import { format } from "date-fns";
+import { addDays, format, subDays } from "date-fns";
 import { Button, Label, Modal, Textarea } from "flowbite-react";
 import { useState } from "react";
 import Datepicker from "react-tailwindcss-datepicker";
@@ -19,16 +19,22 @@ interface Props {
 }
 
 const CreateMissionForm = (props: Props) => {
+    const beginDate = props.initialValues?.beginDate ? new Date(props.initialValues?.beginDate) : new Date();
+    const endDate = props.initialValues?.endDate ? new Date(props.initialValues?.endDate) : new Date();
     const [startDate, setStartDate] = useState<DateValueType | undefined>({
-        startDate: props.initialValues?.beginDate
-            ? format(new Date(props.initialValues?.beginDate), "yyyy-mm-dd")
-            : new Date(),
-        endDate: null,
+        startDate: beginDate,
+        endDate: addDays(new Date(), 2),
     });
-    const [endDate, setEndDate] = useState<DateValueType | undefined>();
+    const [endDateForm, setEndDate] = useState<DateValueType | undefined>({
+        startDate: endDate,
+        endDate: addDays(endDate, 2)
+    });
     const [selectedOrg, setSelectedOrg] = useState<ChurchOrganization | undefined>();
     const [showLocationSelect, setShowLocationSelect] = useState(false);
-    const [selectedCoordinates, setSelectedCoordinates] = useState({ lat: 0, lng: 0 });
+    const [selectedCoordinates, setSelectedCoordinates] = useState({
+        lat: props.initialValues?.location?.lat ?? 0,
+        lng: props.initialValues?.location?.lng ?? 0,
+    });
 
     const startDateChanged = (newValue: DateValueType) => {
         console.log("newValue:", newValue);
@@ -109,7 +115,12 @@ const CreateMissionForm = (props: Props) => {
                 value={startDate}
                 onChange={startDateChanged}
             />
-            <input style={{ display: "none" }} name="beginDate" value={startDate?.startDate} />
+            <Input
+                style={{ display: "none" }}
+                defaultValue={beginDate.toISOString()}
+                name="beginDate"
+                value={startDate?.startDate}
+            />
 
             <>
                 <div className="mb-2 block">
@@ -120,12 +131,12 @@ const CreateMissionForm = (props: Props) => {
                     useRange={false}
                     name="endDate"
                     asSingle={true}
-                    value={endDate}
+                    value={endDateForm}
                     onChange={endDateChanged}
                 />
             </>
 
-            <input style={{ display: "none" }} name="endDate" value={endDate?.startDate} />
+            <input style={{ display: "none" }} name="endDate" value={endDateForm?.startDate} />
 
             <div id="textarea">
                 <div className="mb-2 block">

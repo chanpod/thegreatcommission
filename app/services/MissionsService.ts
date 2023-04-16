@@ -16,11 +16,13 @@ export class MissionsService {
             lng: parseFloat(formData.get("lng") as string),
         };
 
+
         const missionFormData: Partial<Missions> = {
             title: formData.get("title") as string,
             description: formData.get("description") as string,
             beginDate: new Date(formData.get("beginDate") as string),
             endDate: new Date(formData.get("endDate") as string),
+            churchOrganizationId: formData.get("churchOrganizationId") as string,
             location: location,
             volunteersNeeded: Number(formData.get("volunteersNeeded") ?? 0),
             fundingRaised: Number(formData.get("fundingRaised") ?? 0),
