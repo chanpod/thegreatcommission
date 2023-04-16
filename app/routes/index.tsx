@@ -49,21 +49,11 @@ const containerStyle = {
     border: "1px solid rgba(34, 29, 29, 0.24)",
 };
 
-{
-}
+
 export default function Index() {
     const loaderData = useLoaderData();
     return (
         <div className="relative">
-            <a
-                target="_blank"
-                href="https://flowbite.com/getting-started/remix/"
-                rel="noreferrer"
-                className="text-lg text-blue-600 hover:underline"
-            >
-                Flowbite + Remix + Tailwind CSS Tutorial
-            </a>
-            {/* <div style={{ ...quoteContainerStyle, ...containerStyle }}>  */}
             <div className="absolute backdrop-blur-sm left-1 top-1 z-10 rounded-md border-solid border-[#221d1d3d] bg-[#2c272759] p-2 m-2 max-w-5xl">
                 <blockquote className="bold text-xl lg:text-4xl italic">
                     "Therefore go and make disciples of all nations, baptizing them in the name of the Father and of the
