@@ -44,7 +44,7 @@ export const MissionRowCard = ({ mission, linkActive, sponsoringOrg }: Props) =>
                 </div>
                 <div className="card-content">
                     <div className="event-title">{mission.title}</div>
-                    <div className="event-sponsor mb-4">Org: {sponsoringOrg?.name}</div>
+                    {sponsoringOrg && <div className="event-sponsor mb-4">Org: {sponsoringOrg?.name}</div>}
                     <div className="event-description">
                         Help clean up the local park and promote environmental sustainability.
                     </div>

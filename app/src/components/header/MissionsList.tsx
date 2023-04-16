@@ -1,11 +1,8 @@
-import { ChurchOrganization, Missionary, Missions } from "@prisma/client";
-import { Link } from "@remix-run/react";
-import EmptyAvatar from "../avatar/EmptyAvatar";
-import Row from "../listItems/Row";
-import RowItem from "../listItems/RowItem";
-import MissionRowItem from "../listItems/components/MissionRowItem";
-import { ISearchEntityTypes, SearchEntityType } from "./SearchBar";
+import { Missions } from "@prisma/client";
 import { map } from "lodash";
+
+import { ISearchEntityTypes, SearchEntityType } from "./SearchBar";
+import { MissionRowCard } from "../listItems/components/MissionRowCard";
 
 interface Props {
     missions: Missions[];
@@ -18,13 +15,12 @@ const MissionsList = ({ missions, onSelected }: Props) => {
         <ul className="max-w-md divide-y  divide-gray-200 dark:divide-gray-700">
             {map(missions, (mission: Missions) => {
                 return (
-                    <div
+                    <MissionRowCard
                         key={mission.id}
-                        onClick={() => onSelected(mission, SearchEntityType.Mission)}
-                        className="cursor-pointer"
-                    >
-                        <MissionRowItem mission={mission} />
-                    </div>
+                        linkActive
+                        mission={mission}
+                        
+                    />
                 );
             })}
         </ul>
