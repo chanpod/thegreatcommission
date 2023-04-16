@@ -55,9 +55,17 @@ export default function Index() {
     const loaderData = useLoaderData();
     return (
         <div className="relative">
-             {/* <div style={{ ...quoteContainerStyle, ...containerStyle }}>  */}
+            <a
+                target="_blank"
+                href="https://flowbite.com/getting-started/remix/"
+                rel="noreferrer"
+                className="text-lg text-blue-600 hover:underline"
+            >
+                Flowbite + Remix + Tailwind CSS Tutorial
+            </a>
+            {/* <div style={{ ...quoteContainerStyle, ...containerStyle }}>  */}
             <div className="absolute backdrop-blur-sm left-1 top-1 z-10 rounded-md border-solid border-[#221d1d3d] bg-[#2c272759] p-2 m-2 max-w-5xl">
-                <blockquote className="bold text-xl lg:text-4xl italic" >
+                <blockquote className="bold text-xl lg:text-4xl italic">
                     "Therefore go and make disciples of all nations, baptizing them in the name of the Father and of the
                     Son and of the Holy Spirit, 20 and teaching them to obey everything I have commanded you. And surely
                     I am with you always, to the very end of the age." - Matthew 28:19-20

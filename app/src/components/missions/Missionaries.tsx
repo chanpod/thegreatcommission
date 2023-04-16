@@ -1,13 +1,8 @@
 import { Missionary, Missions } from "@prisma/client";
-import { Button, Card } from "flowbite-react";
-import React from "react";
-import EmptyAvatar from "../avatar/EmptyAvatar";
-import { TrashIcon } from "@heroicons/react/24/outline";
-import { Link } from "@remix-run/react";
+import { Card } from "flowbite-react";
 import List from "../listItems/List";
-import Row from "../listItems/Row";
-import RowItem, { primaryText, secondaryText } from "../listItems/RowItem";
-import MissionaryListItem from "./MissionListItem";
+import MissionaryListItem from "./MissionaryListItem";
+
 
 const MissionMissionaries = ({ mission }: { mission: Missions }) => {
     return (

@@ -27,7 +27,7 @@ function WorldMap(props: Props) {
     const onLoad = useCallback((map: google.maps.Map) => {
         const myLatlng = { lat: -25.363, lng: 131.044 };
 
-        map.setMapTypeId("satellite");
+        
 
         map.addListener("click", (mapsMouseEvent: any) => {
             if (props.coordinatesChanged) {
@@ -49,7 +49,7 @@ function WorldMap(props: Props) {
                 streetViewControl: false,
                 mapTypeControl: false,
             }}
-            mapTypeId="satellite"
+            
             onLoad={onLoad}
             onUnmount={onUnmount}
         >

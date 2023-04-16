@@ -93,6 +93,7 @@ model ChurchOrganization {
   city                              String
   state                             String
   zip                               String
+  description                       String?
   parentOrganizationId              String?                         @db.ObjectId
   parentOrganization                ChurchOrganization?             @relation("OrgChurch", fields: [parentOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   associations                      ChurchOrganization[]            @relation("OrgChurch")

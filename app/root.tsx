@@ -8,11 +8,14 @@ import { authenticator } from "./server/auth/strategies/authenticaiton";
 import Header from "./src/components/header/Header";
 import { Sidenav } from "./src/components/sidenav/Sidenav";
 import appStyles from "./src/styles/app.css";
-
+import missionCardStyles from "./src/components/listItems/components/missionRowCard.css";
+import 'flowbite'
 export const links: LinksFunction = () => [
     { rel: "stylesheet", href: "https://rsms.me/inter/inter.css" },
     { rel: "stylesheet", href: stylesheet },
     { rel: "stylesheet", href: appStyles },
+    //add missionRowCard.css
+    { rel: "stylesheet", href: missionCardStyles },
 ];
 
 export const meta: MetaFunction = () => ({

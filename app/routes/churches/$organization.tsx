@@ -12,7 +12,7 @@ import {
     useLocation,
     useNavigate,
 } from "@remix-run/react";
-import { Button, Card, Toast } from "flowbite-react";
+import { Button, Card, Tabs, Toast } from "flowbite-react";
 import { map } from "lodash";
 import { Fragment, useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
@@ -21,11 +21,14 @@ import { ChurchService } from "~/services/ChurchService";
 import EmptyAvatar from "~/src/components/avatar/EmptyAvatar";
 
 import CreateChurchForm from "~/src/components/forms/createChurch/CreateChurchForm";
+import MissionsList from "~/src/components/header/MissionsList";
 import MissionRowItem from "~/src/components/listItems/components/MissionRowItem";
 import OrganizationListItem from "~/src/components/listItems/components/OrganizationListItem";
 import List from "~/src/components/listItems/List";
 import Row from "~/src/components/listItems/Row";
 import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
+import { OrgAssociations } from "~/src/components/organizations/OrgAssociations";
+import OrgDescription from "~/src/components/organizations/OrgDescription";
 import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import { InvitationStatus } from "~/src/types/invitation.types";
@@ -215,52 +218,32 @@ const ChurchPage = () => {
                 )}
             </div>
             <div className="lg:flex space-y-3 lg:space-x-3 lg:space-y-0">
-                <Card className="flex-1">
-                    <h1 className="text-3xl">Missions</h1>
-                    <hr className="my-2" />
-                    <div className="h-full">
-                        <List>
-                            {loaderData?.organization?.missions?.map((mission: Missions) => {
-                                return (
-                                    // <div key={church.id} className={`w-full rounded-lg hover:shadow-md shadow-sm p-2`}>Test</div>
-                                    <Row key={mission.id}>
-                                        <Link to={`/missions/${mission.id}`}>
-                                            <MissionRowItem mission={mission} />
-                                        </Link>
-                                    </Row>
-                                );
-                            })}
-                        </List>
-                    </div>
-                    <h1 className="text-3xl">Associated Orgs</h1>
-                    <hr className="my-2" />
-                    <div className="h-full">
-                        <List>
-                            {map(loaderData?.organization?.associations, (org: ChurchOrganization) => {
-                                return (
-                                    // <div key={church.id} className={`w-full rounded-lg hover:shadow-md shadow-sm p-2`}>Test</div>
-                                    <Row key={org.id}>
-                                        <Link to={`/churches/${org.id}`}>
-                                            <OrganizationListItem church={org} />
-                                        </Link>
-                                        <Button onClick={() => removeChurchAssociation(org)}>Remove</Button>
-                                    </Row>
-                                );
-                            })}
-                        </List>
-                    </div>
-                </Card>
-
-                <Card className="flex-1">
-                    {!subRouteDetected && <CreateChurchForm readOnly={true} initialValues={loaderData?.organization} />}
+                <div className="flex-1 space-y-3">
+                    <Tabs.Group aria-label="Tabs with icons" style="underline">
+                        <Tabs.Item title="Details">
+                            <OrgDescription org={loaderData.organization as ChurchOrganization} />
+                        </Tabs.Item>
+                        <Tabs.Item title="Missions">
+                            <MissionsList onSelected={() => false} missions={loaderData.organization?.missions} />
+                        </Tabs.Item>
+                        <Tabs.Item title="Associated Orgs">
+                            <OrgAssociations org={loaderData.organization as ChurchOrganization} />
+                        </Tabs.Item>
+                        <Tabs.Item title="Members" disabled>
+                            </Tabs.Item>
+                    </Tabs.Group>
+                </div>
+                <div className="lg:flex space-y-3 lg:space-x-3 lg:space-y-0">
                     {subRouteDetected && (
-                        <Button className="w-36" onClick={() => navigate("")}>
-                            <ArrowLeftIcon className="w-5 h-5 mr-2" />
-                            Back
-                        </Button>
+                        <Card className="flex-1">
+                            <Button className="w-36" onClick={() => navigate("")}>
+                                <ArrowLeftIcon className="w-5 h-5 mr-2" />
+                                Back
+                            </Button>
+                            <Outlet />
+                        </Card>
                     )}
-                    <Outlet />
-                </Card>
+                </div>
             </div>
 
             {showUpdateToast && (
