@@ -14,6 +14,7 @@ import { Card } from "flowbite-react";
 import { SearchEntityType } from "~/src/components/header/SearchBar";
 import Toolbar from "~/src/components/toolbar/Toolbar";
 import { map } from "lodash";
+import ChurchRowCard from "~/src/components/listItems/components/ChurchRowCard";
 export const loader = async ({ request }: LoaderArgs) => {
     const churches = await prismaClient.churchOrganization.findMany({
         include: {
@@ -38,7 +39,7 @@ export default function ChurchPage() {
 
     const churches = fetcher.data?.churches || loaderData.churches;
     return (
-        <Card className="flex-col text-black space-y-4">
+        <div className="space-y-4">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl">Organizations</h1>
                 {isLoggedIn && (
@@ -51,21 +52,14 @@ export default function ChurchPage() {
                 )}
             </div>
 
-            
             <Toolbar onChange={onSearchChange} />
             <div>
                 <List>
                     {map(churches, (church: ChurchOrganization) => {
-                        return (
-                            <Row key={church.id}>
-                                <Link to={`/churches/${church.id}`}>
-                                    <OrganizationListItem church={church} />
-                                </Link>
-                            </Row>
-                        );
+                        return <ChurchRowCard linkActive church={church} key={church.id} />;
                     })}
                 </List>
             </div>
-        </Card>
+        </div>
     );
 }

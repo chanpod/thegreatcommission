@@ -39,7 +39,7 @@ export default function ChurchPage() {
     const missions = fetcher.data?.missions || loaderData.missions;
 
     return (
-        <Card className="flex-col text-black space-y-4">
+        <div className="space-y-4">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl">Missions</h1>
                 {isLoggedIn && (
@@ -73,6 +73,6 @@ export default function ChurchPage() {
                     })}
                 </List>
             </div>
-        </Card>
+        </div>
     );
 }

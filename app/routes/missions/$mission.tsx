@@ -90,7 +90,7 @@ const MissionaryPage = () => {
     }
 
     return (
-        <div className="bg-white rounded-lg p-2 flex-col p-1 text-black space-y-4">
+        <div>
             <div className="flex">
                 <div className="flex-1">
                     <div className="flex items-center justify-start">

@@ -8,6 +8,7 @@ import { prismaClient } from "~/server/dbConnection";
 import { Button } from "~/src/components/button/Button";
 import { SearchEntityType } from "~/src/components/header/SearchBar";
 import List from "~/src/components/listItems/List";
+import { MissionaryRowCard } from "~/src/components/listItems/components/MissionaryRowCard";
 import MissionaryListItem from "~/src/components/missions/MissionaryListItem";
 import Toolbar from "~/src/components/toolbar/Toolbar";
 
@@ -36,7 +37,7 @@ export default function ChurchPage() {
     const missionaries = fetcher.data?.missionary || loaderData.missionaries;
 
     return (
-        <Card className="flex-col text-black space-y-4">
+        <div className="space-y-4">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl">Missionaries</h1>
                 {isLoggedIn && (
@@ -53,10 +54,10 @@ export default function ChurchPage() {
             <div>
                 <List>
                     {map(missionaries, (missionary: Missionary) => {
-                        return <MissionaryListItem key={missionary.id} missionary={missionary} />;
+                        return <MissionaryRowCard linkActive key={missionary.id} missionary={missionary} />;
                     })}
                 </List>
             </div>
-        </Card>
+        </div>
     );
 }

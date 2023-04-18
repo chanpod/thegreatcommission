@@ -1325,6 +1325,10 @@ input:checked + .toggle-bg {
   margin-right: 0.875rem;
 }
 
+.mr-4 {
+  margin-right: 1rem;
+}
+
 .mt-0 {
   margin-top: 0px;
 }
@@ -1449,6 +1453,10 @@ input:checked + .toggle-bg {
   height: 5rem;
 }
 
+.h-28 {
+  height: 7rem;
+}
+
 .h-3 {
   height: 0.75rem;
 }
@@ -1521,14 +1529,6 @@ input:checked + .toggle-bg {
 
 .h-screen {
   height: 100vh;
-}
-
-.h-44 {
-  height: 11rem;
-}
-
-.h-28 {
-  height: 7rem;
 }
 
 .min-h-\[285px\] {
@@ -1631,6 +1631,10 @@ input:checked + .toggle-bg {
   width: 20rem;
 }
 
+.w-\[96\%\] {
+  width: 96%;
+}
+
 .w-auto {
   width: auto;
 }
@@ -1722,6 +1726,10 @@ input:checked + .toggle-bg {
 
 .shrink-0 {
   flex-shrink: 0;
+}
+
+.flex-grow {
+  flex-grow: 1;
 }
 
 .origin-top-right {
@@ -2225,6 +2233,10 @@ input:checked + .toggle-bg {
   border-color: #221d1d3d;
 }
 
+.border-\[\#5e57573d\] {
+  border-color: #5e57573d;
+}
+
 .border-amber-500 {
   --tw-border-opacity: 1;
   border-color: rgb(245 158 11 / var(--tw-border-opacity));
@@ -2467,6 +2479,10 @@ input:checked + .toggle-bg {
   background-color: #2c272759;
 }
 
+.bg-\[\#30303559\] {
+  background-color: #30303559;
+}
+
 .bg-amber-100 {
   --tw-bg-opacity: 1;
   background-color: rgb(254 243 199 / var(--tw-bg-opacity));
@@ -2565,6 +2581,11 @@ input:checked + .toggle-bg {
 .bg-gray-200 {
   --tw-bg-opacity: 1;
   background-color: rgb(229 231 235 / var(--tw-bg-opacity));
+}
+
+.bg-gray-300 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(209 213 219 / var(--tw-bg-opacity));
 }
 
 .bg-gray-400 {
@@ -3448,10 +3469,6 @@ input:checked + .toggle-bg {
 
 .leading-tight {
   line-height: 1.25;
-}
-
-.tracking-tight {
-  letter-spacing: -0.025em;
 }
 
 .tracking-wide {
@@ -4542,6 +4559,11 @@ input:checked + .toggle-bg {
 .hover\:text-green-700:hover {
   --tw-text-opacity: 1;
   color: rgb(4 108 78 / var(--tw-text-opacity));
+}
+
+.hover\:text-indigo-500:hover {
+  --tw-text-opacity: 1;
+  color: rgb(104 117 245 / var(--tw-text-opacity));
 }
 
 .hover\:text-indigo-700:hover {
@@ -6756,10 +6778,6 @@ input:checked + .toggle-bg {
 
   .sm\:w-6 {
     width: 1.5rem;
-  }
-
-  .sm\:flex-row {
-    flex-direction: row;
   }
 
   .sm\:items-stretch {

@@ -131,7 +131,7 @@ const ChurchPage = () => {
     }, [actionData]);
 
     return (
-        <Card className="md:flex-col sm:flex text-black space-y-4">
+        <div className="md:flex-col sm:flex space-y-4">
             <div className="flex">
                 <div className="flex-1">
                     <h1 className="text-3xl"> {loaderData.organization?.name} </h1>
@@ -255,7 +255,7 @@ const ChurchPage = () => {
                     <Toast.Toggle />
                 </Toast>
             )}
-        </Card>
+        </div>
     );
 };
 
