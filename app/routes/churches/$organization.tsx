@@ -1,27 +1,21 @@
 import { Menu, Transition } from "@headlessui/react";
-import { ArrowLeftIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, ArrowTopRightOnSquareIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { ChurchOrganization, Missions } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs, redirect } from "@remix-run/node";
-import {
-    Outlet,
-    useActionData,
-    useFetcher,
-    useLoaderData,
-    useLocation,
-    useNavigate
-} from "@remix-run/react";
+import { Link, Outlet, useActionData, useFetcher, useLoaderData, useLocation, useNavigate } from "@remix-run/react";
 import { Button, Card, Tabs, Toast } from "flowbite-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { map } from "lodash";
 import { Fragment, useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
 import { ChurchService } from "~/services/ChurchService";
 
-
 import List from "~/src/components/listItems/List";
 import { MissionRowCard } from "~/src/components/listItems/components/MissionRowCard";
 import { OrgAssociations } from "~/src/components/organizations/OrgAssociations";
 import OrgDescription from "~/src/components/organizations/OrgDescription";
+import UpdateToast from "~/src/components/toast/UpdateToast";
 import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import { InvitationStatus } from "~/src/types/invitation.types";
@@ -130,8 +124,15 @@ const ChurchPage = () => {
                     <h1 className="text-3xl"> {loaderData.organization?.name} </h1>
                     <div className="text-sm text-gray-500">Last Updated: {loaderData.organization?.updatedAt}</div>
                     <div className="text-sm text-gray-500">
-                        Parent Org: {loaderData.organization?.parentOrganization?.name}
+                        <Link
+                            className="flex items-center"
+                            to={`/churches/${loaderData.organization?.parentOrganization?.id}`}
+                        >
+                            Parent Org: {loaderData.organization?.parentOrganization?.name}
+                            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                        </Link>
                     </div>
+                    
                 </div>
                 {churchService.userIsAdmin(user) && (
                     <Menu as="div" className="relative ml-3">
@@ -211,17 +212,17 @@ const ChurchPage = () => {
                 )}
             </div>
             <div className="lg:flex space-y-3 lg:space-x-3 lg:space-y-0">
-                <div className="flex-1 space-y-3">
+                <motion.div layout className="flex-1 space-y-3">
                     <Tabs.Group aria-label="Tabs with icons" style="underline">
                         <Tabs.Item title="Details">
                             <OrgDescription org={loaderData.organization as ChurchOrganization} />
                         </Tabs.Item>
-                        <Tabs.Item title="Missions">                            
+                        <Tabs.Item title="Missions">
                             <List>
                                 {map(loaderData.organization?.missions, (mission: Missions) => {
                                     return (
                                         <MissionRowCard
-                                            key={mission.id}                                            
+                                            key={mission.id}
                                             mission={mission}
                                             linkActive
                                             sponsoringOrg={mission.ChurchOrganization}
@@ -235,9 +236,9 @@ const ChurchPage = () => {
                         </Tabs.Item>
                         <Tabs.Item title="Members" disabled></Tabs.Item>
                     </Tabs.Group>
-                </div>
-                <div className="lg:flex space-y-3 lg:space-x-3 lg:space-y-0">
-                    {subRouteDetected && (
+                </motion.div>
+                {subRouteDetected && (
+                    <motion.div layout className="lg:flex flex-1 space-y-3 lg:space-x-3 lg:space-y-0">
                         <Card className="flex-1">
                             <Button className="w-36" onClick={() => navigate("")}>
                                 <ArrowLeftIcon className="w-5 h-5 mr-2" />
@@ -245,19 +246,14 @@ const ChurchPage = () => {
                             </Button>
                             <Outlet />
                         </Card>
-                    )}
-                </div>
+                    </motion.div>
+                )}
             </div>
-
-            {showUpdateToast && (
-                <Toast>
-                    <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-500 dark:bg-blue-800 dark:text-blue-200">
-                        sdf
-                    </div>
-                    <div className="ml-3 text-sm font-normal">Set yourself free.</div>
-                    <Toast.Toggle />
-                </Toast>
-            )}
+            <UpdateToast
+                showUpdateToast={showUpdateToast}
+                message="Updated Successfully"
+                onClose={() => setShowUpdateToast(false)}
+            />
         </div>
     );
 };

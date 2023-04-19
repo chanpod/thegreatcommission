@@ -14,7 +14,10 @@ export class ChurchService {
             name: formData.get("name") as string,
             city: formData.get("city") as string,
             state: formData.get("state") as string,
-            zip: formData.get("zip") as string,
+            street: formData.get("street") as string,
+            zip: formData.get("zip") as string, 
+            churchBannerUrl: formData.get("churchBannerUrl") as string,
+            mainChurchWebsite: formData.get("mainChurchWebsite") as string,
         } as IChurchFormData;
 
         return church;

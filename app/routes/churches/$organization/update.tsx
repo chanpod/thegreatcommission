@@ -2,7 +2,6 @@ import { ChurchOrganization } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import { Button } from "flowbite-react";
-import React from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
 import { ChurchService } from "~/services/ChurchService";

@@ -29,8 +29,8 @@ const ChurchRowCard = ({ church, linkActive }: Props) => {
                     </div> */}
                     </div>
                     <div className=" py-2">
-                        <p className="text-gray-700">Short description of the church.</p>
-                        <p className="mt-2 text-gray-700">Location: City, State</p>
+                        <p className="text-gray-700">{church.description}</p>
+                        <p className="mt-2 text-gray-700">Location: {church.city}, {church.state} {church.zip}</p>
                         <a href="#" className="mt-2 block text-sm font-medium text-indigo-600 hover:text-indigo-500">
                             Learn more
                         </a>

@@ -18,7 +18,7 @@ export function Input(props: Props) {
     const { label, name, id, type, disabled, className, placeholder, value, onChange, defaultValue, ...others } = props;
 
     return (
-        <div id={id}>
+        <div id={id} className={className}>
             <div className="mb-2 block">
                 <Label htmlFor="title" value={label} />
             </div>

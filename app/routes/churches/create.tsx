@@ -53,6 +53,8 @@ export default function CreateChurch() {
         }
     }, [actionData?.status]);
 
+ 
+
     return (
         <div className="flex-col space-y-5 ">
             <h1 className="text-3xl">Create a Missions Organization</h1>
@@ -60,7 +62,7 @@ export default function CreateChurch() {
             <Card className="text-black max-w-[700px]">
                 <h1 className="text-3xl">Information</h1>
                 <hr className="my-2" />
-                <Form method="post" className="space-y-4">
+                <Form method="post" className="space-y-4" >
                     <CreateChurchForm initialValues={actionData?.formData} />
 
                     <Button type="submit">Submit</Button>
