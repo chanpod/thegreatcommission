@@ -13,17 +13,17 @@ interface Props {
 
 const MissionRowItem = ({ mission, linkActive }: Props) => {
     const rowItem = (
-        <RowItem className="h-28">
+        <RowItem className="border-white border-solid border-2 rounded-sm" >
             <div className="mr-3 ">
                 <EmptyAvatar />
             </div>
             <div className="flex-1 min-w-0">
-                <div className={`${primaryText} text-2xl`}>{mission.title}</div>
+                <div className={`${primaryText} text-1xl`}>{mission.title}</div>
                 <p className={secondaryText}>{mission.description}</p>
             </div>
             <div className="flex-1 min-w-0 justify-end flex">
-                <div className="text-green-400 text-3xl flex items-center">
-                    <CurrencyDollarIcon className="w-8 h-8" /> {mission?.investment ?? 0}
+                <div className="text-green-400 text-1xl flex items-center">
+                    <CurrencyDollarIcon className="w-5 h-5" /> {mission?.investment ?? 0}
                 </div>
             </div>
         </RowItem>

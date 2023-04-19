@@ -16,7 +16,7 @@ export class MissionsService {
             lng: parseFloat(formData.get("lng") as string),
         };
 
-
+        console.log(formData.get("sensitive"));
         const missionFormData: Partial<Missions> = {
             title: formData.get("title") as string,
             description: formData.get("description") as string,
@@ -26,6 +26,7 @@ export class MissionsService {
             location: location,
             volunteersNeeded: Number(formData.get("volunteersNeeded") ?? 0),
             fundingRaised: Number(formData.get("fundingRaised") ?? 0),
+            sensitive: (formData.get("sensitive") as string) === "on",
             investment: Number(formData.get("investment") ?? 0),
         };
 

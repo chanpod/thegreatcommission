@@ -110,7 +110,7 @@ const CreateMissionForm = (props: Props) => {
             <input style={{ display: "none" }} name="lng" value={selectedCoordinates?.lng} />
 
             <div className="flex items-center gap-2">
-                <Checkbox id="accept" defaultChecked={true} />
+                <Checkbox id="accept" defaultChecked={props.initialValues?.sensitive} name="sensitive" />
                 <Label htmlFor="accept">Sensitive</Label>
                 <Tooltip
                     content="Select this if you do not wish to expose information about missionaries or location to anyone not a member of the organization"

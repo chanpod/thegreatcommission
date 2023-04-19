@@ -3,14 +3,12 @@ import { ArrowLeftIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outlin
 import { ChurchOrganization, Missions } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs, redirect } from "@remix-run/node";
 import {
-    Form,
-    Link,
     Outlet,
     useActionData,
     useFetcher,
     useLoaderData,
     useLocation,
-    useNavigate,
+    useNavigate
 } from "@remix-run/react";
 import { Button, Card, Tabs, Toast } from "flowbite-react";
 import { map } from "lodash";
@@ -18,15 +16,10 @@ import { Fragment, useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
 import { ChurchService } from "~/services/ChurchService";
-import EmptyAvatar from "~/src/components/avatar/EmptyAvatar";
 
-import CreateChurchForm from "~/src/components/forms/createChurch/CreateChurchForm";
-import MissionsList from "~/src/components/header/MissionsList";
-import MissionRowItem from "~/src/components/listItems/components/MissionRowItem";
-import OrganizationListItem from "~/src/components/listItems/components/OrganizationListItem";
+
 import List from "~/src/components/listItems/List";
-import Row from "~/src/components/listItems/Row";
-import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
+import { MissionRowCard } from "~/src/components/listItems/components/MissionRowCard";
 import { OrgAssociations } from "~/src/components/organizations/OrgAssociations";
 import OrgDescription from "~/src/components/organizations/OrgDescription";
 import { classNames } from "~/src/helpers";
@@ -223,14 +216,24 @@ const ChurchPage = () => {
                         <Tabs.Item title="Details">
                             <OrgDescription org={loaderData.organization as ChurchOrganization} />
                         </Tabs.Item>
-                        <Tabs.Item title="Missions">
-                            <MissionsList onSelected={() => false} missions={loaderData.organization?.missions} />
+                        <Tabs.Item title="Missions">                            
+                            <List>
+                                {map(loaderData.organization?.missions, (mission: Missions) => {
+                                    return (
+                                        <MissionRowCard
+                                            key={mission.id}                                            
+                                            mission={mission}
+                                            linkActive
+                                            sponsoringOrg={mission.ChurchOrganization}
+                                        />
+                                    );
+                                })}
+                            </List>
                         </Tabs.Item>
                         <Tabs.Item title="Associated Orgs">
                             <OrgAssociations org={loaderData.organization as ChurchOrganization} />
                         </Tabs.Item>
-                        <Tabs.Item title="Members" disabled>
-                            </Tabs.Item>
+                        <Tabs.Item title="Members" disabled></Tabs.Item>
                     </Tabs.Group>
                 </div>
                 <div className="lg:flex space-y-3 lg:space-x-3 lg:space-y-0">

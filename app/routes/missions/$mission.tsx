@@ -3,7 +3,9 @@ import {
     ArrowTopRightOnSquareIcon,
     CalendarIcon,
     CurrencyDollarIcon,
+    LockClosedIcon,
     PencilIcon,
+    ShieldCheckIcon,
     TrashIcon,
 } from "@heroicons/react/24/outline";
 import { Missionary, Missions } from "@prisma/client";
@@ -94,10 +96,16 @@ const MissionaryPage = () => {
             <div className="flex">
                 <div className="flex-1">
                     <div className="flex items-center justify-start">
-                        <h1 className="text-3xl"> Mission: {loaderData.mission?.title} </h1>
+                        <h1 className="flex text-3xl relative">
+                            {loaderData.mission.sensitive && (
+                                <ShieldCheckIcon color="green" className="rounded-full h-8 w-8 " />
+                            )}
+                            Mission: {loaderData.mission?.title}{" "}
+                        </h1>
                         <div className="flex flex-col justify-center items-center">
                             <div className="text-green-700 text-3xl flex items-center">
-                                <CurrencyDollarIcon className="w-8 h-8" /> <CurrencyFormatter skipDollarSign value = {loaderData.mission?.investment ?? 0} />
+                                <CurrencyDollarIcon className="w-8 h-8" />{" "}
+                                <CurrencyFormatter skipDollarSign value={loaderData.mission?.investment ?? 0} />
                             </div>
                             <div className="text-gray-500 ml-3 ">Community Investment </div>
                         </div>
@@ -107,7 +115,10 @@ const MissionaryPage = () => {
                         {format(new Date(loaderData.mission?.beginDate), "MM-dd-yyyy")} until {getEndTime()}
                     </div>
                     <div className="text-sm text-gray-500">
-                        <Link className="flex items-center" to={`/churches/${loaderData.mission?.ChurchOrganization?.id}`}>
+                        <Link
+                            className="flex items-center"
+                            to={`/churches/${loaderData.mission?.ChurchOrganization?.id}`}
+                        >
                             Association: {loaderData.mission?.ChurchOrganization?.name}
                             <ArrowTopRightOnSquareIcon className="w-4 h-4" />
                         </Link>

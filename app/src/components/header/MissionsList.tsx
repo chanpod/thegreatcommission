@@ -3,6 +3,8 @@ import { map } from "lodash";
 
 import { ISearchEntityTypes, SearchEntityType } from "./SearchBar";
 import { MissionRowCard } from "../listItems/components/MissionRowCard";
+import MissionaryListItem from "../missions/MissionaryListItem";
+import MissionRowItem from "../listItems/components/MissionRowItem";
 
 interface Props {
     missions: Missions[];
@@ -15,7 +17,7 @@ const MissionsList = ({ missions, onSelected }: Props) => {
         <ul className="max-w-md divide-y  divide-gray-200 dark:divide-gray-700">
             {map(missions, (mission: Missions) => {
                 return (
-                    <MissionRowCard
+                    <MissionRowItem
                         key={mission.id}
                         linkActive
                         mission={mission}

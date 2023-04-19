@@ -4,6 +4,7 @@ import missionsStockPhoto from "~/src/assets/images/missionsStockPhoto.jpg";
 import CurrencyFormatter from "../../forms/currencyFormat/CurrencyFormatter";
 
 import { motion } from "framer-motion";
+import { ShieldCheckIcon } from "@heroicons/react/24/outline";
 
 // Define the Button component
 export const CardButton = ({ children }: any) => {
@@ -37,16 +38,17 @@ interface Props {
 export const MissionRowCard = ({ mission, linkActive, sponsoringOrg }: Props) => {
     const card = (
         <CardButton>
-            <div className="flex items-center p-4 border border-gray-300 mb-4 rounded-lg shadow-md">
+            <div className="flex items-center p-4 border relative border-gray-300 mb-4 rounded-lg shadow-md">
+                <div className="absolute top-2 right-2">
+                    {mission.sensitive && <ShieldCheckIcon color="green" className="rounded-full h-8 w-8 " />}
+                </div>
                 <div style={{ minWidth: "5em" }} className="w-20 h-20 mr-4 bg-gray-300 rounded-full overflow-hidden">
                     <img src={missionsStockPhoto} className="h-full w-full" alt="Mission" />
                 </div>
                 <div className="flex-grow">
                     <div className="text-xl font-bold">{mission.title}</div>
                     {sponsoringOrg && <div className="text-base text-gray-600 mb-4">Org: {sponsoringOrg?.name}</div>}
-                    <div className="text-sm text-gray-500 mb-1">
-                        {mission.description}
-                    </div>
+                    <div className="text-sm text-gray-500 mb-1">{mission.description}</div>
                     {mission.investment && mission.investment > 0 && (
                         <div className="text-lg font-bold text-green-600">
                             Community Investment: <CurrencyFormatter value={mission.investment} />{" "}
