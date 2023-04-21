@@ -29,8 +29,16 @@ export const loader = async ({ request, params }: LoaderArgs) => {
             missions: true,
             admins: true,
             members: true,
-            associations: true,
-            parentOrganization: true,
+            associations: {
+                include: {
+                    associations: true,
+                },
+            },
+            parentOrganization: {
+                include: {
+                    parentOrganization: true,
+                },
+            },
             organizationMembershipRequest: {
                 where: {
                     status: InvitationStatus.pending,
@@ -124,15 +132,16 @@ const ChurchPage = () => {
                     <h1 className="text-3xl"> {loaderData.organization?.name} </h1>
                     <div className="text-sm text-gray-500">Last Updated: {loaderData.organization?.updatedAt}</div>
                     <div className="text-sm text-gray-500">
-                        <Link
-                            className="flex items-center"
-                            to={`/churches/${loaderData.organization?.parentOrganization?.id}`}
-                        >
-                            Parent Org: {loaderData.organization?.parentOrganization?.name}
-                            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
-                        </Link>
+                        {loaderData.organization?.parentOrganization && (
+                            <Link
+                                className="flex items-center"
+                                to={`/churches/${loaderData.organization?.parentOrganization?.id}`}
+                            >
+                                Parent Org: {loaderData.organization?.parentOrganization?.name}
+                                <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                            </Link>
+                        )}
                     </div>
-                    
                 </div>
                 {churchService.userIsAdmin(user) && (
                     <Menu as="div" className="relative ml-3">

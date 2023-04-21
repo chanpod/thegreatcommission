@@ -1,8 +1,5 @@
 import { ChurchOrganization } from "@prisma/client";
-import { Link } from "@remix-run/react";
-import React from "react";
 import EmptyAvatar from "../../avatar/EmptyAvatar";
-import Row from "../Row";
 import RowItem, { primaryText, secondaryText } from "../RowItem";
 
 type Props = {

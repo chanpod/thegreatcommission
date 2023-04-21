@@ -1,10 +1,9 @@
-import { Missions } from "@prisma/client";
-import React from "react";
-import EmptyAvatar from "../../avatar/EmptyAvatar";
-import RowItem, { primaryText, secondaryText } from "../RowItem";
-import Row from "../Row";
-import { Link } from "@remix-run/react";
 import { CurrencyDollarIcon } from "@heroicons/react/24/outline";
+import { Missions } from "@prisma/client";
+import { Link } from "@remix-run/react";
+import EmptyAvatar from "../../avatar/EmptyAvatar";
+import Row from "../Row";
+import RowItem, { primaryText, secondaryText } from "../RowItem";
 
 interface Props {
     mission: Missions;

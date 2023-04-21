@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { Button, Card } from "flowbite-react";
 import React from "react";
 import { prismaClient } from "~/server/dbConnection";
+import OrgRequestCard from "~/src/components/forms/cards/OrgRequestCard";
 
 import List from "~/src/components/listItems/List";
 import Row from "~/src/components/listItems/Row";
@@ -80,39 +81,13 @@ const Request = () => {
                 <List>
                     {loaderData.organization?.organizationMembershipRequest.map(
                         (request: OrganizationMemberShipRequest) => {
-                            const organization: ChurchOrganization =
-                                request.requestingChurchOrganization as ChurchOrganization;
                             return (
-                                <Card key={request.id}>
-                                    <Row >
-                                        <div className="flex justify-between items-center">
-                                            <div className="flex flex-col">
-                                                <span>
-                                                    {organization.name} - {organization.city} {organization.state}
-                                                </span>
-                                                <span>
-                                                    Submitted: {format(new Date(request.createdAt), "MM-dd-yyyy")}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </Row>
-                                    <div className="flex space-x-2">
-                                        <Button
-                                            color="success"
-                                            onClick={() => acceptRequest(organization.id, request.id)}
-                                            className="btn btn-primary"
-                                        >
-                                            <CheckIcon className="w-5 h-5" />
-                                        </Button>
-                                        <Button
-                                            color="red"
-                                            onClick={() => rejectRequest(organization.id, request.id)}
-                                            className="btn btn-primary"
-                                        >
-                                            <XCircleIcon className="w-5 h-5" />
-                                        </Button>
-                                    </div>
-                                </Card>
+                                <OrgRequestCard
+                                    key={request.id}
+                                    request={request}
+                                    acceptRequest={acceptRequest}
+                                    rejectRequest={rejectRequest}
+                                />
                             );
                         }
                     )}

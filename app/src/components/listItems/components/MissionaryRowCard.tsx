@@ -1,9 +1,8 @@
 import { ChurchOrganization, Missionary } from "@prisma/client";
 import { Link } from "@remix-run/react";
-import missionsStockPhoto from "~/src/assets/images/missionsStockPhoto.jpg";
 
-import CardButton from "./MissionRowCard";
 import EmptyAvatar from "../../avatar/EmptyAvatar";
+import CardButton from "./MissionRowCard";
 
 interface Props {
     missionary: Missionary;

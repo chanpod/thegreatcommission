@@ -1,18 +1,20 @@
 import { ChurchOrganization } from "@prisma/client";
-import React from "react";
-import ChurchPlaceholderImage from "~/src/assets/images/placeholderImage1.jpg";
-import CardButton from "./MissionRowCard";
 import { Link } from "@remix-run/react";
+import ChurchPlaceholderImage from "~/src/assets/images/placeholderImage1.jpg";
+import OrgLocation from "../../organizations/OrgLocation";
+import CardButton from "./MissionRowCard";
 
 type Props = {
     church: ChurchOrganization;
     linkActive?: boolean;
 };
 
-const ChurchRowCard = ({ church, linkActive }: Props) => {
+export const CardLabel = ({ children }: any) => <label className="text-sm text-gray-500">{children}</label>;
+export const CardLabelData = ({ children }: any) => <span className="text-gray-800">{children}</span>;
 
+const ChurchRowCard = ({ church, linkActive }: Props) => {
     const card = (
-        <CardButton>
+        
             <div className="flex p-4 border border-gray-300 mb-4 rounded-lg shadow-md">
                 <div className="w-full">
                     <div className="mb-2">
@@ -29,18 +31,21 @@ const ChurchRowCard = ({ church, linkActive }: Props) => {
                     </div> */}
                     </div>
                     <div className=" py-2">
-                        <p className="text-gray-700">{church.description}</p>
-                        <p className="mt-2 text-gray-700">Location: {church.city}, {church.state} {church.zip}</p>
-                        <a href="#" className="mt-2 block text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                        <CardLabelData>{church.description}</CardLabelData>
+                        <div>
+                            <OrgLocation org={church} />
+                        </div>
+
+                        {!linkActive && (<Link to={`/churches/${church.id}`} className="mt-2 block text-sm font-medium text-indigo-600 hover:text-indigo-500" style ={{maxWidth: '100px'}}>
                             Learn more
-                        </a>
+                        </Link>)}
                     </div>
                 </div>
             </div>
-        </CardButton>
-    )
+        
+    );
 
-    return linkActive ? <Link to={`/churches/${church.id}`}>{card}</Link> : card;
+    return linkActive ? <Link to={`/churches/${church.id}`}><CardButton>{card}</CardButton></Link> : card;
 };
 
 export default ChurchRowCard;

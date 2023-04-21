@@ -35,6 +35,7 @@ specifiers:
   react-geocode: ^0.2.3
   react-loader-spinner: ^5.3.4
   react-tailwindcss-datepicker: ^1.5.1
+  react-tree-graph: ^8.0.1
   remix-auth: ^3.4.0
   remix-auth-google: ^1.2.0
   remix-auth-oauth2: ^1.6.0
@@ -69,6 +70,7 @@ dependencies:
   react-geocode: 0.2.3
   react-loader-spinner: 5.3.4_biqbaboplfbrettd7655fr4n2y
   react-tailwindcss-datepicker: 1.5.1_dayjs@1.11.7+react@18.2.0
+  react-tree-graph: 8.0.1_react@18.2.0
   remix-auth: 3.4.0_@remix-run+react@1.14.1
   remix-auth-google: 1.2.0_remix-auth@3.4.0
   remix-auth-oauth2: 1.6.0_remix-auth@3.4.0
@@ -1429,7 +1431,6 @@ packages:
     engines: {node: '>=6.9.0'}
     dependencies:
       regenerator-runtime: 0.13.11
-    dev: true
 
   /@babel/template/7.18.10:
     resolution: {integrity: sha512-TI+rCtooWHr3QJ27kJxfjutghu44DLnasDMwpDqCXVTal9RLp3RSYNh4NdBrRP2cQAoG9A8juOQl6P6oZG4JxA==}
@@ -3873,6 +3874,14 @@ packages:
 
   /custom-event-polyfill/1.0.7:
     resolution: {integrity: sha512-TDDkd5DkaZxZFM8p+1I3yAlvM3rSr1wbrOliG4yJiwinMZN8z/iGL7BTlDkrJcYTmgUSb4ywVCc3ZaUtOtC76w==}
+    dev: false
+
+  /d3-ease/2.0.0:
+    resolution: {integrity: sha512-68/n9JWarxXkOWMshcT5IcjbB+agblQUaIsbnXmrzejn2O82n3p2A9R2zEB9HIEFWKFwPAEDDN8gR0VdSAyyAQ==}
+    dev: false
+
+  /d3-hierarchy/2.0.0:
+    resolution: {integrity: sha512-SwIdqM3HxQX2214EG9GTjgmCc/mbSx4mQBn+DuEETubhOw6/U3fmnji4uCVrmzOydMHSO1nZle5gh6HB/wdOzw==}
     dev: false
 
   /damerau-levenshtein/1.0.8:
@@ -6893,7 +6902,6 @@ packages:
   /object-assign/4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
     engines: {node: '>=0.10.0'}
-    dev: true
 
   /object-hash/3.0.0:
     resolution: {integrity: sha512-RSn9F68PjH9HqtltsSnqYC1XXoWe9Bju5+213R98cNGttag9q9yAOTzdbsqvIa7aNm5WffBZFpWYr2aWrklWAw==}
@@ -7428,7 +7436,6 @@ packages:
       loose-envify: 1.4.0
       object-assign: 4.1.1
       react-is: 16.13.1
-    dev: true
 
   /property-information/6.2.0:
     resolution: {integrity: sha512-kma4U7AFCTwpqq5twzC1YVIDXSqg6qQK6JN0smOw8fgRy1OkMi0CYSzFmsy6dnqSenamAtj0CyXMUJ1Mf6oROg==}
@@ -7614,6 +7621,18 @@ packages:
       react: ^17.0.2 || ^18.2.0
     dependencies:
       dayjs: 1.11.7
+      react: 18.2.0
+    dev: false
+
+  /react-tree-graph/8.0.1_react@18.2.0:
+    resolution: {integrity: sha512-+QoKfuDvtfyXbtvMfTzPZyo/Olot58yWzgEjRGAbaf8LZDNOvFg1EV2yHO8wAJlQ08Q/fTDiwXVS0gnwfSCs5A==}
+    peerDependencies:
+      react: ^15.3 || ^16 || ^17 || ^18
+    dependencies:
+      '@babel/runtime': 7.20.6
+      d3-ease: 2.0.0
+      d3-hierarchy: 2.0.0
+      prop-types: 15.8.1
       react: 18.2.0
     dev: false
 

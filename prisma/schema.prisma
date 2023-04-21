@@ -97,6 +97,8 @@ model ChurchOrganization {
   description                       String?
   churchBannerUrl                   String?
   mainChurchWebsite                 String?
+  email                             String?
+  phone                             String?
   parentOrganizationId              String?                         @db.ObjectId
   parentOrganization                ChurchOrganization?             @relation("OrgChurch", fields: [parentOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   associations                      ChurchOrganization[]            @relation("OrgChurch")

@@ -34,6 +34,7 @@
     "react-geocode": "^0.2.3",
     "react-loader-spinner": "^5.3.4",
     "react-tailwindcss-datepicker": "^1.5.1",
+    "react-tree-graph": "^8.0.1",
     "remix-auth": "^3.4.0",
     "remix-auth-google": "^1.2.0",
     "remix-auth-oauth2": "^1.6.0",

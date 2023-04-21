@@ -3,8 +3,8 @@ import { Link } from "@remix-run/react";
 import missionsStockPhoto from "~/src/assets/images/missionsStockPhoto.jpg";
 import CurrencyFormatter from "../../forms/currencyFormat/CurrencyFormatter";
 
-import { motion } from "framer-motion";
 import { ShieldCheckIcon } from "@heroicons/react/24/outline";
+import { motion } from "framer-motion";
 
 // Define the Button component
 export const CardButton = ({ children }: any) => {

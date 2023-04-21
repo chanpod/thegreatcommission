@@ -1,12 +1,15 @@
 import { PlusCircleIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon, QuestionMarkCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import { ChurchOrganization, OrganizationMemberShipRequest } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { format } from "date-fns";
 import { Button, Tabs } from "flowbite-react";
-import React from "react";
+import React, { useState } from "react";
 import { prismaClient } from "~/server/dbConnection";
 import EmptyAvatar from "~/src/components/avatar/EmptyAvatar";
+import OrgRequestCard from "~/src/components/forms/cards/OrgRequestCard";
+import ChurchRowCard from "~/src/components/listItems/components/ChurchRowCard";
 import OrganizationListItem from "~/src/components/listItems/components/OrganizationListItem";
 import List from "~/src/components/listItems/List";
 import Row from "~/src/components/listItems/Row";
@@ -59,7 +62,7 @@ export const loader = async ({ request, params }: LoaderArgs) => {
         },
         orderBy: {
             createdAt: "desc",
-        }
+        },
     });
 
     // const previousRequest = await prismaClient.churchOrganization.findMany({
@@ -139,6 +142,7 @@ const AssociateChurch = () => {
     const loaderData = useLoaderData();
     const addOrgFetcher = useFetcher();
     const leaveOrgFetcher = useFetcher();
+    const [activeFilter, setActiveFilter] = useState(InvitationStatus.accepted);
 
     function associateOrg(org: ChurchOrganization) {
         addOrgFetcher.submit(
@@ -167,9 +171,9 @@ const AssociateChurch = () => {
     }
 
     function currentOrganizations() {
-        return (
+        return loaderData.requestingOrg?.parentOrganization && (
             <div>
-                {loaderData.requestingOrg?.parentOrganization?.name}{" "}
+                <ChurchRowCard church={loaderData.requestingOrg?.parentOrganization} />
                 <Button onClick={() => leaveOrganization()} className="bg-red">
                     Leave Org{" "}
                 </Button>
@@ -178,8 +182,43 @@ const AssociateChurch = () => {
     }
 
     function request() {
+        const acceptedActive = activeFilter === InvitationStatus.accepted;
+        const pendingActive = activeFilter === InvitationStatus.pending;
+        const declinedActive = activeFilter === InvitationStatus.declined;
         return (
             <>
+                {/* <div className="inline-flex rounded-md shadow-sm" role="group">
+                    <button
+                        type="button"
+                        onClick={() => setActiveFilter(InvitationStatus.accepted)}
+                        className={`${
+                            acceptedActive ? "active" : "bg-white text-gray-900 "
+                        } inline-flex items-center px-4 py-2 text-sm font-medium   border border-gray-200 rounded-l-lg hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-blue-500 dark:focus:text-white`}
+                    >
+                        <CheckCircleIcon className={`w-6 h-6 ${acceptedActive ? 'text-white' : 'text-green-500'}`} />
+                        Accepted
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveFilter(InvitationStatus.pending)}
+                        className={`${
+                            pendingActive ? "bg-blue-500" : "bg-white"
+                        } inline-flex items-center px-4 py-2 text-sm font-medium text-gray-900  border border-gray-200 rounded-l-lg hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-blue-500 dark:focus:text-white`}
+                    >
+                        <QuestionMarkCircleIcon className="w-6 h-6 text-yellow-300" />
+                        Pending
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveFilter(InvitationStatus.declined)}
+                        className={`${
+                            declinedActive ? "bg-blue-500" : "bg-white"
+                        } inline-flex items-center px-4 py-2 text-sm font-medium text-gray-900  border border-gray-200 rounded-l-lg hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-blue-500 dark:focus:text-white`}
+                    >
+                        <XCircleIcon className="w-6 h-6 text-red-500" />
+                        Declined
+                    </button>
+                </div> */}
                 <List>
                     {loaderData?.previousRequest?.map((request: OrganizationMemberShipRequest) => {
                         let bgColor = "";
@@ -196,8 +235,9 @@ const AssociateChurch = () => {
                         }
 
                         return (
-                            <div key={request.id} className="flex items-center">
-                                <Row className={bgColor}>
+                            <div key={request.id}>
+                                <OrgRequestCard request={request} showStatus />
+                                {/* <Row className={bgColor}>
                                     <RowItem>
                                         <Link to={`/churches/${request.parentOrganization.id}`}>
                                             <OrganizationListItem
@@ -209,7 +249,7 @@ const AssociateChurch = () => {
                                     </RowItem>
 
                                     <RowItem>{request.status}</RowItem>
-                                </Row>
+                                </Row> */}
                             </div>
                         );
                     })}
@@ -223,14 +263,11 @@ const AssociateChurch = () => {
             <List>
                 {loaderData?.organizations?.map((church: ChurchOrganization) => {
                     return (
-                        <div key={church.id} className="flex items-center">
-                            <Row>
-                                <Link to={`/churches/${church.id}`}>
-                                    <OrganizationListItem church={church} />
-                                </Link>
-                            </Row>
-                            <Button pill={true} className="ml-2" onClick={() => associateOrg(church)}>
-                                <PlusCircleIcon className="w-6 h-6" />
+                        <div key={church.id} className="">
+                            <ChurchRowCard church={church} />
+
+                            <Button className="ml-2" onClick={() => associateOrg(church)}>
+                                Request to join organization
                             </Button>
                         </div>
                     );
@@ -245,7 +282,7 @@ const AssociateChurch = () => {
             <Tabs.Group aria-label="Tabs with underline" style="underline">
                 <Tabs.Item title="Current Parent Organization">{currentOrganizations()}</Tabs.Item>
                 <Tabs.Item title="Make New Request">{makeNewRequest()}</Tabs.Item>
-                <Tabs.Item title="Request">{request()}</Tabs.Item>
+                <Tabs.Item title="Previous Request">{request()}</Tabs.Item>
             </Tabs.Group>
         </div>
     );

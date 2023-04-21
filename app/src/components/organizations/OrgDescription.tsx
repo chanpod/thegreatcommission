@@ -5,6 +5,7 @@ import PlaceholderImageOne from "app/src/assets/images/placeholderImage1.jpg";
 import PlaceholderImageTwo from "app/src/assets/images/placeholderImage2.jpg";
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import { convertAddressToLocation } from "../forms/createChurch/CreateChurchForm";
+import OrgLocation from "./OrgLocation";
 
 const OrgDescription = ({ org }: { org: ChurchOrganization }) => {
     const [location, setLocation] = useState<Location | undefined>(undefined);
@@ -34,11 +35,7 @@ const OrgDescription = ({ org }: { org: ChurchOrganization }) => {
                     <section className="flex flex-col space-y-3">
                         <div className="flex flex-col">
                             <div className="text-gray-500">Location</div>
-                            <a
-                                href={`https://www.google.com/maps/search/?api=1&query=${location?.lat},${location?.lng}`}
-                            >
-                                {org?.city}, {org?.state} {org?.zip}
-                            </a>
+                            <OrgLocation org={org} />
                         </div>
                         <div className="flex flex-col">
                             <div className="text-gray-500">Website</div>
