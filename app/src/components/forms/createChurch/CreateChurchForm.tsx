@@ -2,7 +2,7 @@ import { ChurchOrganization, Location } from "@prisma/client";
 import Geocode from "react-geocode";
 import React, { useRef, useState } from "react";
 import { Input } from "../input/Input";
-Geocode.setApiKey("AIzaSyCfegy8_oZx8eMWjpQxzM1SpzV1J9IoJ0Y");
+
 
 export interface IChurchFormData extends ChurchOrganization {
     name: string;

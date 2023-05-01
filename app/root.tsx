@@ -8,12 +8,15 @@ import { authenticator } from "./server/auth/strategies/authenticaiton";
 import Header from "./src/components/header/Header";
 import { Sidenav } from "./src/components/sidenav/Sidenav";
 import appStyles from "./src/styles/app.css";
+import treeStyles from 'react-tree-graph/dist/style.css'
+import Geocode from "react-geocode";
 
 import "flowbite";
 export const links: LinksFunction = () => [
     { rel: "stylesheet", href: "https://rsms.me/inter/inter.css" },
     { rel: "stylesheet", href: stylesheet },
     { rel: "stylesheet", href: appStyles },
+    { rel: "stylesheet", href: treeStyles },
     //add missionRowCard.css
 ];
 
@@ -24,12 +27,17 @@ export const meta: MetaFunction = () => ({
 });
 
 export interface IUserContext {
-    user: User | undefined;
+    user: User | undefined;    
+}
+
+export interface IAppEnv {
+    mapsApi: string;
 }
 
 export interface IAppContext {
     sideNavOpen: boolean;
     setSideNavOpen: (open: boolean) => void;
+    env: IAppEnv
 }
 
 export const loader = async ({ request }: LoaderArgs) => {
@@ -39,6 +47,9 @@ export const loader = async ({ request }: LoaderArgs) => {
         userContext: {
             user: user,
         },
+        env: {
+            mapsApi: process.env.GOOGLE_MAPS_KEY
+        }
     });
 };
 
@@ -46,12 +57,16 @@ export const UserContext = React.createContext<IUserContext>({ user: undefined }
 export const ApplicationContext = React.createContext<IAppContext>({
     sideNavOpen: false,
     setSideNavOpen: (open: boolean) => {},
+    env: {
+        mapsApi: ""
+    }
 });
 
 export default function App() {
     const loaderData = useLoaderData<typeof loader>();
     const [sideNavOpen, setSideNavOpen] = useState(false);
     const [mapContainer, setMapContainer] = useState(null);
+    Geocode.setApiKey(loaderData.env?.mapsApi as string);
     const mapRef = useCallback((node) => {
         node && setMapContainer(node);
     }, []);
@@ -76,7 +91,7 @@ export default function App() {
             </head>
             <body style={{ minHeight: "100vh" }} className="bg-[#0a192f]">
                 <div className="flex h-full relative">
-                    <ApplicationContext.Provider value={{ sideNavOpen, setSideNavOpen }}>
+                    <ApplicationContext.Provider value={{ sideNavOpen, setSideNavOpen, env: {...loaderData.env} }}>
                         <UserContext.Provider value={loaderData.userContext as IUserContext}>
                             <Sidenav />
 

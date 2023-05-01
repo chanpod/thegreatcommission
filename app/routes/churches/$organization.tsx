@@ -14,6 +14,7 @@ import { ChurchService } from "~/services/ChurchService";
 import List from "~/src/components/listItems/List";
 import { MissionRowCard } from "~/src/components/listItems/components/MissionRowCard";
 import { OrgAssociations } from "~/src/components/organizations/OrgAssociations";
+import OrgChart from "~/src/components/organizations/OrgChart";
 import OrgDescription from "~/src/components/organizations/OrgDescription";
 import UpdateToast from "~/src/components/toast/UpdateToast";
 import { classNames } from "~/src/helpers";
@@ -241,7 +242,10 @@ const ChurchPage = () => {
                             </List>
                         </Tabs.Item>
                         <Tabs.Item title="Associated Orgs">
-                            <OrgAssociations org={loaderData.organization as ChurchOrganization} />
+                            <>
+                                <OrgAssociations org={loaderData.organization as ChurchOrganization} />
+                                {/* <OrgChart /> */}
+                            </>
                         </Tabs.Item>
                         <Tabs.Item title="Members" disabled></Tabs.Item>
                     </Tabs.Group>
