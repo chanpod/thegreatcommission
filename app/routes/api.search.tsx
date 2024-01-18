@@ -1,4 +1,5 @@
 import { defer, json, LoaderArgs } from "@remix-run/node";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
 import { SearchEntityType } from "~/src/components/header/SearchBar";
 
@@ -50,7 +51,8 @@ export const loader = async ({ request, params }: LoaderArgs) => {
     const searchParams = url.searchParams;
     const search = (searchParams.get("search") as string) ?? "";
     const entityType = searchParams.get("type") as SearchEntityType;
-
+    const user = await authenticator.isAuthenticated(request);
+    
     let missionaryPromise, churchesPromise, missionsPromise;
 
     if (entityType) {
