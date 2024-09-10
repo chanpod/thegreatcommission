@@ -10,11 +10,13 @@ import React, { useCallback, useState } from "react";
 
 import { authenticator } from "./server/auth/strategies/authenticaiton";
 import Header from "./src/components/header/Header";
-import { Sidenav } from "./src/components/sidenav/Sidenav";
+
 import "./src/styles/app.css";
 import 'react-tree-graph/dist/style.css'
 import Geocode from "react-geocode";
-// import styles from "./tailwind.css"
+import { Sidenav } from "./components/sidenav";
+import { TGCLayout } from "./components/layout";
+import styles from "./tailwind.css"
 
 
 
@@ -117,17 +119,9 @@ export default function App() {
         <div className="flex h-full relative">
             <ApplicationContext.Provider value={{ sideNavOpen, setSideNavOpen, env: { ...loaderData.env! } }}>
                 <UserContext.Provider value={loaderData.userContext as IUserContext}>
-                    <Sidenav />
-
-                    <div className="flex-col w-full h-full">
-
-                        <Header />
-                        <div className="flex-col h-full  text-white pt-4 w-full ">
-                            <div className="p-0 md:p-3">
-                                <Outlet />
-                            </div>
-                        </div>
-                    </div>
+                    <TGCLayout>
+                        <Outlet />
+                    </TGCLayout>
                 </UserContext.Provider>
             </ApplicationContext.Provider>
         </div >

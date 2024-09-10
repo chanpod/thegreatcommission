@@ -12,6 +12,7 @@ import { MissionRowCard } from "~/src/components/listItems/components/MissionRow
 import MissionRowItem from "~/src/components/listItems/components/MissionRowItem";
 import Toolbar from "~/src/components/toolbar/Toolbar";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
+import TailwindColorTest from "~/components/test-component";
 
 const { map } = pkg;
 
@@ -56,6 +57,7 @@ export default function ChurchPage() {
                 )}
             </div>
             <hr className="my-4" />
+
             <Toolbar onChange={onSearchChange} />
             <div>
                 <List>

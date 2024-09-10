@@ -28,6 +28,10 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem
+    --tgc-primary-color: #f3f4f6;  /* Equivalent to colors.gray.100 */
+    --tgc-secondary-color: #d1d5db;  /* Equivalent to colors.gray.300 */
+    --tgc-accent-color: #ffffff;  /* Equivalent to colors.white */
+    --tgc-dark: #0a192f;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -64,3 +68,9 @@
     @apply bg-background text-foreground;
   }
 }
+
+.tgc-primary-color { color: rgb(var(--tgc-primary-color)); }
+.tgc-secondary-color { color: rgb(var(--tgc-secondary-color)); }
+.tgc-accent-color { color: rgb(var(--tgc-accent-color)); }
+.tgc-dark { color: rgb(var(--tgc-dark)); }
+
