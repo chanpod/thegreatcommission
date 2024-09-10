@@ -1,5 +1,7 @@
 import { Missions } from "@prisma/client";
-import { map } from "lodash";
+import pkg from "lodash";
+
+const { map } = pkg;
 
 import { ISearchEntityTypes, SearchEntityType } from "./SearchBar";
 import { MissionRowCard } from "../listItems/components/MissionRowCard";
@@ -21,7 +23,7 @@ const MissionsList = ({ missions, onSelected }: Props) => {
                         key={mission.id}
                         linkActive
                         mission={mission}
-                        
+
                     />
                 );
             })}

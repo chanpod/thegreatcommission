@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import React from "react";
 import OrgLocation from "../../organizations/OrgLocation";
 import ChurchRowCard from "../../listItems/components/ChurchRowCard";
-import { Button } from "flowbite-react";
+import { Button } from "shad/ui";
 import { InvitationStatus } from "~/src/types/invitation.types";
 import { CheckCircleIcon } from "@heroicons/react/24/solid";
 import { XCircleIcon } from "@heroicons/react/24/solid";

@@ -1,11 +1,11 @@
 import { ChurchOrganization, Missionary } from "@prisma/client";
 import { ActionArgs, json } from "@remix-run/node";
-import { Button } from "~/src/components/button/Button";
+import { Button } from "shad/ui";
 import { Input } from "~/src/components/forms/input/Input";
 import { prismaClient } from "~/server/dbConnection";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { Form } from "@remix-run/react";
-import { Card } from "flowbite-react";
+import { Card } from "shad/ui";
 
 export const action = async ({ request }: ActionArgs) => {
     console.log("Create missionary action");

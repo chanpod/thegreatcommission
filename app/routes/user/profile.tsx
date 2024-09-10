@@ -1,7 +1,7 @@
 import { Role } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
 import { Form, useFetcher, useLoaderData } from "@remix-run/react";
-import { Button, Card, Label } from "flowbite-react";
+import { Button, Card, Label } from "shad/ui";
 import { useContext, useState } from "react";
 import { UserContext } from "~/root";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";

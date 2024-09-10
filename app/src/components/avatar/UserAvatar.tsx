@@ -1,6 +1,6 @@
 import { PhotoIcon } from "@heroicons/react/24/outline";
 import { User } from "@prisma/client";
-import { Avatar } from "flowbite-react";
+import { Avatar } from "shad/ui";
 import React from "react";
 
 export const UserAvatar = ({ user }: { user?: User | null }) => {

@@ -9,12 +9,12 @@ import {
     TrashIcon,
 } from "@heroicons/react/24/outline";
 import { Missionary, Missions } from "@prisma/client";
-import { ActionArgs, LoaderArgs, json } from "@remix-run/node";
+import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
 import { Link, Outlet, useActionData, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { format } from "date-fns";
-import { Button, Card, Modal, Tabs } from "flowbite-react";
+import { Button, Card, Dialog, Tabs } from "shad/ui";
 import { Fragment, useState } from "react";
-import { ClientOnly } from "remix-utils";
+import { ClientOnly } from "remix-utils/client-only";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
 import { MissionsService } from "~/services/MissionsService";
@@ -25,7 +25,7 @@ import MissionMissionaries from "~/src/components/missions/Missionaries";
 import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 
-export const action = async ({ request, params }: ActionArgs) => {
+export const action = async ({ request, params }: ActionFunctionArgs) => {
     const user = await authenticator.isAuthenticated(request);
 
     if (request.method === "PUT") {
@@ -49,7 +49,7 @@ export const action = async ({ request, params }: ActionArgs) => {
     throw new Error("Method not allowed");
 };
 
-export const loader = async ({ request, params }: LoaderArgs) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const mission = await prismaClient.missions.findUnique({
         where: {
             id: params.mission,
@@ -68,8 +68,8 @@ export const loader = async ({ request, params }: LoaderArgs) => {
 const MissionaryPage = () => {
     const { isLoggedIn, user } = useIsLoggedIn();
     const [showUpdateToast, setShowUpdateToast] = useState(false);
-    const loaderData = useLoaderData();
-    const actionData = useActionData();
+    const loaderData = useLoaderData<typeof loader>();
+    const actionData = useActionData<typeof action>();
     const deleteFetcher = useFetcher();
     const loading = deleteFetcher.state === "submitting" || deleteFetcher.state === "loading";
     const navigate = useNavigate();
@@ -97,7 +97,7 @@ const MissionaryPage = () => {
                 <div className="flex-1">
                     <div className="flex items-center justify-start">
                         <h1 className="flex text-3xl relative">
-                            {loaderData.mission.sensitive && (
+                            {loaderData.mission?.sensitive && (
                                 <ShieldCheckIcon color="green" className="rounded-full h-8 w-8 " />
                             )}
                             Mission: {loaderData.mission?.title}{" "}
@@ -112,7 +112,7 @@ const MissionaryPage = () => {
                     </div>
                     <div className="text-sm text-gray-500 items-center flex">
                         <CalendarIcon className="w-4 h-4 mr-2" />
-                        {format(new Date(loaderData.mission?.beginDate), "MM-dd-yyyy")} until {getEndTime()}
+                        {format(new Date(loaderData.mission?.beginDate!), "MM-dd-yyyy")} until {getEndTime()}
                     </div>
                     <div className="text-sm text-gray-500">
                         <Link
@@ -128,7 +128,7 @@ const MissionaryPage = () => {
                     <Menu as="div" className="relative ml-3">
                         <div className="">
                             <Menu.Button className="flex items-center">
-                                <Button pill outline>
+                                <Button>
                                     <span className="sr-only">Open user menu</span>
                                     <PencilIcon className="h-6 w-6 " />
                                 </Button>
@@ -160,7 +160,7 @@ const MissionaryPage = () => {
                                 <Menu.Item>
                                     {({ active }) => (
                                         <div
-                                            onClick={() => navigate(`/missions/${loaderData.mission.id}/missionary`)}
+                                            onClick={() => navigate(`/missions/${loaderData.mission?.id!}/missionary`)}
                                             className={classNames(
                                                 active ? "bg-gray-100" : "",
                                                 "cursor-pointer block px-4 py-2 text-sm text-gray-700"
@@ -190,7 +190,7 @@ const MissionaryPage = () => {
                 <div className="flex-1 space-y-3">
                     <Tabs.Group aria-label="Tabs with icons" style="underline">
                         <Tabs.Item title="Details">
-                            <MissionDescription mission={loaderData.mission} />
+                            <MissionDescription mission={loaderData.mission!} />
                         </Tabs.Item>
                         <Tabs.Item title="Missionaries">
                             <MissionMissionaries mission={loaderData.mission} />

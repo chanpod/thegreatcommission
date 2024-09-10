@@ -1,9 +1,7 @@
 import { Disclosure, Menu, Transition } from "@headlessui/react";
-import { Bars3Icon, PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Link, useMatches, useNavigation } from "@remix-run/react";
-import { Avatar } from "flowbite-react";
 import { Fragment, useContext, useState } from "react";
-import { TailSpin } from "react-loader-spinner";
 import { ApplicationContext } from "~/root";
 import tgcIcon from "~/src/assets/images/tgcIcon.png";
 import { classNames } from "~/src/helpers";
@@ -11,6 +9,9 @@ import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import { UserAvatar } from "../avatar/UserAvatar";
 import LoginModal from "./LoginModal";
 import SearchBar from "./SearchBar";
+import React from "react";
+const TailSpin = React.lazy(() => import('react-loader-spinner').then(module => ({ default: module.TailSpin })));
+
 
 export const navigation = [
     { name: "Churches", href: "/churches", current: true },
@@ -27,7 +28,7 @@ export default function Header() {
     const [searchLoading, setSearchLoading] = useState(false);
     const { isLoggedIn, user } = useIsLoggedIn();
 
-    function handleClose(success = false){
+    function handleClose(success = false) {
         console.log("Closing")
         setShowLoginModal(false);
     }

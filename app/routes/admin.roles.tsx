@@ -1,10 +1,14 @@
-import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
+import { ActionFunctionArgs, json, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
-import { Button, Card } from "flowbite-react";
-import { map } from "lodash";
+
+import pkg from "lodash";
+import { Button } from "shad/ui";
+import { Card } from "~/components/ui/card";
 import { prismaClient } from "~/server/dbConnection";
 
-export const loader = async ({ request, params }: LoaderArgs) => {
+const { map } = pkg;
+
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const roles = await prismaClient.role.findMany();
 
     return json({
@@ -12,7 +16,7 @@ export const loader = async ({ request, params }: LoaderArgs) => {
     });
 };
 
-export const action = async ({ request, params }: ActionArgs) => {
+export const action = async ({ request, params }: ActionFunctionArgs) => {
     if (request.method === "POST") {
         const form = await request.formData();
         const name = form.get("name");

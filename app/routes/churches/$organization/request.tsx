@@ -1,18 +1,13 @@
-import { CheckIcon, StopIcon, XCircleIcon } from "@heroicons/react/24/outline";
-import { ChurchOrganization, OrganizationMemberShipRequest } from "@prisma/client";
-import { json, LoaderArgs } from "@remix-run/node";
+import { OrganizationMemberShipRequest } from "@prisma/client";
+import { json, LoaderFunctionArgs } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
-import { format } from "date-fns";
-import { Button, Card } from "flowbite-react";
-import React from "react";
 import { prismaClient } from "~/server/dbConnection";
 import OrgRequestCard from "~/src/components/forms/cards/OrgRequestCard";
 
 import List from "~/src/components/listItems/List";
-import Row from "~/src/components/listItems/Row";
 import { InvitationStatus, InvitationTypes } from "~/src/types/invitation.types";
 
-export const loader = async ({ request, params }: LoaderArgs) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const organization = await prismaClient.churchOrganization.findUnique({
         where: {
             id: params.organization,
@@ -39,7 +34,7 @@ export const loader = async ({ request, params }: LoaderArgs) => {
 };
 
 const Request = () => {
-    const loaderData = useLoaderData();
+    const loaderData = useLoaderData<typeof loader>();
 
     const acceptFetcher = useFetcher();
 
@@ -47,7 +42,7 @@ const Request = () => {
         acceptFetcher.submit(
             {
                 orgId: orgId,
-                parentOrgId: loaderData.organization?.id,
+                parentOrgId: loaderData.organization?.id!,
                 invitationId: invitationId,
                 type: InvitationTypes.Organization,
             },
@@ -62,7 +57,7 @@ const Request = () => {
         acceptFetcher.submit(
             {
                 orgId: orgId,
-                parentOrgId: loaderData.organization?.id,
+                parentOrgId: loaderData.organization?.id!,
                 invitationId: invitationId,
                 type: InvitationTypes.Organization,
             },

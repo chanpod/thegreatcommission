@@ -1,3 +1,7 @@
+const {
+    createRoutesFromFolders,
+} = require("@remix-run/v1-route-convention");
+
 /** @type {import('@remix-run/dev').AppConfig} */
 module.exports = {
     serverBuildTarget: "vercel",
@@ -6,11 +10,17 @@ module.exports = {
     // so we default back to the standard build output.
     server: process.env.NODE_ENV === "development" ? undefined : "./server.js",
     ignoredRouteFiles: ["**/.*"],
-    future: {
-        unstable_tailwind: true,
-    },    
+    tailwind: true,
+    postcss: true,
+    routes(defineRoutes) {
+        // uses the v1 convention, works in v1.15+ and v2
+        return createRoutesFromFolders(defineRoutes);
+    },
+    serverDependenciesToBundle: [
+        /^remix-utils.*/,
+        "react-loader-spinner"
+    ],
     // appDirectory: "app",
     // assetsBuildDirectory: "public/build",
-    // serverBuildPath: "api/index.js",
     // publicPath: "/build/",
 };

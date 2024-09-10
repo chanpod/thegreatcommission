@@ -1,5 +1,5 @@
 import { ChurchOrganization, Location, Missions } from "@prisma/client";
-import { Card, Carousel } from "flowbite-react";
+import { Card, Carousel } from "shad/ui";
 import React, { useEffect, useState } from "react";
 import PlaceholderImageOne from "app/src/assets/images/placeholderImage1.jpg";
 import PlaceholderImageTwo from "app/src/assets/images/placeholderImage2.jpg";

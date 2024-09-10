@@ -1,20 +1,19 @@
+import { ArrowLongRightIcon } from "@heroicons/react/24/outline";
 import { Link, useMatches } from "@remix-run/react";
-import { navigation } from "../header/Header";
-import { ArrowLongRightIcon, BuildingLibraryIcon } from "@heroicons/react/24/outline";
-import tgcIcon from "~/src/assets/images/tgcIcon.png";
-import { Button, Sidebar } from "flowbite-react";
-import { ChurchIcon } from "~/src/assets/icons/churchIcon";
-import { useContext, useEffect, useRef, useState } from "react";
-import { ApplicationContext } from "~/root";
-import { useClickOutside } from "~/src/hooks/useClickOutside";
 import { AnimatePresence, motion } from "framer-motion";
+import { useContext, useEffect, useRef, useState } from "react";
+import { Button } from "shad/ui";
+import { ApplicationContext } from "~/root";
+import tgcIcon from "~/src/assets/images/tgcIcon.png";
+import { useClickOutside } from "~/src/hooks/useClickOutside";
+import { navigation } from "../header/Header";
 export function Sidenav() {
     const matches = useMatches();
     const ref = useRef();
     const outsideClicked = useClickOutside(ref);
 
     const [isMobile, setIsMobile] = useState(false);
-    const [showSidebar, setShowSidebar] = useState(false);
+    const [showSidebar, setShowSidebar] = useState(true);
 
     const { sideNavOpen, setSideNavOpen } = useContext(ApplicationContext);
 
@@ -99,16 +98,15 @@ export function Sidenav() {
                                 return (
                                     <Link
                                         onClick={() => setSideNavOpen(false)}
-                                        className={`flex flex-row items-center m-2 h-14 px-4 rounded-lg text-gray-300 hover:bg-gray-100 hover:text-gray-700 ${
-                                            current
-                                                ? "bg-[#0a192f] text-white justify-items-between rounded-md"
-                                                : "bg-[#172b4d]"
-                                        }`}
+                                        className={`flex flex-row items-center m-2 h-14 px-4 rounded-[10px] text-gray-300 hover:bg-gray-100 hover:text-gray-700 ${current
+                                            ? "bg-[#0a192f] text-white justify-items-between rounded-[10px]"
+                                            : "bg-[#172b4d]"
+                                            }`}
                                         style={
                                             current
                                                 ? {
-                                                      justifyContent: "space-between",
-                                                  }
+                                                    justifyContent: "space-between",
+                                                }
                                                 : null
                                         }
                                         key={item.name}

@@ -1,11 +1,10 @@
-import { Button, Card } from "flowbite-react";
-import React from "react";
-import List from "../listItems/List";
 import { ChurchOrganization } from "@prisma/client";
-import { map } from "lodash";
-import Row from "../listItems/Row";
-import { Link } from "@remix-run/react";
-import OrganizationListItem from "../listItems/components/OrganizationListItem";
+import { Card } from "shad/ui";
+import pkg from "lodash";
+import List from "../listItems/List";
+
+const { map } = pkg;
+
 import ChurchRowCard from "../listItems/components/ChurchRowCard";
 
 export const OrgAssociations = ({ org }: { org: ChurchOrganization }) => {

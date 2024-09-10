@@ -1,11 +1,11 @@
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { Missions } from "@prisma/client";
-import { LoaderArgs, json } from "@remix-run/node";
+import { LoaderFunctionArgs, json } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
-import { Card, Select } from "flowbite-react";
-import { map } from "lodash";
+import { Card, Select } from "shad/ui";
+import pkg from "lodash";
 import { prismaClient } from "~/server/dbConnection";
-import { Button } from "~/src/components/button/Button";
+import { Button } from "shad/ui";
 import { SearchEntityType } from "~/src/components/header/SearchBar";
 import List from "~/src/components/listItems/List";
 import { MissionRowCard } from "~/src/components/listItems/components/MissionRowCard";
@@ -13,7 +13,11 @@ import MissionRowItem from "~/src/components/listItems/components/MissionRowItem
 import Toolbar from "~/src/components/toolbar/Toolbar";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 
-export const loader = async ({ request }: LoaderArgs) => {
+const { map } = pkg;
+
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+    console.log("------------------------")
+    console.log(process.env.DATABASE_URL);
     const missions = await prismaClient.missions.findMany({
         include: {
             ChurchOrganization: true,

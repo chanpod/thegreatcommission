@@ -2,17 +2,16 @@ import { PlusIcon } from "@heroicons/react/24/outline";
 import { Missionary } from "@prisma/client";
 import { json, LoaderArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
-import { Card } from "flowbite-react";
-import { map } from "lodash";
+import pkg from "lodash";
 import { prismaClient } from "~/server/dbConnection";
-import { Button } from "~/src/components/button/Button";
+import { Button } from "shad/ui";
 import { SearchEntityType } from "~/src/components/header/SearchBar";
 import List from "~/src/components/listItems/List";
 import { MissionaryRowCard } from "~/src/components/listItems/components/MissionaryRowCard";
-import MissionaryListItem from "~/src/components/missions/MissionaryListItem";
 import Toolbar from "~/src/components/toolbar/Toolbar";
-
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
+
+const { map } = pkg;
 
 export const loader = async ({ request }: LoaderArgs) => {
     const url = new URL(request.url);

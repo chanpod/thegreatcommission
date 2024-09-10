@@ -1,6 +1,6 @@
 import { ChurchOrganization } from "@prisma/client";
 import { ActionArgs, json, redirect } from "@remix-run/node";
-import { Button } from "~/src/components/button/Button";
+import { Button } from "shad/ui";
 import { Input } from "~/src/components/forms/input/Input";
 import { prismaClient } from "~/server/dbConnection";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
@@ -8,7 +8,7 @@ import { Form, useActionData } from "@remix-run/react";
 import { useEffect } from "react";
 import CreateChurchForm, { IChurchFormData } from "~/src/components/forms/createChurch/CreateChurchForm";
 import { ChurchService } from "~/services/ChurchService";
-import { Card } from "flowbite-react";
+import { Card } from "~/components/ui/card";
 
 export const action = async ({ request }: ActionArgs) => {
     console.log("Create church action");
@@ -53,7 +53,7 @@ export default function CreateChurch() {
         }
     }, [actionData?.status]);
 
- 
+
 
     return (
         <div className="flex-col space-y-5 ">
