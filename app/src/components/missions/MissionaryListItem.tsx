@@ -5,7 +5,7 @@ import EmptyAvatar from "../avatar/EmptyAvatar";
 import Row from "../listItems/Row";
 import RowItem, { primaryText, secondaryText } from "../listItems/RowItem";
 import { Missionary } from "@prisma/client";
-import { Button } from "flowbite-react";
+import { Button } from "shad/ui";
 import { TrashIcon } from "@heroicons/react/24/outline";
 
 const MissionaryListItem = ({ missionary, editing }: { missionary: Missionary; editing?: boolean }) => {

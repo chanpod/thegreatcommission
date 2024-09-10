@@ -1,15 +1,13 @@
-import { Outlet, useLoaderData, useNavigation } from "@remix-run/react";
-import Header from "~/src/components/header/Header";
-import TheGreatCommissionImage from "~/src/assets/images/mainSplash.png";
-import tgcIcon from "~/src/assets/images/tgcIcon.png";
-import { useGoogleMap } from "@ubilabs/google-maps-react-hooks";
-import WorldMap from "~/src/components/maps/WorldMap";
-import { json, LoaderArgs } from "@remix-run/node";
+import { Missions } from "@prisma/client";
+import { json, LoaderFunctionArgs } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
+import pkg from "lodash";
 import { prismaClient } from "~/server/dbConnection";
-import { map } from "lodash";
-import { Location, Missions } from "@prisma/client";
+import WorldMap from "~/src/components/maps/WorldMap";
 
-export const loader = async ({ request, params }: LoaderArgs) => {
+const { map } = pkg;
+
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const missionMarkers = await prismaClient.missions.findMany({
         select: {
             location: true,
@@ -51,7 +49,7 @@ const containerStyle = {
 
 
 export default function Index() {
-    const loaderData = useLoaderData();
+    const loaderData = useLoaderData<typeof loader>();
     return (
         <div className="relative">
             <div className="absolute backdrop-blur-sm left-1 top-1 z-10 rounded-md border-solid border-[#221d1d3d] bg-[#2c272759] p-2 m-2 max-w-5xl">
@@ -62,6 +60,7 @@ export default function Index() {
                 </blockquote>
             </div>
             <div>
+
                 <WorldMap
                     pins={map(loaderData.missionMarkers, (missionMarker: Partial<Missions>) => missionMarker.location)}
                 />

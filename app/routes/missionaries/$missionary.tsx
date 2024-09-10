@@ -9,7 +9,7 @@ import {
 import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
 import { Link, Outlet, useLoaderData, useNavigate, useParams } from "@remix-run/react";
 import { format } from "date-fns";
-import { Button, Card, Tabs } from "flowbite-react";
+import { Button, Card, Tabs } from "shad/ui";
 
 import React, { Fragment } from "react";
 import { prismaClient } from "~/server/dbConnection";

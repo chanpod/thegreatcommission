@@ -1,18 +1,12 @@
-import { Menu, Transition } from "@headlessui/react";
-import { Bars3Icon, CheckCircleIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
-import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
-import { Form, Link, useActionData, useFetcher, useLoaderData, useNavigate, useParams } from "@remix-run/react";
-import { format } from "date-fns";
-import { Button, Card, Modal } from "flowbite-react";
-import React, { Fragment, useState } from "react";
-import { ClientOnly } from "remix-utils";
+import { CheckCircleIcon } from "@heroicons/react/24/outline";
+import { json, LoaderFunctionArgs } from "@remix-run/node";
+import { Form, useLoaderData, useNavigate } from "@remix-run/react";
+import { Button } from "shad/ui";
 import { prismaClient } from "~/server/dbConnection";
 
 import CreateMissionForm from "~/src/components/forms/createMission/CreateMissionForm";
-import { classNames } from "~/src/helpers";
-import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 
-export const loader = async ({ request, params }: LoaderArgs) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const mission = await prismaClient.missions.findUnique({
         where: {
             id: params.mission,

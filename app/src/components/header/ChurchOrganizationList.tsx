@@ -4,7 +4,9 @@ import EmptyAvatar from "../avatar/EmptyAvatar";
 import Row from "../listItems/Row";
 import RowItem from "../listItems/RowItem";
 import { ISearchEntityTypes, SearchEntityType } from "./SearchBar";
-import { map } from "lodash";
+import pkg from "lodash";
+
+const { map } = pkg;
 
 interface Props {
     churches: ChurchOrganization[];

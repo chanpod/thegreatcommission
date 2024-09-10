@@ -2,14 +2,18 @@ import { PlusIcon } from "@heroicons/react/24/outline";
 import { ChurchOrganization } from "@prisma/client";
 import { json, LoaderArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
-import { map } from "lodash";
+import pkg from "lodash";
 import { prismaClient } from "~/server/dbConnection";
-import { Button } from "~/src/components/button/Button";
+import { Button } from "shad/ui";
 import { SearchEntityType } from "~/src/components/header/SearchBar";
 import ChurchRowCard from "~/src/components/listItems/components/ChurchRowCard";
 import List from "~/src/components/listItems/List";
 import Toolbar from "~/src/components/toolbar/Toolbar";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
+import { ListComponent } from "~/components/list-component";
+
+const { map } = pkg;
+
 export const loader = async ({ request }: LoaderArgs) => {
     const churches = await prismaClient.churchOrganization.findMany({
         include: {
@@ -49,11 +53,13 @@ export default function ChurchPage() {
 
             <Toolbar onChange={onSearchChange} />
             <div>
-                <List>
+                <ListComponent>
+
                     {map(churches, (church: ChurchOrganization) => {
                         return <ChurchRowCard linkActive church={church} key={church.id} />;
                     })}
-                </List>
+
+                </ListComponent>
             </div>
         </div>
     );

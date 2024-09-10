@@ -1,5 +1,5 @@
 import { Missionary, Missions } from "@prisma/client";
-import { Card } from "flowbite-react";
+import { Card } from "shad/ui";
 import List from "../listItems/List";
 import MissionaryListItem from "./MissionaryListItem";
 
@@ -19,7 +19,7 @@ const MissionMissionaries = ({ mission }: { mission: Missions }) => {
                 )}
                 <List>
                     {mission?.missionaries?.map((missionary: Missionary) => (
-                        <MissionaryListItem  key={missionary.id} missionary={missionary} />
+                        <MissionaryListItem key={missionary.id} missionary={missionary} />
                     ))}
                 </List>
             </>

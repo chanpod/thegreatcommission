@@ -1,19 +1,13 @@
-import { PlusCircleIcon } from "@heroicons/react/24/outline";
-import { CheckCircleIcon, QuestionMarkCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import { ChurchOrganization, OrganizationMemberShipRequest } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
-import { Link, useFetcher, useLoaderData } from "@remix-run/react";
-import { format } from "date-fns";
-import { Button, Tabs } from "flowbite-react";
-import React, { useState } from "react";
+import { useFetcher, useLoaderData } from "@remix-run/react";
+import { useState } from "react";
 import { prismaClient } from "~/server/dbConnection";
-import EmptyAvatar from "~/src/components/avatar/EmptyAvatar";
+
+import { Button } from "shad/ui";
 import OrgRequestCard from "~/src/components/forms/cards/OrgRequestCard";
 import ChurchRowCard from "~/src/components/listItems/components/ChurchRowCard";
-import OrganizationListItem from "~/src/components/listItems/components/OrganizationListItem";
 import List from "~/src/components/listItems/List";
-import Row from "~/src/components/listItems/Row";
-import RowItem, { primaryText, secondaryText } from "~/src/components/listItems/RowItem";
 import { InvitationStatus, InvitationTypes } from "~/src/types/invitation.types";
 
 export const loader = async ({ request, params }: LoaderArgs) => {

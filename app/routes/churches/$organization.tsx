@@ -3,9 +3,9 @@ import { ArrowLeftIcon, ArrowTopRightOnSquareIcon, PencilIcon, TrashIcon } from 
 import { ChurchOrganization, Missions } from "@prisma/client";
 import { ActionArgs, json, LoaderArgs, redirect } from "@remix-run/node";
 import { Link, Outlet, useActionData, useFetcher, useLoaderData, useLocation, useNavigate } from "@remix-run/react";
-import { Button, Card, Tabs, Toast } from "flowbite-react";
+import { Button, Card, Tabs, Toast } from "shad/ui";
 import { AnimatePresence, motion } from "framer-motion";
-import { map } from "lodash";
+import pkg from "lodash";
 import { Fragment, useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
@@ -21,6 +21,7 @@ import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import { InvitationStatus } from "~/src/types/invitation.types";
 
+const { map } = pkg;
 export const loader = async ({ request, params }: LoaderArgs) => {
     const organization = await prismaClient.churchOrganization.findUnique({
         where: {

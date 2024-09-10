@@ -1,19 +1,19 @@
 import { Missions } from "@prisma/client";
-import { Card, Carousel } from "flowbite-react";
+import { Card, Carousel } from "shad/ui";
 import React from "react";
 import PlaceholderImageOne from "app/src/assets/images/placeholderImage1.jpg";
 import PlaceholderImageTwo from "app/src/assets/images/placeholderImage2.jpg";
 import CurrencyFormatter from "../forms/currencyFormat/CurrencyFormatter";
 
-const MissionDescription = ({ mission }: { mission: Missions }) => {
+const MissionDescription = ({ mission }: { mission: Missions | undefined }) => {
     return (
         <>
             <div className="h-56 sm:h-64 xl:h-80 2xl:h-96">
                 <Carousel slideInterval={5000}>
                     <img src={PlaceholderImageOne} alt="..." />
                     <img src={PlaceholderImageTwo} alt="..." />
-                    
-                    
+
+
                 </Carousel>
             </div>
             <Card>
@@ -31,7 +31,7 @@ const MissionDescription = ({ mission }: { mission: Missions }) => {
                             <div className="text-gray-500">Funding Raised: </div>${mission?.fundingRaised ?? 0}
                         </div>
                         <div className="flex">
-                            <div className="text-gray-500">Community Investment: </div><CurrencyFormatter value = {mission?.investment ?? 0} />
+                            <div className="text-gray-500">Community Investment: </div><CurrencyFormatter value={mission?.investment ?? 0} />
                         </div>
                     </section>
                 </>

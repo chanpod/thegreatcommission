@@ -1,13 +1,10 @@
-import { ChurchOrganization, Location, Missionary, Missions } from "@prisma/client";
-import { ActionArgs, json } from "@remix-run/node";
-import { Form, useFetcher } from "@remix-run/react";
-import { Card } from "flowbite-react";
-import { useState } from "react";
-import { DateValueType } from "react-tailwindcss-datepicker/dist/types";
+import { Location, Missions } from "@prisma/client";
+import { ActionFunctionArgs, json } from "@remix-run/node";
+import { Form } from "@remix-run/react";
+import { Button, Card } from "shad/ui";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { prismaClient } from "~/server/dbConnection";
 import { MissionsService } from "~/services/MissionsService";
-import { Button } from "~/src/components/button/Button";
 import CreateMissionForm from "~/src/components/forms/createMission/CreateMissionForm";
 
 export interface IMissionsFormData {
@@ -22,7 +19,7 @@ export interface IMissionsFormData {
     fundingRaised?: number;
 }
 
-export const action = async ({ request }: ActionArgs) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
     console.log("Create missionary action");
 
     const user = await authenticator.isAuthenticated(request);
