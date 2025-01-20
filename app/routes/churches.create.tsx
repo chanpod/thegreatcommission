@@ -12,7 +12,7 @@ import { db } from "~/server/dbConnection";
 
 export const action = async ({ request }: Route.ActionArgs) => {
     console.log("Create church action");
-    const user = await authenticator.authenticate("google", request);
+    const user = await authenticator.isAuthenticated(request);
     console.log(user);
 
     if (request.method === "POST") {

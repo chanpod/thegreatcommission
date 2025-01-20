@@ -14,12 +14,13 @@ const center = {
 interface Props {
     coordinatesChanged?: (coordinates: google.maps.LatLngLiteral) => void;
     pins?: google.maps.LatLngLiteral[];
+    googleMapsApiKey: string;
 }
 
 function WorldMap(props: Props) {
     const { isLoaded } = useJsApiLoader({
         id: "google-map-script",
-        googleMapsApiKey: "AIzaSyCfegy8_oZx8eMWjpQxzM1SpzV1J9IoJ0Y",
+        googleMapsApiKey: props.googleMapsApiKey,
     });
 
     const [map, setMap] = useState<google.maps.Map | null>(null);

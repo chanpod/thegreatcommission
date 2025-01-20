@@ -16,7 +16,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 export const action = async ({ request }: Route.ActionArgs) => {
     console.log("Logging in");
 
-    return await authenticator.authenticate("google", request);
+    return await authenticator.isAuthenticated(request);
 };
 
 export default function LoginPage() {

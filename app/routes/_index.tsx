@@ -8,11 +8,12 @@ import type { Route } from "./+types";
 import { db } from "~/server/dbConnection";
 import { missions } from "server/db/schema";
 import { ne } from "drizzle-orm";
+import { ClientOnly } from "remix-utils/client-only";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
     const missionMarkers = await db.select().from(missions).where(ne(missions.lat, null));
 
-    return { missionMarkers };
+    return { missionMarkers, googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY };
 };
 
 const quoteContainerStyle = {
@@ -45,6 +46,7 @@ export default function Index() {
     const loaderData = useLoaderData<typeof loader>();
     return (
         <div className="relative">
+            asdfsdf
             <div className="absolute backdrop-blur-sm left-1 top-1 z-10 rounded-md border-solid border-[#221d1d3d] bg-[#2c272759] p-2 m-2 max-w-5xl">
                 <blockquote className="bold text-xl lg:text-4xl italic">
                     "Therefore go and make disciples of all nations, baptizing them in the name of the Father and of the
@@ -53,10 +55,15 @@ export default function Index() {
                 </blockquote>
             </div>
             asdfasdasdf
+            {loaderData.missionMarkers.length}
             <div>
-                <WorldMap
-                    pins={map(loaderData.missionMarkers, (missionMarker: Partial<typeof missions>) => [missionMarker.lat, missionMarker.lng])}
-                />
+                <ClientOnly>
+                    {() => <WorldMap
+                        googleMapsApiKey={loaderData.googleMapsApiKey}
+                        pins={map(loaderData.missionMarkers, (missionMarker: Partial<typeof missions>) => [missionMarker.lat, missionMarker.lng])}
+                    />
+                    }
+                </ClientOnly>
             </div>
         </div>
     );

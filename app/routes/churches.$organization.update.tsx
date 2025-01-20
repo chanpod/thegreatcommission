@@ -18,7 +18,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 
 export const action = async ({ request, params }: Route.ActionArgs) => {
     if (request.method === "PUT") {
-        const user = await authenticator.authenticate("google", request);
+        const user = await authenticator.isAuthenticated(request);
         if (!user) return data({ message: "Not Authenticated" }, { status: 401 });
 
         console.log("UPdating the church");

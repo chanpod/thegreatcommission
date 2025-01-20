@@ -10,7 +10,7 @@ import { Card } from "~/components/ui/card";
 export const action = async ({ request }: Route.ActionArgs) => {
     console.log("Create missionary action");
 
-    const user = await authenticator.authenticate("google", request);
+    const user = await authenticator.isAuthenticated(request);
 
     if (request.method === "POST") {
         const form = await request.formData();

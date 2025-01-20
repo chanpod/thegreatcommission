@@ -51,7 +51,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
     const searchParams = url.searchParams;
     const search = (searchParams.get("search") as string) ?? "";
     const entityType = searchParams.get("type") as SearchEntityType;
-    const user = await authenticator.authenticate("google", request);
+    const user = await authenticator.isAuthenticated(request);
     
     let missionaryPromise, churchesPromise, missionsPromise;
 

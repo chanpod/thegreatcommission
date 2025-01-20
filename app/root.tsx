@@ -9,7 +9,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import stylesheet from "./app.css?url";
+import stylesheet from "./app.css?url"; 
 import { authenticator } from "./server/auth/strategies/authenticaiton";
 import { createContext, useCallback, useState } from "react";
 import type { users } from "server/db/schema";

@@ -43,7 +43,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 
 export const action = async ({ request, params }: Route.ActionArgs) => {
     if (request.method === "PUT") {
-        const user = await authenticator.authenticate("google", request);
+        const user = await authenticator.isAuthenticated(request);
         if (!user) return data({ message: "Not Authenticated" }, { status: 401 });
 
         console.log("Updating the church");
@@ -57,7 +57,7 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
             success: true,
         };
     } else if (request.method === "DELETE") {
-        const user = await authenticator.authenticate("google", request);
+        const user = await authenticator.isAuthenticated(request);
         if (!user) return data({ message: "Not Authenticated" }, { status: 401 });
 
         const response = await db.delete(churchOrganization).where(eq(churchOrganization.id, params.organization!));

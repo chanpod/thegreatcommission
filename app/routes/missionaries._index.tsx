@@ -9,6 +9,7 @@ import Toolbar from "~/src/components/toolbar/Toolbar";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import type { Route } from "./+types";
 import { missionaries } from "server/db/schema";
+import { db } from "~/server/dbConnection";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
     const url = new URL(request.url);

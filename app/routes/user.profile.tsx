@@ -26,7 +26,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
     if (request.method === "POST") {
         const form = await request.formData();
         const role = JSON.parse(form.get("role") as string);
-        const user = await authenticator.authenticate("google", request);
+        const user = await authenticator.isAuthenticated(request);
 
         const updatedUser = await db
             .update(users)
@@ -45,7 +45,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
         const firstName = form.get("firstName") as string;
         const lastName = form.get("lastName") as string;
         const avatarUrl = form.get("avatarUrl") as string;
-        const user = await authenticator.authenticate("google", request);
+        const user = await authenticator.isAuthenticated(request);
 
         const updatedUser = await db
             .update(users)
