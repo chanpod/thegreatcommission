@@ -4,10 +4,10 @@ import { Button } from "~/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "~/components/ui/sheet"
 import { MenuIcon, X } from "lucide-react"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu"
 
 import { ApplicationContext } from "~/root";
@@ -33,7 +33,7 @@ export default function Header() {
     const [searchLoading, setSearchLoading] = useState(false);
     const { isLoggedIn, user } = useIsLoggedIn();
 
-    function handleClose(success = false){
+    function handleClose(success = false) {
         console.log("Closing")
         setShowLoginModal(false);
     }
@@ -45,19 +45,15 @@ export default function Header() {
                     <div className="inset-y-0 left-0 items-center lg:hidden">
                         <Sheet>
                             <SheetTrigger asChild>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    onClick={() => applicationContext.setSideNavOpen(!applicationContext.sideNavOpen)}
-                                    className="text-gray-400 hover:bg-gray-700 hover:text-white"
-                                >
+                                <>
                                     <span className="sr-only">Open main menu</span>
                                     {applicationContext.sideNavOpen ? (
                                         <X className="h-6 w-6" />
                                     ) : (
                                         <MenuIcon className="h-6 w-6" />
                                     )}
-                                </Button>
+
+                                </>
                             </SheetTrigger>
                         </Sheet>
                     </div>
@@ -81,14 +77,13 @@ export default function Header() {
                     <div className="flex flex-1 items-start align-items-start sm:items-stretch sm:justify-start relative">
                         <SearchBar inputStyle="header" setLoading={(loading) => setSearchLoading(loading)} />
                     </div>
-                    <div className="inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+                    <div >
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="flex items-center">
-                                    <span className="sr-only">Open user menu</span>
-                                    <UserAvatar user={user} />
-                                    {user?.firstName}
-                                </Button>
+                            <DropdownMenuTrigger >
+
+                                <UserAvatar user={user} />
+
+
                             </DropdownMenuTrigger>
                             <DropdownMenuContent className="w-48">
                                 {isLoggedIn ? (

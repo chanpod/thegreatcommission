@@ -5,7 +5,7 @@ import { Input } from "../input/Input";
 import { churchOrganization } from "server/db/schema";
 
 
-export interface IChurchFormData extends churchOrganization {
+export interface IChurchFormData extends typeof churchOrganization.$inferSelect {
     name: string;
     city: string;
     state: string;

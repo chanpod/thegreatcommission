@@ -41,7 +41,7 @@ export const links: Route.LinksFunction = () => [
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
   const user = await authenticator.isAuthenticated(request);
-
+  
   return {
       userContext: {
           user: user,

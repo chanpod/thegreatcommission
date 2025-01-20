@@ -46,7 +46,7 @@ export default function Index() {
     const loaderData = useLoaderData<typeof loader>();
     return (
         <div className="relative">
-            asdfsdf
+            
             <div className="absolute backdrop-blur-sm left-1 top-1 z-10 rounded-md border-solid border-[#221d1d3d] bg-[#2c272759] p-2 m-2 max-w-5xl">
                 <blockquote className="bold text-xl lg:text-4xl italic">
                     "Therefore go and make disciples of all nations, baptizing them in the name of the Father and of the
@@ -54,8 +54,7 @@ export default function Index() {
                     I am with you always, to the very end of the age." - Matthew 28:19-20
                 </blockquote>
             </div>
-            asdfasdasdf
-            {loaderData.missionMarkers.length}
+            
             <div>
                 <ClientOnly>
                     {() => <WorldMap

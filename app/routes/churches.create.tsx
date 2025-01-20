@@ -2,9 +2,9 @@ import { Button } from "~/components/ui/button";;
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { data, Form, useActionData } from "react-router";
 import { useEffect } from "react";
-import CreateChurchForm, { IChurchFormData } from "~/src/components/forms/createChurch/CreateChurchForm";
+import CreateChurchForm, { type IChurchFormData } from "~/src/components/forms/createChurch/CreateChurchForm";
 import { ChurchService } from "~/services/ChurchService";
-import { Card } from "~/components/ui/card";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { redirect } from "react-router";
 import type { Route } from "./+types";
 import { churchOrganization } from "server/db/schema";
@@ -51,20 +51,25 @@ export default function CreateChurch() {
         }
     }, [actionData?.status]);
 
- 
+
 
     return (
         <div className="flex-col space-y-5 ">
             <h1 className="text-3xl">Create a Missions Organization</h1>
 
-            <Card className="text-black max-w-[700px]">
-                <h1 className="text-3xl">Information</h1>
-                <hr className="my-2" />
-                <Form method="post" className="space-y-4" >
-                    <CreateChurchForm initialValues={actionData?.formData} />
+            <Card>
+                <CardHeader>
 
-                    <Button type="submit">Submit</Button>
-                </Form>
+                    <h1 className="text-3xl">Information</h1>
+                </CardHeader>
+                <CardContent>
+                    
+                    <Form method="post" className="space-y-4" >
+                        <CreateChurchForm initialValues={actionData?.formData} />
+
+                        <Button type="submit">Submit</Button>
+                    </Form>
+                </CardContent>
             </Card>
         </div>
     );

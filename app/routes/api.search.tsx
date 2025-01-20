@@ -1,49 +1,27 @@
 
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
+import { db } from "~/server/dbConnection";
 
 import { SearchEntityType } from "~/src/components/header/SearchBar";
 
+import { churchOrganization, missionaries, missions } from "server/db/schema";
+import { ilike, or } from "drizzle-orm";
+import type { Route } from "../+types/root";
+
 const missionaryPrismaSearch = (search: string) => {
-    return {
-        where: {
-            OR: [
-                {
-                    firstName: {
-                        contains: search ?? "",
-                        mode: "insensitive",
-                    },
-                },
-                {
-                    lastName: {
-                        contains: search ?? "",
-                        mode: "insensitive",
-                    },
-                },
-            ],
-        },
-    };
+    return or(
+            ilike(missionaries.firstName, `%${search ?? ""}%`),
+            ilike(missionaries.lastName, `%${search ?? ""}%`)
+        )
+    
 };
 
 const missionsPrismaSearch = (search: string) => {
-    return {
-        where: {
-            title: {
-                contains: search ?? "",
-                mode: "insensitive",
-            },
-        },
-    };
+    return ilike(missions.title, `%${search ?? ""}%`);
 };
 
 const orgPrismaSearch = (search: string) => {
-    return {
-        where: {
-            name: {
-                contains: search ?? "",
-                mode: "insensitive",
-            },
-        },
-    };
+    return ilike(churchOrganization.name, `%${search ?? ""}%`);
 };
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
@@ -58,7 +36,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
     if (entityType) {
         switch (entityType) {
             case SearchEntityType.Missionary:
-                missionaryPromise = db.select().from(missionary).where(missionaryPrismaSearch(search) as any);
+                missionaryPromise = db.select().from(missionaries).where(missionaryPrismaSearch(search) as any);
                 break;
             case SearchEntityType.ChurchOrganization:
                 churchesPromise = db.select().from(churchOrganization).where(orgPrismaSearch(search) as any);
@@ -68,7 +46,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
                 break;
         }
     } else {
-        missionaryPromise = db.select().from(missionary).where(missionaryPrismaSearch(search) as any);
+        missionaryPromise = db.select().from(missionaries).where(missionaryPrismaSearch(search) as any);
 
         churchesPromise = db.select().from(churchOrganization).where(orgPrismaSearch(search) as any);
 

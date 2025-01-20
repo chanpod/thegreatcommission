@@ -49,7 +49,7 @@ export default function ChurchPage() {
             <Toolbar onChange={onSearchChange} />
             <div>
                 <List>
-                    {map(churches, (church: ChurchOrganization) => {
+                    {map(churches, (church: typeof churchOrganization.$inferSelect) => {
                         return <ChurchRowCard linkActive church={church} key={church.id} />;
                     })}
                 </List>
