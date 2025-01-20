@@ -1,20 +1,22 @@
-import { ChurchOrganization, Missionary } from "@prisma/client";
-import { Link } from "@remix-run/react";
+
+import { Link } from "react-router";
 import EmptyAvatar from "../avatar/EmptyAvatar";
 import Row from "../listItems/Row";
 import RowItem from "../listItems/RowItem";
-import { ISearchEntityTypes, SearchEntityType } from "./SearchBar";
-import { map } from "lodash";
+import { SearchEntityType } from "./SearchBar";
+import type { ISearchEntityTypes } from "./SearchBar";
+import { map } from "lodash-es";
+import type { churchOrganization } from "server/db/schema";
 
 interface Props {
-    churches: ChurchOrganization[];
+    churches: typeof churchOrganization[];
     onSelected: (selected: ISearchEntityTypes, entityType: SearchEntityType) => void;
 }
 
 const ChurchOrganizationList = ({ churches, onSelected }: Props) => {
     return (
         <ul className="max-w-md divide-y  divide-gray-200 dark:divide-gray-700">
-            {map(churches, (church: ChurchOrganization) => {
+            {map(churches, (church: typeof churchOrganization) => {
                 return (
                     <div className="cursor-pointer" key={church.id} onClick={() => onSelected(church, SearchEntityType.ChurchOrganization)}>
                         <Row>

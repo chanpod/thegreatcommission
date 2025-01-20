@@ -1,13 +1,14 @@
-import { ChurchOrganization, Missionary } from "@prisma/client";
-import { Link } from "@remix-run/react";
+
+import { Link } from "react-router";
 
 import EmptyAvatar from "../../avatar/EmptyAvatar";
 import CardButton from "./MissionRowCard";
+import type { churchOrganization, missionaries } from "server/db/schema";
 
 interface Props {
-    missionary: Missionary;
+    missionary: typeof missionaries;
     linkActive?: boolean;
-    sponsoringOrg?: ChurchOrganization;
+    sponsoringOrg?: typeof churchOrganization;
 }
 
 export const MissionaryRowCard = ({ missionary, linkActive, sponsoringOrg }: Props) => {

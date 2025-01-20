@@ -1,27 +1,18 @@
-import { Outlet, useLoaderData, useNavigation } from "@remix-run/react";
-import Header from "~/src/components/header/Header";
-import TheGreatCommissionImage from "~/src/assets/images/mainSplash.png";
-import tgcIcon from "~/src/assets/images/tgcIcon.png";
-import { useGoogleMap } from "@ubilabs/google-maps-react-hooks";
+
+
+import { isNull, map } from "lodash-es";
+import { useLoaderData } from "react-router";
+
 import WorldMap from "~/src/components/maps/WorldMap";
-import { json, LoaderArgs } from "@remix-run/node";
-import { prismaClient } from "~/server/dbConnection";
-import { map } from "lodash";
-import { Location, Missions } from "@prisma/client";
+import type { Route } from "./+types";
+import { db } from "~/server/dbConnection";
+import { missions } from "server/db/schema";
+import { ne } from "drizzle-orm";
 
-export const loader = async ({ request, params }: LoaderArgs) => {
-    const missionMarkers = await prismaClient.missions.findMany({
-        select: {
-            location: true,
-        },
-        where: {
-            location: {
-                isNot: null,
-            },
-        },
-    });
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
+    const missionMarkers = await db.select().from(missions).where(ne(missions.lat, null));
 
-    return json({ missionMarkers });
+    return { missionMarkers };
 };
 
 const quoteContainerStyle = {
@@ -51,7 +42,7 @@ const containerStyle = {
 
 
 export default function Index() {
-    const loaderData = useLoaderData();
+    const loaderData = useLoaderData<typeof loader>();
     return (
         <div className="relative">
             <div className="absolute backdrop-blur-sm left-1 top-1 z-10 rounded-md border-solid border-[#221d1d3d] bg-[#2c272759] p-2 m-2 max-w-5xl">
@@ -61,9 +52,10 @@ export default function Index() {
                     I am with you always, to the very end of the age." - Matthew 28:19-20
                 </blockquote>
             </div>
+            asdfasdasdf
             <div>
                 <WorldMap
-                    pins={map(loaderData.missionMarkers, (missionMarker: Partial<Missions>) => missionMarker.location)}
+                    pins={map(loaderData.missionMarkers, (missionMarker: Partial<typeof missions>) => [missionMarker.lat, missionMarker.lng])}
                 />
             </div>
         </div>

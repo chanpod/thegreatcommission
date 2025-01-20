@@ -1,9 +1,9 @@
-import { ChurchOrganization } from "@prisma/client";
 import EmptyAvatar from "../../avatar/EmptyAvatar";
 import RowItem, { primaryText, secondaryText } from "../RowItem";
+import type { churchOrganization } from "server/db/schema";
 
 type Props = {
-    church: ChurchOrganization;
+    church: typeof churchOrganization;
 };
 
 const OrganizationListItem = ({ church }: Props) => {

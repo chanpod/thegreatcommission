@@ -1,60 +1,81 @@
-import { User } from "@prisma/client";
-import { json, LinksFunction, LoaderArgs, MetaFunction } from "@remix-run/node";
-import { Links, LiveReload, Meta, Outlet, Scripts, ScrollRestoration, useCatch, useLoaderData } from "@remix-run/react";
-import { Analytics } from "@vercel/analytics/react";
-import React, { useCallback, useState } from "react";
-import stylesheet from "~/tailwind.css";
+import {
+  isRouteErrorResponse,
+  Links,
+  Meta,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+  useLoaderData,
+} from "react-router";
+
+import type { Route } from "./+types/root";
+import stylesheet from "./app.css?url";
 import { authenticator } from "./server/auth/strategies/authenticaiton";
-import Header from "./src/components/header/Header";
+import { createContext, useCallback, useState } from "react";
+import type { users } from "server/db/schema";
+import {setKey} from "react-geocode";
 import { Sidenav } from "./src/components/sidenav/Sidenav";
-import appStyles from "./src/styles/app.css";
-import treeStyles from 'react-tree-graph/dist/style.css'
-import Geocode from "react-geocode";
-
-import "flowbite";
-export const links: LinksFunction = () => [
-    { rel: "stylesheet", href: "https://rsms.me/inter/inter.css" },
-    { rel: "stylesheet", href: stylesheet },
-    { rel: "stylesheet", href: appStyles },
-    { rel: "stylesheet", href: treeStyles },
-    //add missionRowCard.css
-];
-
-export const meta: MetaFunction = () => ({
-    charset: "utf-8",
-    title: "The Great Commission",
-    viewport: "width=device-width,initial-scale=1",
-});
+import Header from "./src/components/header/Header";
 
 export interface IUserContext {
-    user: User | undefined;    
+  user: typeof users.$inferSelect | undefined;    
 }
 
 export interface IAppEnv {
-    mapsApi: string;
+  mapsApi: string;
 }
 
-export interface IAppContext {
-    sideNavOpen: boolean;
-    setSideNavOpen: (open: boolean) => void;
-    env: IAppEnv
-}
+export const links: Route.LinksFunction = () => [
+  { rel: "preconnect", href: "https://fonts.googleapis.com" },
+  {
+    rel: "preconnect",
+    href: "https://fonts.gstatic.com",
+    crossOrigin: "anonymous",
+  },
+  {
+    rel: "stylesheet",
+    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+  },
+  { rel: "stylesheet", href: stylesheet },
+];
 
-export const loader = async ({ request }: LoaderArgs) => {
-    const user = await authenticator.isAuthenticated(request);
+export const loader = async ({ request }: Route.LoaderArgs) => {
+  const user = await authenticator.isAuthenticated(request);
 
-    return json({
-        userContext: {
-            user: user,
-        },
-        env: {
-            mapsApi: process.env.GOOGLE_MAPS_KEY
-        }
-    });
+  return {
+      userContext: {
+          user: user,
+      },
+      env: {
+          mapsApi: process.env.GOOGLE_MAPS_KEY
+      }
+  };
 };
 
-export const UserContext = React.createContext<IUserContext>({ user: undefined });
-export const ApplicationContext = React.createContext<IAppContext>({
+export function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <Meta />
+        <Links />
+      </head>
+      <body>
+        {children}
+        <ScrollRestoration />
+        <Scripts />
+      </body>
+    </html>
+  );
+}
+export interface IAppContext {
+  sideNavOpen: boolean;
+  setSideNavOpen: (open: boolean) => void;
+  env: IAppEnv
+}
+export const UserContext = createContext<IUserContext>({ user: undefined });
+export const ApplicationContext = createContext<IAppContext>({
     sideNavOpen: false,
     setSideNavOpen: (open: boolean) => {},
     env: {
@@ -63,11 +84,11 @@ export const ApplicationContext = React.createContext<IAppContext>({
 });
 
 export default function App() {
-    const loaderData = useLoaderData<typeof loader>();
-    const [sideNavOpen, setSideNavOpen] = useState(false);
+  const loaderData = useLoaderData<typeof loader>();
+  const [sideNavOpen, setSideNavOpen] = useState(false);
     const [mapContainer, setMapContainer] = useState(null);
-    Geocode.setApiKey(loaderData.env?.mapsApi as string);
-    const mapRef = useCallback((node) => {
+    setKey(loaderData.env?.mapsApi as string);
+    const mapRef = useCallback((node: any) => {
         node && setMapContainer(node);
     }, []);
 
@@ -78,72 +99,52 @@ export default function App() {
         zoom: 6,
     };
 
-    return (
-        <html lang="en">
-            <head>
-                <meta
-                    name="google-signin-client_id"
-                    content="1034070132753-gv1tbh0sop6rr0sqlst0e6rcp8ajdv0n.apps.googleusercontent.com"
-                ></meta>
-                <Meta />
+  return (
+  <ApplicationContext.Provider value={{ sideNavOpen, setSideNavOpen, env: {...loaderData.env} }}>
+    <UserContext.Provider value={loaderData.userContext as IUserContext}>
+      <div className="flex">
 
-                <Links />
-            </head>
-            <body style={{ minHeight: "100vh" }} className="bg-[#0a192f]">
-                <div className="flex h-full relative">
-                    <ApplicationContext.Provider value={{ sideNavOpen, setSideNavOpen, env: {...loaderData.env} }}>
-                        <UserContext.Provider value={loaderData.userContext as IUserContext}>
-                            <Sidenav />
+        <Sidenav />
 
-                            <div className="flex-col w-full h-full">
-                                <Header />
-                                <div className="flex-col h-full  text-white pt-4 w-full ">
-                                    <div className="p-0 md:p-3">
-                                        <Outlet />
-                                    </div>
-                                </div>
-                            </div>
-                        </UserContext.Provider>
-                    </ApplicationContext.Provider>
+        <div className="flex-col w-full h-full">
+            <Header />
+            <div className="flex-col h-full  text-white pt-4 w-full ">
+                <div className="p-0 md:p-3">
+                    <Outlet />
                 </div>
-                <ScrollRestoration />
-                <Scripts />
-
-                <LiveReload />
-                <Analytics />
-            </body>
-        </html>
-    );
-}
-
-export function ErrorBoundary({ error }: { error: Error }) {
-    console.error(error);
-
-    return <h1>Something broke</h1>;
-}
-
-export function CatchBoundary() {
-    const caught = useCatch();
-
-    let message;
-    switch (caught.status) {
-        case 401:
-            message = <p>Oops! Looks like you tried to visit a page that you do not have access to.</p>;
-            break;
-        case 404:
-            message = <p>Oops! Looks like you tried to visit a page that does not exist.</p>;
-            break;
-
-        default:
-            throw new Error(caught.data || caught.statusText);
-    }
-
-    return (
-        <div>
-            <h1>Add Event Error </h1>
-            <h1>
-                {caught.status}: {caught.statusText}
-            </h1>
+            </div>
         </div>
-    );
+      </div>
+    </UserContext.Provider>
+  </ApplicationContext.Provider>
+)
+}
+
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  let message = "Oops!";
+  let details = "An unexpected error occurred.";
+  let stack: string | undefined;
+
+  if (isRouteErrorResponse(error)) {
+    message = error.status === 404 ? "404" : "Error";
+    details =
+      error.status === 404
+        ? "The requested page could not be found."
+        : error.statusText || details;
+  } else if (import.meta.env.DEV && error && error instanceof Error) {
+    details = error.message;
+    stack = error.stack;
+  }
+
+  return (
+    <main className="pt-16 p-4 container mx-auto">
+      <h1>{message}</h1>
+      <p>{details}</p>
+      {stack && (
+        <pre className="w-full p-4 overflow-x-auto">
+          <code>{stack}</code>
+        </pre>
+      )}
+    </main>
+  );
 }

@@ -1,32 +1,37 @@
-import { ActionArgs, json, LoaderArgs } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
-import { Button, Card } from "flowbite-react";
-import { map } from "lodash";
-import { prismaClient } from "~/server/dbConnection";
 
-export const loader = async ({ request, params }: LoaderArgs) => {
-    const roles = await prismaClient.role.findMany();
+import { Form, useLoaderData } from "react-router";
 
-    return json({
+import { map } from "lodash-es";
+
+import { db } from "~/server/dbConnection";
+import { roles } from "server/db/schema";
+import type { Route } from "./+types";
+import { Button } from "~/components/ui/button";
+
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
+    const roles = await db.select().from(roles);
+
+    return {
         roles,
-    });
+    };
 };
 
-export const action = async ({ request, params }: ActionArgs) => {
+export const action = async ({ request, params }: Route.ActionArgs) => {
     if (request.method === "POST") {
         const form = await request.formData();
         const name = form.get("name");
 
-        const role = await prismaClient.role.create({
-            data: {
-                name,
-            },
+        const role = await db.insert(roles).values({
+            name: name as string,
+            id: uuidv4(),
+            updatedAt: new Date(),
+            createdAt: new Date(),
         });
 
-        return json({
+        return {
             role,
             success: true,
-        });
+        };
     }
 };
 

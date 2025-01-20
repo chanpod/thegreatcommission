@@ -1,4 +1,4 @@
-import { ReactComponentElement, Ref, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 export function useClickOutside(ref: any) {
     const [outsideClicked, setOutsideClicked] = useState(false);

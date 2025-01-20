@@ -1,9 +1,10 @@
-import { ChurchOrganization } from "@prisma/client";
+
 import React, { useEffect, useState } from "react";
 import { convertAddressToLocation } from "../forms/createChurch/CreateChurchForm";
-import { MapPinIcon } from "@heroicons/react/24/outline";
+import { MapPin as MapPinIcon } from "lucide-react";
+import type { churchOrganization } from "server/db/schema";
 interface Props {
-    org: ChurchOrganization;
+    org: typeof churchOrganization;
 }
 
 const OrgLocation = ({ org }: Props) => {

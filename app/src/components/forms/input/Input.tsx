@@ -1,4 +1,5 @@
-import { Label, TextInput } from "flowbite-react";
+import { Label } from "~/components/ui/label";
+import { Input as TextInput } from "~/components/ui/input";
 
 interface Props {
     label?: string;
@@ -20,7 +21,7 @@ export function Input(props: Props) {
     return (
         <div id={id} className={className}>
             <div className="mb-2 block">
-                <Label htmlFor="title" value={label} />
+                <Label htmlFor="title">{label}</Label>
             </div>
             <TextInput disabled={disabled} {...others} defaultValue={defaultValue ?? ""} type={type} value={value} name={name} onChange={onChange} id="title" />
         </div>

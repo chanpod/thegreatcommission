@@ -1,19 +1,16 @@
-import { User } from "@prisma/client";
-import { ActionArgs, json } from "@remix-run/node";
-import { prismaClient } from "~/server/dbConnection";
+import { users } from "server/db/schema";
+import type { Route } from "./+types";
+import { db } from "~/server/dbConnection";
+import { eq } from "drizzle-orm";
 
-export const action = async ({ request, params }: ActionArgs) => {
+export const action = async ({ request, params }: Route.ActionArgs) => {
     const form = await request.formData();
 
-    const user = JSON.parse(form.get("user") as string) as User;
+    const user = JSON.parse(form.get("user") as string) as typeof users.$inferInsert;
 
-    const response = await prismaClient.user.delete({
-        where: {
-            id: user.id,
-        },
-    });
+    const response = await db.delete(users).where(eq(users.id, user.id));
 
-    return json({
+    return {
         response: response,
-    });
+    };
 };

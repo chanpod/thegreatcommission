@@ -1,6 +1,6 @@
-import { defer, json, LoaderArgs } from "@remix-run/node";
+
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { prismaClient } from "~/server/dbConnection";
+
 import { SearchEntityType } from "~/src/components/header/SearchBar";
 
 const missionaryPrismaSearch = (search: string) => {
@@ -46,40 +46,40 @@ const orgPrismaSearch = (search: string) => {
     };
 };
 
-export const loader = async ({ request, params }: LoaderArgs) => {
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
     const url = new URL(request.url);
     const searchParams = url.searchParams;
     const search = (searchParams.get("search") as string) ?? "";
     const entityType = searchParams.get("type") as SearchEntityType;
-    const user = await authenticator.isAuthenticated(request);
+    const user = await authenticator.authenticate("google", request);
     
     let missionaryPromise, churchesPromise, missionsPromise;
 
     if (entityType) {
         switch (entityType) {
             case SearchEntityType.Missionary:
-                missionaryPromise = prismaClient.missionary.findMany(missionaryPrismaSearch(search) as any);
+                missionaryPromise = db.select().from(missionary).where(missionaryPrismaSearch(search) as any);
                 break;
             case SearchEntityType.ChurchOrganization:
-                churchesPromise = prismaClient.churchOrganization.findMany(orgPrismaSearch(search) as any);
+                churchesPromise = db.select().from(churchOrganization).where(orgPrismaSearch(search) as any);
                 break;
             case SearchEntityType.Mission:
-                missionsPromise = prismaClient.missions.findMany(missionsPrismaSearch(search) as any);
+                missionsPromise = db.select().from(missions).where(missionsPrismaSearch(search) as any);
                 break;
         }
     } else {
-        missionaryPromise = prismaClient.missionary.findMany(missionaryPrismaSearch(search) as any);
+        missionaryPromise = db.select().from(missionary).where(missionaryPrismaSearch(search) as any);
 
-        churchesPromise = prismaClient.churchOrganization.findMany(orgPrismaSearch(search) as any);
+        churchesPromise = db.select().from(churchOrganization).where(orgPrismaSearch(search) as any);
 
-        missionsPromise = prismaClient.missions.findMany(missionsPrismaSearch(search) as any);
+        missionsPromise = db.select().from(missions).where(missionsPrismaSearch(search) as any);
     }
 
     const responses = await Promise.all([missionaryPromise, churchesPromise, missionsPromise]);
 
-    return json({
+    return {
         missionary: responses[0],
         churches: responses[1],
         missions: responses[2],
-    });
+    };
 };

@@ -1,8 +1,11 @@
-import { ActionArgs, json } from "@remix-run/node";
-import { prismaClient } from "~/server/dbConnection";
-import { InvitationStatus, InvitationTypes } from "~/src/types/invitation.types";
 
-export const action = async ({ request, params }: ActionArgs) => {
+import { db } from "~/server/dbConnection";
+import { InvitationStatus, InvitationTypes } from "~/src/types/invitation.types";
+import type { Route } from "./+types";
+import { eq } from "drizzle-orm";
+import { churchOrganization, organizationMembershipRequest } from "server/db/schema";
+
+export const action = async ({ request, params }: Route.ActionArgs) => {
     const formData = await request.formData();
     const invitationType = formData.get("type") as InvitationTypes;
 
@@ -15,29 +18,19 @@ export const action = async ({ request, params }: ActionArgs) => {
             throw new Error("Cannot associate with self");
         }
 
-        const response = await prismaClient.churchOrganization.update({
-            where: {
-                id: parentOrgId,
-            },
-            data: {
-                associations: {
-                    connect: {
-                        id: orgId,
-                    },
+        const response = await db.update(churchOrganization).set({
+            associations: {
+                connect: {
+                    id: orgId,
                 },
             },
-        });
+        }).where(eq(churchOrganization.id, parentOrgId));
 
-        const updateInvitation = await prismaClient.organizationMemberShipRequest.update({
-            where: {
-                id: invitationId,
-            },
-            data: {
-                status: InvitationStatus.accepted,
-            },
-        });
+        const updateInvitation = await db.update(organizationMembershipRequest).set({
+            status: InvitationStatus.accepted,
+        }).where(eq(organizationMembershipRequest.id, invitationId));
 
-        return json({ success: true, response });
+        return { success: true, response };
     }
 
     throw new Error("Invalid invitation type");

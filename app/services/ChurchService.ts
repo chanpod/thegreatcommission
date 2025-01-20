@@ -1,10 +1,10 @@
-import { ChurchOrganization, User } from "@prisma/client";
-import { IChurchFormData } from "~/src/components/forms/createChurch/CreateChurchForm";
+import type { IChurchFormData } from "~/src/components/forms/createChurch/CreateChurchForm";
 import { UserService } from "./UserService";
+import type { churchOrganization, users } from "server/db/schema";
 
 export class ChurchService {
-    currentChurch: ChurchOrganization | undefined;
-    constructor(churchIn: ChurchOrganization | undefined = undefined) {
+    currentChurch: typeof churchOrganization | undefined;
+    constructor(churchIn: typeof churchOrganization | undefined = undefined) {
         this.currentChurch = churchIn;
     }
 
@@ -23,8 +23,9 @@ export class ChurchService {
         return church;
     }
 
-    userIsAdmin(user: User): boolean {
+    userIsAdmin(user: typeof users): boolean {
         const userService = new UserService(user);
-        return this.currentChurch?.adminsIds.includes(user?.id) || userService.userIsAdmin() || false;
+        // return this.currentChurch?.adminsIds.includes(user?.id) || userService.userIsAdmin() || false;
+        return false;
     }
 }

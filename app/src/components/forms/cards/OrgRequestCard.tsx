@@ -1,23 +1,22 @@
-import { ChurchOrganization, OrganizationMemberShipRequest } from "@prisma/client";
 import { format } from "date-fns";
-import React from "react";
-import OrgLocation from "../../organizations/OrgLocation";
 import ChurchRowCard from "../../listItems/components/ChurchRowCard";
-import { Button } from "flowbite-react";
+
 import { InvitationStatus } from "~/src/types/invitation.types";
-import { CheckCircleIcon } from "@heroicons/react/24/solid";
-import { XCircleIcon } from "@heroicons/react/24/solid";
-import { QuestionMarkCircleIcon } from "@heroicons/react/24/solid";
+import { CheckCircle as CheckCircleIcon } from "lucide-react";
+import { XCircle as XCircleIcon } from "lucide-react";
+import { HelpCircle as QuestionMarkCircleIcon } from "lucide-react";
+import { Button } from "~/components/ui/button";
+import type { churchOrganization, organizationMembershipRequest } from "server/db/schema";
 
 interface Props {
-    request: OrganizationMemberShipRequest;
+    request: typeof organizationMembershipRequest;
     acceptRequest?: (orgId: string, invitationId: string) => void;
     rejectRequest?: (orgId: string, invitationId: string) => void;
     showStatus?: boolean;
 }
 
 const OrgRequestCard = ({ request, acceptRequest, rejectRequest, showStatus }: Props) => {
-    const organization: ChurchOrganization = request.requestingChurchOrganization as ChurchOrganization;
+    const organization = request.requestingChurchOrganizationId;
 
     function getStatusIcon(status: InvitationStatus) {
         switch (status) {

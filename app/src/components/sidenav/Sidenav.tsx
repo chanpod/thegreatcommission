@@ -1,16 +1,15 @@
-import { Link, useMatches } from "@remix-run/react";
-import { navigation } from "../header/Header";
-import { ArrowLongRightIcon, BuildingLibraryIcon } from "@heroicons/react/24/outline";
-import tgcIcon from "~/src/assets/images/tgcIcon.png";
-import { Button, Sidebar } from "flowbite-react";
-import { ChurchIcon } from "~/src/assets/icons/churchIcon";
-import { useContext, useEffect, useRef, useState } from "react";
-import { ApplicationContext } from "~/root";
-import { useClickOutside } from "~/src/hooks/useClickOutside";
+import {ArrowRight as ArrowLongRightIcon} from "lucide-react";
+import { Button } from "~/components/ui/button";
 import { AnimatePresence, motion } from "framer-motion";
+import { useContext, useEffect, useRef, useState } from "react";
+import { Link, useMatches } from "react-router";
+import { ApplicationContext } from "~/root";
+import tgcIcon from "~/src/assets/images/tgcIcon.png";
+import { useClickOutside } from "~/src/hooks/useClickOutside";
+import { navigation } from "../header/Header";
 export function Sidenav() {
     const matches = useMatches();
-    const ref = useRef();
+    const ref = useRef(null);
     const outsideClicked = useClickOutside(ref);
 
     const [isMobile, setIsMobile] = useState(false);

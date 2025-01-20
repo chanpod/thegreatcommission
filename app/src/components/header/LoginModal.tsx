@@ -1,6 +1,12 @@
-import { Form } from "@remix-run/react";
-import { Button, Modal } from "flowbite-react";
-import { ClientOnly } from "remix-utils";
+import { Form } from "react-router";
+import { Button } from "~/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "~/components/ui/dialog";
 import googleIcon from "~/src/assets/images/googleIcon.svg";
 
 interface Props {
@@ -10,42 +16,36 @@ interface Props {
 
 const LoginModal = (props: Props) => {
     return (
-        <ClientOnly>
-            {() => (
-                <Modal show={props.showDialog} onClose={() => props.onClose()}>
-                    <div className="items-center w-full p-3">
-                        <div className="text-3xl text-center">Login</div>
-                    </div>
-                    <hr />
-                    <Modal.Body>
-                        <div className="w-full">
-                            <Form
-                                method="post"
-                                action="/login"
-                                className="flex-col items-center justify-center w-48 space-y-2 w-full"
-                            >
-                                <div className="flex items-center justify-center w-full">
-                                    <button
-                                        className="google-btn transition duration-150 w-60 mt-10 ease-in-out hover:bg-primary-700 hover:shadow-lg focus:bg-primary-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-primary-800 active:shadow-lg"
-                                        data-te-ripple-init
-                                        data-te-ripple-color="light"
-                                    >
-                                        <span className="google-icon">
-                                            <img src={googleIcon} />
-                                        </span>
-                                        <span className="google-text">Sign in with Google</span>
-                                    </button>
-                                </div>
-                            </Form>
-                        </div>
-                    </Modal.Body>
+        <Dialog open={props.showDialog} onOpenChange={() => props.onClose()}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle className="text-3xl text-center">Login</DialogTitle>
+                </DialogHeader>
 
-                    <Modal.Footer>
-                        <Button onClick={() => props.onClose(true)}>Close</Button>
-                    </Modal.Footer>
-                </Modal>
-            )}
-        </ClientOnly>
+                <div className="w-full">
+                    <Form
+                        method="post"
+                        action="/login"
+                        className="flex-col items-center justify-center w-full space-y-2"
+                    >
+                        <div className="flex items-center justify-center w-full">
+                            <Button
+                                variant="outline"
+                                className="w-60 mt-10 flex items-center gap-2"
+                                type="submit"
+                            >
+                                <img src={googleIcon} className="h-5 w-5" alt="Google icon" />
+                                <span>Sign in with Google</span>
+                            </Button>
+                        </div>
+                    </Form>
+                </div>
+
+                <DialogFooter>
+                    <Button onClick={() => props.onClose(true)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };
 

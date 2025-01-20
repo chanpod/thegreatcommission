@@ -1,4 +1,4 @@
-import { ChurchOrganization } from "@prisma/client";
+
 
 export enum InvitationTypes {
     Organization = "organization",

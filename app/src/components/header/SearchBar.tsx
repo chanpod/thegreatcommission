@@ -1,6 +1,5 @@
-import { XMarkIcon } from "@heroicons/react/24/outline";
-import { ChurchOrganization, Missionary, Missions } from "@prisma/client";
-import { useFetcher, useNavigate } from "@remix-run/react";
+import {XIcon as XMarkIcon} from "lucide-react";
+import { useFetcher, useNavigate } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useEffect, useRef, useState } from "react";
 import { useClickOutside } from "~/src/hooks/useClickOutside";
@@ -9,14 +8,14 @@ import { Input } from "../forms/input/Input";
 import ChurchOrganizationList from "./ChurchOrganizationList";
 import MissionariesList from "./MissionariesList";
 import MissionsList from "./MissionsList";
-
+import type { churchOrganization, missionaries, missions } from "server/db/schema";
 export enum SearchEntityType {
     ChurchOrganization = "ChurchOrganization",
     Missionary = "Missionary",
     Mission = "Mission",
 }
 
-export type ISearchEntityTypes = ChurchOrganization | Missionary | Missions;
+export type ISearchEntityTypes = typeof churchOrganization | typeof missionaries | typeof missions;
 
 function NoResults() {
     return <div className="text-sm text-gray-300"> - No Results</div>;
@@ -39,9 +38,9 @@ const SearchBar = (props: Props) => {
     const searchFetcher = useFetcher();
     const [openPopover, setOpenPopover] = useState(false);
     const [search, setSearch] = useState(props.initialValue ?? "");
-    const [churches, setChurches] = useState<ChurchOrganization[]>([]);
-    const [missionaries, setMissionaries] = useState<Missionary[]>([]);
-    const [missions, setMissions] = useState<Missions[]>([]);
+    const [churches, setChurches] = useState<typeof churchOrganization[]>([]);
+    const [missionaries, setMissionaries] = useState<typeof missionaries[]>([]);
+    const [missions, setMissions] = useState<typeof missions[]>([]);
     const ref = useRef();
     const outsideClicked = useClickOutside(ref);
     const shortDebounce = useDebounce({ value: search, debounceDelay: 500 });
@@ -121,13 +120,13 @@ const SearchBar = (props: Props) => {
         if (props.onSelected) {
             switch (entityType) {
                 case SearchEntityType.ChurchOrganization:
-                    setSearch((selected as ChurchOrganization).name);
+                    setSearch((selected as typeof churchOrganization).name);
                     break;
                 case SearchEntityType.Missionary:
-                    setSearch((selected as Missionary).firstName + " " + (selected as Missionary).lastName);
+                    setSearch((selected as typeof missionaries).firstName + " " + (selected as typeof missionaries).lastName);
                     break;
                 case SearchEntityType.Mission:
-                    setSearch((selected as Missions).title);
+                    setSearch((selected as typeof missions).title);
                 default:
                     break;
             }

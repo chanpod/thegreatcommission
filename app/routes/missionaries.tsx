@@ -1,5 +1,5 @@
-import { Outlet } from "@remix-run/react";
-import React from "react";
+import { Outlet } from "react-router";
+
 import RouteWrapper from "~/src/components/navigation/RouteWrapper";
 
 const missionaries = () => {

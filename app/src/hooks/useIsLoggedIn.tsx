@@ -1,13 +1,12 @@
-import { User } from "@prisma/client";
-import React, { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { UserContext } from "~/root";
+import type { users } from "server/db/schema";
 
 const useIsLoggedIn = () => {
     const userContext = useContext(UserContext);
     const [user, setUser] = useState(userContext.user);
 
     useEffect(() => {
-        console.log(userContext)
         setUser(userContext.user);
     }, [userContext, userContext.user]);
 
@@ -16,7 +15,7 @@ const useIsLoggedIn = () => {
         user: user,
     } as {
         isLoggedIn: boolean;
-        user: User | null;
+        user: typeof users | null;
     };
 };
 

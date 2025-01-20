@@ -1,10 +1,11 @@
-import { ChurchOrganization, Location } from "@prisma/client";
+
 import Geocode from "react-geocode";
 import React, { useRef, useState } from "react";
 import { Input } from "../input/Input";
+import { churchOrganization } from "server/db/schema";
 
 
-export interface IChurchFormData extends ChurchOrganization {
+export interface IChurchFormData extends churchOrganization {
     name: string;
     city: string;
     state: string;

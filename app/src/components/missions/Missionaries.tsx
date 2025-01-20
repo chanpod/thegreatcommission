@@ -1,10 +1,9 @@
-import { Missionary, Missions } from "@prisma/client";
-import { Card } from "flowbite-react";
+import { Card } from "~/components/ui/card";
 import List from "../listItems/List";
 import MissionaryListItem from "./MissionaryListItem";
 
 
-const MissionMissionaries = ({ mission }: { mission: Missions }) => {
+const MissionMissionaries = ({ mission }: { mission: typeof missions }) => {
     return (
         <Card>
             <>
@@ -18,7 +17,7 @@ const MissionMissionaries = ({ mission }: { mission: Missions }) => {
                     <div className="text-center text-gray-500">No Missionaries</div>
                 )}
                 <List>
-                    {mission?.missionaries?.map((missionary: Missionary) => (
+                    {mission?.missionaries?.map((missionary: typeof missionaries) => (
                         <MissionaryListItem  key={missionary.id} missionary={missionary} />
                     ))}
                 </List>

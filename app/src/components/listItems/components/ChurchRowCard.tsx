@@ -1,11 +1,12 @@
-import { ChurchOrganization } from "@prisma/client";
-import { Link } from "@remix-run/react";
+
+import { Link } from "react-router";
 import ChurchPlaceholderImage from "~/src/assets/images/placeholderImage1.jpg";
 import OrgLocation from "../../organizations/OrgLocation";
 import CardButton from "./MissionRowCard";
+import type { churchOrganization } from "server/db/schema";
 
 type Props = {
-    church: ChurchOrganization;
+    church: typeof churchOrganization;
     linkActive?: boolean;
 };
 

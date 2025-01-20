@@ -1,14 +1,18 @@
-import { ChurchOrganization, Location, Missions } from "@prisma/client";
-import { Card, Carousel } from "flowbite-react";
-import React, { useEffect, useState } from "react";
+
+
+import { ArrowRight as ArrowTopRightOnSquareIcon } from "lucide-react";
 import PlaceholderImageOne from "app/src/assets/images/placeholderImage1.jpg";
 import PlaceholderImageTwo from "app/src/assets/images/placeholderImage2.jpg";
-import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+import Autoplay from "embla-carousel-autoplay";
+import { useEffect, useState } from "react";
+import type { churchOrganization } from "server/db/schema";
+import { Card } from "~/components/ui/card";
+import { Carousel, CarouselItem } from "~/components/ui/carousel";
 import { convertAddressToLocation } from "../forms/createChurch/CreateChurchForm";
 import OrgLocation from "./OrgLocation";
 
-const OrgDescription = ({ org }: { org: ChurchOrganization }) => {
-    const [location, setLocation] = useState<Location | undefined>(undefined);
+const OrgDescription = ({ org }: { org: typeof churchOrganization }) => {
+    const [location, setLocation] = useState<typeof location | undefined>(undefined);
     useEffect(() => {
         convertAddress();
     }, []);
@@ -21,9 +25,18 @@ const OrgDescription = ({ org }: { org: ChurchOrganization }) => {
     return (
         <>
             <div className="h-56 sm:h-64 xl:h-80 2xl:h-96">
-                <Carousel slideInterval={5000}>
-                    <img src={PlaceholderImageOne} alt="..." />
-                    <img src={PlaceholderImageTwo} alt="..." />
+                <Carousel plugins={[
+                    Autoplay({
+                        delay: 2000,
+                    }),
+                ]}
+                >
+                    <CarouselItem>
+                        <img src={PlaceholderImageOne} alt="..." />
+                    </CarouselItem>
+                    <CarouselItem>
+                        <img src={PlaceholderImageTwo} alt="..." />
+                    </CarouselItem>
                 </Carousel>
             </div>
             <Card>

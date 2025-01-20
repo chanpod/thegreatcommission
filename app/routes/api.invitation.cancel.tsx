@@ -1,8 +1,11 @@
-import { ActionArgs, json } from "@remix-run/node";
-import { prismaClient } from "~/server/dbConnection";
-import { InvitationStatus, InvitationTypes } from "~/src/types/invitation.types";
 
-export const action = async ({ request, params }: ActionArgs) => {
+import { db } from "~/server/dbConnection";
+import { InvitationStatus, InvitationTypes } from "~/src/types/invitation.types";
+import type { Route } from "./+types";
+import { organizationMembershipRequest } from "server/db/schema";
+import { eq } from "drizzle-orm";
+
+export const action = async ({ request, params }: Route.ActionArgs) => {
     const formData = await request.formData();
     const invitationType = formData.get("type") as InvitationTypes;
 
@@ -11,16 +14,11 @@ export const action = async ({ request, params }: ActionArgs) => {
         const parentOrgId = formData.get("parentOrgId") as string;
         const invitationId = formData.get("invitationId") as string;
 
-        const updateInvitation = await prismaClient.organizationMemberShipRequest.update({
-            where: {
-                id: invitationId,
-            },
-            data: {
-                status: InvitationStatus.cancel,
-            },
-        });
+        const updateInvitation = await db.update(organizationMembershipRequest).set({
+            status: InvitationStatus.cancel,
+        }).where(eq(organizationMembershipRequest.id, invitationId));
 
-        return json({ success: true, response: updateInvitation });
+        return { success: true, response: updateInvitation };
     }
 
     throw new Error("Invalid invitation type");

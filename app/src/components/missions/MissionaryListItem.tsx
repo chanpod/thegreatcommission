@@ -1,17 +1,15 @@
-import { Link, useFetcher } from "@remix-run/react";
-import React from "react";
-import missionary from "~/routes/missions/$mission/missionary";
+import { Link, useFetcher } from "react-router";
 import EmptyAvatar from "../avatar/EmptyAvatar";
 import Row from "../listItems/Row";
 import RowItem, { primaryText, secondaryText } from "../listItems/RowItem";
-import { Missionary } from "@prisma/client";
-import { Button } from "flowbite-react";
-import { TrashIcon } from "@heroicons/react/24/outline";
+import type { missionaries } from "server/db/schema";
+import { Trash as TrashIcon } from "lucide-react";
+import { Button } from "~/components/ui/button";
 
-const MissionaryListItem = ({ missionary, editing }: { missionary: Missionary; editing?: boolean }) => {
+const MissionaryListItem = ({ missionary, editing }: { missionary: typeof missionaries; editing?: boolean }) => {
     const deleteFetcher = useFetcher();
 
-    function deleteMissionary(missionary: Missionary) {
+    function deleteMissionary(missionary: typeof missionaries) {
         deleteFetcher.submit(
             {
                 linkId: missionary.id,

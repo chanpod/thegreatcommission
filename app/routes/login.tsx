@@ -1,11 +1,10 @@
-import { TrashIcon } from "@heroicons/react/24/outline";
-import { User } from "@prisma/client";
-import { ActionArgs, json, LoaderArgs, redirect } from "@remix-run/node";
-import { Form, useFetcher, useLoaderData, useNavigation } from "@remix-run/react";
+import { redirect } from "react-router";
+import { Form, useFetcher, useNavigation } from "react-router";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import googleIcon from "~/src/assets/images/googleIcon.svg";
+import type { Route } from "./+types";
 
-export const loader = async ({ request }: LoaderArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
     // const users = await prismaClient.user.findMany();
     // return json({
     //     users: users,
@@ -14,7 +13,7 @@ export const loader = async ({ request }: LoaderArgs) => {
     return redirect('/')
 };
 
-export const action = async ({ request }: ActionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
     console.log("Logging in");
 
     return await authenticator.authenticate("google", request);

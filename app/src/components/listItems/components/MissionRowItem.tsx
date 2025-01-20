@@ -1,12 +1,12 @@
-import { CurrencyDollarIcon } from "@heroicons/react/24/outline";
-import { Missions } from "@prisma/client";
-import { Link } from "@remix-run/react";
+import { DollarSign as CurrencyDollarIcon } from "lucide-react";
+import { Link } from "react-router";
 import EmptyAvatar from "../../avatar/EmptyAvatar";
 import Row from "../Row";
 import RowItem, { primaryText, secondaryText } from "../RowItem";
+import type { missions } from "server/db/schema";
 
 interface Props {
-    mission: Missions;
+    mission: typeof missions;
     linkActive?: boolean;
 }
 

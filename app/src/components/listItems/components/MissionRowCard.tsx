@@ -1,10 +1,11 @@
-import { ChurchOrganization, Missions } from "@prisma/client";
-import { Link } from "@remix-run/react";
+
+import { Link } from "react-router";
 import missionsStockPhoto from "~/src/assets/images/missionsStockPhoto.jpg";
 import CurrencyFormatter from "../../forms/currencyFormat/CurrencyFormatter";
 
-import { ShieldCheckIcon } from "@heroicons/react/24/outline";
+import { ShieldCheck as ShieldCheckIcon } from "lucide-react";
 import { motion } from "framer-motion";
+import type { churchOrganization, missions } from "server/db/schema";
 
 // Define the Button component
 export const CardButton = ({ children }: any) => {
@@ -30,9 +31,9 @@ export const CardButton = ({ children }: any) => {
 export default CardButton;
 
 interface Props {
-    mission: Missions;
+    mission: typeof missions;
     linkActive?: boolean;
-    sponsoringOrg?: ChurchOrganization;
+    sponsoringOrg?: typeof churchOrganization;
 }
 
 export const MissionRowCard = ({ mission, linkActive, sponsoringOrg }: Props) => {
