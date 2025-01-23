@@ -2,7 +2,7 @@
 
 
 import { Link, useFetcher, useLoaderData } from "react-router";
-import { map } from "lodash-es";
+import { isNil, map } from "lodash-es";
 
 import { Button } from "~/components/ui/button";;
 import { SearchEntityType } from "~/src/components/header/SearchBar";
@@ -13,6 +13,8 @@ import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import type { Route } from "../+types/root";
 import { churchOrganization } from "server/db/schema";
 import { db } from "~/server/dbConnection";
+import { useContext } from "react";
+import { UserContext } from "~/src/providers/userProvider";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
     const churches = await db.select().from(churchOrganization);
@@ -24,8 +26,9 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 
 export default function ChurchPage() {
     const loaderData = useLoaderData();
-    const { isLoggedIn, user } = useIsLoggedIn();
+    const { isLoggedIn } = useIsLoggedIn();
     const fetcher = useFetcher();
+    
 
     function onSearchChange(searchText: string) {
         fetcher.load(`/api/search?search=${encodeURI(searchText)}&type=${SearchEntityType.ChurchOrganization}`);
@@ -38,8 +41,7 @@ export default function ChurchPage() {
                 <h1 className="text-3xl">Organizations</h1>
                 {isLoggedIn && (
                     <Link to="/churches/create">
-                        <Button className="w-40 flex items-center justify-center space-x-2">
-                            
+                        <Button className="w-40 flex items-center justify-center space-x-2">                            
                             <span>Create</span>
                         </Button>
                     </Link>

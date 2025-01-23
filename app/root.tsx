@@ -8,22 +8,16 @@ import {
   useLoaderData,
 } from "react-router";
 
+import { Toaster } from "~/components/ui/sonner";
+import { UserDataService } from "server/dataServices/UserDataService";
 import type { Route } from "./+types/root";
-import stylesheet from "./app.css?url"; 
+import stylesheet from "./app.css?url";
 import { authenticator } from "./server/auth/strategies/authenticaiton";
-import { createContext, useCallback, useState } from "react";
-import type { users } from "server/db/schema";
-import {setKey} from "react-geocode";
-import { Sidenav } from "./src/components/sidenav/Sidenav";
 import Header from "./src/components/header/Header";
+import { Sidenav } from "./src/components/sidenav/Sidenav";
+import { ApplicationProvider } from "./src/providers/appContextProvider";
+import { UserProvider } from "./src/providers/userProvider";
 
-export interface IUserContext {
-  user: typeof users.$inferSelect | undefined;    
-}
-
-export interface IAppEnv {
-  mapsApi: string;
-}
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -40,19 +34,38 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-  const user = await authenticator.isAuthenticated(request);
-  
-  return {
+  const userSession = await authenticator.isAuthenticated(request);
+  const userDataService = new UserDataService();
+  if (!userSession) {
+    return {
       userContext: {
-          user: user,
+        user: null,
+        userRoles: null,
       },
       env: {
-          mapsApi: process.env.GOOGLE_MAPS_KEY
+        mapsApi: process.env.GOOGLE_MAPS_KEY
       }
+    };
+  }
+
+
+  const getUserQuery = await userDataService.getUser(userSession.email, { roles: true, churches: false });
+
+  return {
+    userContext: {
+      user: getUserQuery.users,
+      userRoles: getUserQuery?.roles,
+    },
+    env: {
+      mapsApi: process.env.GOOGLE_MAPS_KEY
+    }
   };
 };
 
 export function Layout({ children }: { children: React.ReactNode }) {
+
+  const loaderData = useLoaderData<typeof loader>();
+
   return (
     <html lang="en">
       <head>
@@ -62,62 +75,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {children}
+        <ApplicationProvider env={loaderData?.env}>
+          <UserProvider user={loaderData?.userContext?.user} roles={loaderData?.userContext?.userRoles}>
+            <div className="flex bg-accent">
+
+              <Sidenav />
+
+              <div className="flex-col w-full h-full">
+                <Header />
+                <div className="flex-col h-full text-foreground pt-4 w-full ">
+                  <div className="p-0 md:p-3 ">
+                    {children}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </UserProvider>
+        </ApplicationProvider>
         <ScrollRestoration />
         <Scripts />
+        <Toaster position="top-center" />
       </body>
     </html>
   );
 }
-export interface IAppContext {
-  sideNavOpen: boolean;
-  setSideNavOpen: (open: boolean) => void;
-  env: IAppEnv
-}
-export const UserContext = createContext<IUserContext>({ user: undefined });
-export const ApplicationContext = createContext<IAppContext>({
-    sideNavOpen: false,
-    setSideNavOpen: (open: boolean) => {},
-    env: {
-        mapsApi: ""
-    }
-});
+
+
+
+
 
 export default function App() {
-  const loaderData = useLoaderData<typeof loader>();
-  const [sideNavOpen, setSideNavOpen] = useState(false);
-    const [mapContainer, setMapContainer] = useState(null);
-    setKey(loaderData.env?.mapsApi as string);
-    const mapRef = useCallback((node: any) => {
-        node && setMapContainer(node);
-    }, []);
 
-    const mapOptions = {
-        // Add your map options here
-        // `center` and `zoom` are required for every map to be displayed
-        center: { lat: 53.5582447, lng: 9.647645 },
-        zoom: 6,
-    };
-
-  return (
-  <ApplicationContext.Provider value={{ sideNavOpen, setSideNavOpen, env: {...loaderData.env} }}>
-    <UserContext.Provider value={loaderData.userContext as IUserContext}>
-      <div className="flex">
-
-        <Sidenav />
-
-        <div className="flex-col w-full h-full">
-            <Header />
-            <div className="flex-col h-full  text-white pt-4 w-full ">
-                <div className="p-0 md:p-3">
-                    <Outlet />
-                </div>
-            </div>
-        </div>
-      </div>
-    </UserContext.Provider>
-  </ApplicationContext.Provider>
-)
+  return <Outlet />
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

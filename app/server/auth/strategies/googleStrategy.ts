@@ -11,22 +11,21 @@ export let googleStrategy = new GoogleStrategy(
     },
     async ({ accessToken, refreshToken, extraParams, profile }) => {
         console.log(profile);
-        console.log("===============");
+        
         try {
-            const user = await db.select().from(users).where(eq(users.googleId, profile.id!)).innerJoin(usersToRoles, eq(users.id, usersToRoles.userId)).innerJoin(roles, eq(usersToRoles.roleId, roles.id!));
+            const user = await db.select().from(users).where(eq(users.email, profile.emails[0].value!));
 
-
-            console.log(user);
-            console.log("----------------");
-            if (user == undefined) {
+            console.log("Logged In User: ", user);
+            
+            if (user == undefined || user.length == 0) {
                 const newUser = await db.insert(users).values({
                     email: profile.emails[0].value,
                     firstName: profile.name.givenName,
                     googleId: profile.id,
                 }).returning();
-                return newUser;
+                return newUser[0];
             } else {
-                return user;
+                return user[0];
             }
         } catch (error) {
             console.error("Error: ", error);

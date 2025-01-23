@@ -10,18 +10,19 @@ import List from "~/src/components/listItems/List";
 import { InvitationStatus, InvitationTypes } from "~/src/types/invitation.types";
 import type { Route } from "./+types";
 import { churchOrganization, organizationMembershipRequest } from "server/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, exists, not } from "drizzle-orm";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsTrigger } from "~/components/ui/tabs";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
-    const organization = await db.select().from(churchOrganization).where(eq(churchOrganization.id, params.organization)).innerJoin(churchOrganization.associations, eq(churchOrganization.id, churchOrganization.associations.id)).innerJoin(churchOrganization.parentOrganization, eq(churchOrganization.id, churchOrganization.parentOrganization.id)).then(([organization]) => organization);
+    const organization = await db.select().from(churchOrganization)
+                                          .where(eq(churchOrganization.id, params.organization))    
+                                          .then(([organization]) => organization);
 
-    const organizations = await db.select().from(churchOrganization).where(eq(churchOrganization.id, params.organization)).where(not(eq(churchOrganization.id, params.organization))).where(not(exists(select().from(organizationMembershipRequest).where(and(eq(organizationMembershipRequest.requestingChurchOrganizationId, params.organization), eq(organizationMembershipRequest.parentOrganizationId, churchOrganization.id))))));
 
     return {
         requestingOrg: organization,  
-        organizations,
+
     };
 };
 

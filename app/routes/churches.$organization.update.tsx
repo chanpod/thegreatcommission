@@ -1,4 +1,4 @@
-import { data, Form, useLoaderData } from "react-router";
+import { data, Form, useActionData, useLoaderData, useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { db } from "~/server/dbConnection";
@@ -7,9 +7,16 @@ import CreateChurchForm from "~/src/components/forms/createChurch/CreateChurchFo
 import { churchOrganization, missions } from "server/db/schema";
 import { eq } from "drizzle-orm";
 import type { Route } from "./+types";
+import { Sheet, SheetContent } from "~/components/ui/sheet";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
-    const organization = await db.select().from(churchOrganization).where(eq(churchOrganization.id, params.organization)).innerJoin(missions, eq(churchOrganization.id, missions.churchOrganizationId));
+    const organization = await db.select().from(churchOrganization).where(eq(churchOrganization.id, params.organization)).then((data) => {
+        return data[0];
+    });
 
     return {
         organization,
@@ -21,7 +28,7 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
         const user = await authenticator.isAuthenticated(request);
         if (!user) return data({ message: "Not Authenticated" }, { status: 401 });
 
-        console.log("UPdating the church");
+        
         const churchService = new ChurchService();
         const newChurch = await churchService.getChurchFormDataFromRequest(request);
 
@@ -40,16 +47,49 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
 
 const Update = () => {
     const loaderData = useLoaderData();
+    const navigate = useNavigate();
+    const actionData = useActionData();
+    const [isOpen, setIsOpen] = useState(true);
+    
+    
+
+    useEffect(() => {
+
+        toast.success("Church Updated", {
+            description: "The church has been updated successfully",
+        })
+
+        if (actionData?.success) {
+            setIsOpen(false);
+            toast("The church has been updated successfully")
+            setTimeout(() => {
+                navigate("/churches/" + loaderData?.organization?.id);
+            }, 300); // Match sheet close animation duration
+        }
+    }, [actionData]);
+
+    const handleOpenChange = (open: boolean) => {
+        setIsOpen(open);
+        if (!open) {          
+      
+            setTimeout(() => {
+                navigate("/churches/" + loaderData?.organization?.id);
+            }, 300); // Match sheet close animation duration
+        }
+    };
 
     return (
-        <div>
-            <h1 className="text-3xl">Update</h1>
-            <hr className="my-2" />
-            <Form method="put" className="space-y-4">
+        <Sheet open={isOpen} onOpenChange={handleOpenChange}>            
+            <SheetContent>
+       
+                <h1 className="text-3xl">Update</h1>
+                <hr className="my-2" />
+                <Form method="put" className="space-y-4">
                 <CreateChurchForm initialValues={loaderData?.organization} />
-                <Button type="submit">Update</Button>
-            </Form>
-        </div>
+                    <Button type="submit">Update</Button>
+                </Form>
+            </SheetContent>
+        </Sheet>
     );
 };
 

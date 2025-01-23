@@ -2,7 +2,7 @@ import { Link, useMatches, useNavigation } from "react-router";
 import { Fragment, useContext, useState } from "react";
 import { Button } from "~/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "~/components/ui/sheet"
-import { MenuIcon, X } from "lucide-react"
+import { ChurchIcon, MenuIcon, X, PersonStanding, Globe } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -10,22 +10,21 @@ import {
     DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu"
 
-import { ApplicationContext } from "~/root";
+import { ApplicationContext } from "~/src/providers/appContextProvider";
 import tgcIcon from "~/src/assets/images/tgcIcon.png";
-import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import { UserAvatar } from "../avatar/UserAvatar";
 import LoginModal from "./LoginModal";
 import SearchBar from "./SearchBar";
 
 export const navigation = [
-    { name: "Churches", href: "/churches", current: true },
-    { name: "Missionaries", href: "/missionaries", current: false },
-    { name: "Missions", href: "/missions", current: false },
+    { name: "Churches", href: "/churches", current: true, icon: ChurchIcon },
+    { name: "Missionaries", href: "/missionaries", current: false, icon: PersonStanding },
+    { name: "Missions", href: "/missions", current: false, icon: Globe },
 ];
 
 export default function Header() {
-    const matches = useMatches();
+
     const applicationContext = useContext(ApplicationContext);
     const transition = useNavigation();
     const [showLoginModal, setShowLoginModal] = useState(false);
@@ -45,7 +44,7 @@ export default function Header() {
                     <div className="inset-y-0 left-0 items-center lg:hidden">
                         <Sheet>
                             <SheetTrigger asChild>
-                                <>
+                                <div>
                                     <span className="sr-only">Open main menu</span>
                                     {applicationContext.sideNavOpen ? (
                                         <X className="h-6 w-6" />
@@ -53,7 +52,7 @@ export default function Header() {
                                         <MenuIcon className="h-6 w-6" />
                                     )}
 
-                                </>
+                                </div>
                             </SheetTrigger>
                         </Sheet>
                     </div>
@@ -78,10 +77,15 @@ export default function Header() {
                         <SearchBar inputStyle="header" setLoading={(loading) => setSearchLoading(loading)} />
                     </div>
                     <div >
+
                         <DropdownMenu>
                             <DropdownMenuTrigger >
-
-                                <UserAvatar user={user} />
+                                <div className="flex flex-row items-center">
+                                    <UserAvatar user={user} />
+                                    <div className="text-sm pl-2 text-gray-700">
+                                        {user?.firstName}
+                                    </div>
+                                </div>
 
 
                             </DropdownMenuTrigger>

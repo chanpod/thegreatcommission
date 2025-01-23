@@ -1,23 +1,17 @@
-import { useContext, useEffect, useState } from "react";
-import { UserContext } from "~/root";
-import type { users } from "server/db/schema";
 import { isNil } from "lodash-es";
+import { useContext } from "react";
+import type { users } from "server/db/schema";
+import { UserContext } from "~/src/providers/userProvider";
 
 const useIsLoggedIn = () => {
     const userContext = useContext(UserContext);
-    const [user, setUser] = useState(userContext.user);
-
-    useEffect(() => {
-        console.log(userContext.user);
-        setUser(userContext.user);
-    }, [userContext, userContext.user]);
-
+    
     return {
-        isLoggedIn: !isNil(user),
-        user: user,
+        isLoggedIn: !isNil(userContext.user),
+        user: userContext.user,
     } as {
         isLoggedIn: boolean;
-        user: typeof users | null;
+        user: typeof users.$inferSelect | undefined;
     };
 };
 

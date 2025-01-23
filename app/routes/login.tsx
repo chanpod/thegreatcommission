@@ -10,13 +10,13 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
     //     users: users,
     // });
 
-    return redirect('/')
+    return {}
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
     console.log("Logging in");
 
-    return await authenticator.isAuthenticated(request);
+    return await authenticator.authenticate("google", request);
 };
 
 export default function LoginPage() {

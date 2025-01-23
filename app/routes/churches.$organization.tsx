@@ -1,8 +1,8 @@
 import { data, Link, Outlet, redirect, useActionData, useFetcher, useLoaderData, useLocation, useNavigate } from "react-router";
 
 import { motion } from "framer-motion";
-import { map } from "lodash-es";
-import { Fragment, useEffect, useState } from "react";
+import { isNil, map } from "lodash-es";
+import { Fragment, useContext, useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { ChurchService } from "~/services/ChurchService";
 
@@ -14,8 +14,8 @@ import UpdateToast from "~/src/components/toast/UpdateToast";
 import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import { db } from "~/server/dbConnection";
-import { churchOrganization } from "server/db/schema";
-import { aliasedTable, eq } from "drizzle-orm";
+import { churchOrganization, usersTochurchOrganization } from "server/db/schema";
+import { aliasedTable, eq, and } from "drizzle-orm";
 import type { Route } from "./+types";
 import { ArrowRight as ArrowNarrowRightIcon } from "lucide-react";
 import { ArrowLeft as ArrowLeftIcon } from "lucide-react";
@@ -24,20 +24,28 @@ import { Trash as TrashIcon } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { Card } from "~/components/ui/card";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import { UserContext } from "~/src/providers/userProvider";
+import { NoData } from "~/components/ui/no-data";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
     const parentOrganizationAlias = aliasedTable(churchOrganization, 'parentOrganization')
     const organizationReponse = await db.select().from(churchOrganization)
         .where(eq(churchOrganization.id, params.organization!))
-        .innerJoin(parentOrganizationAlias, eq(churchOrganization.id, parentOrganizationAlias.id))
+        .leftJoin(parentOrganizationAlias, eq(churchOrganization.id, parentOrganizationAlias.id))
+        .then((data) => {
+            return data[0];
+        })
 
-    const organization = organizationReponse.churchOrganization
-    const parentOrganization = organizationReponse.parentOrganizationAlias
+    const adminIds = await db.select().from(usersTochurchOrganization).where(and(eq(usersTochurchOrganization.churchOrganizationId, params.organization!), eq(usersTochurchOrganization.isAdmin, true)))
+
+    const organization = organizationReponse.church_organizations
+    const parentOrganization = organizationReponse.parentOrganization
 
     return {
         organization: organization,
         parentOrganization: parentOrganization,
+        adminIds: adminIds.map((admin) => admin.userId)
     };
 };
 
@@ -69,6 +77,7 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
 
 const ChurchPage = () => {
     const { isLoggedIn, user } = useIsLoggedIn();
+    const { roles } = useContext(UserContext);
     const [showUpdateToast, setShowUpdateToast] = useState(false);
     const loaderData = useLoaderData<typeof loader>();
     const actionData = useActionData();
@@ -76,7 +85,8 @@ const ChurchPage = () => {
     const loading = deleteFetcher.state === "submitting" || deleteFetcher.state === "loading";
     const navigate = useNavigate();
     const location = useLocation();
-    const churchService = new ChurchService(loaderData?.organization!);
+
+    const churchService = new ChurchService(loaderData?.organization!, loaderData?.adminIds);
     const subRouteDetected =
         location.pathname.includes("update") ||
         location.pathname.includes("associate") ||
@@ -120,7 +130,7 @@ const ChurchPage = () => {
                         )}
                     </div>
                 </div>
-                {churchService.userIsAdmin(user) && (
+                {churchService.userIsAdmin(user, roles) && (
                     <DropdownMenu>
                         <div className="">
                             <DropdownMenuTrigger className="flex items-center">
@@ -130,53 +140,44 @@ const ChurchPage = () => {
                                 </Button>
                             </DropdownMenuTrigger>
                         </div>
-            
-                            <DropdownMenuContent className="absolute space-y-2 right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                                <DropdownMenuItem>                                    
-                                        <div
-                                            onClick={() => navigate(`update`)}
-                                            className={classNames(                                    
-                                                "cursor-pointer block px-4 py-2 text-sm text-gray-700"
-                                            )}
-                                        >
-                                            Edit
-                                        </div>                                    
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>                                    
-                                        <div
-                                            onClick={() => navigate(`associate`)}
-                                            className={classNames(                                    
-                                                "cursor-pointer block px-4 py-2 text-sm text-gray-700"
-                                            )}
-                                        >
-                                            Associate Org
-                                        </div>                                    
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>                                   
-                                        <div
-                                            onClick={() => navigate(`request`)}
-                                            className={classNames(                                                
-                                                "cursor-pointer block px-4 py-2 text-sm text-gray-700"
-                                            )}
-                                        >
-                                            Manage Request -{" "}
-                                            {loaderData.organization?.organizationMembershipRequest?.length}
-                                        </div>
-                                   
-                                </DropdownMenuItem>
 
-                                <DropdownMenuItem>
-                                    
-                                        <Button
-                                            className=" bg-red-800 h-11  w-full flex items-center"
-                                            onClick={deleteChurch}
-                                        >
-                                            <TrashIcon className="h-4 w-4 mr-2" />
-                                            Delete
-                                        </Button>
-                                    
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>                        
+                        <DropdownMenuContent className="absolute space-y-2 right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <DropdownMenuItem onClick={() => navigate(`update`)}
+                                className={classNames(
+                                    "cursor-pointer block px-4 py-2 text-sm text-gray-700 hover:text-white"
+                                )}>
+                                <div>
+                                    Edit
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`associate`)}
+                                className={classNames(
+                                    "cursor-pointer block px-4 py-2 text-sm text-gray-700 hover:text-white"
+                                )}>
+                                <div>
+                                    Associate Org
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`request`)}
+                                className={classNames(
+                                    "cursor-pointer block px-4 py-2 text-sm text-gray-700 hover:text-white"
+                                )}>
+                                <div>
+                                    Manage Request -{" "}
+                                    {loaderData.organization?.organizationMembershipRequest?.length}
+                                </div>
+
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem className="h-11  w-full flex items-center"
+                                onClick={deleteChurch}>
+                                <Button variant="destructive" className="w-full">
+                                    <TrashIcon className="h-4 w-4 mr-2" />
+                                    Delete
+                                </Button>
+
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
                     </DropdownMenu>
                 )}
             </div>
@@ -193,38 +194,43 @@ const ChurchPage = () => {
                             <OrgDescription org={loaderData.organization as typeof churchOrganization.$inferSelect} />
                         </TabsContent>
                         <TabsContent value="missions">
-                            <List>
-                                {map(loaderData.organization?.missions, (mission: typeof mission.$inferSelect) => {
-                                    return (
-                                        <MissionRowCard
-                                            key={mission.id}
-                                            mission={mission}
-                                            linkActive
-                                            sponsoringOrg={mission.ChurchOrganization}
-                                        />
-                                    );
-                                })}
-                            </List>
+                            <Card className="bg-white">
+                                <CardContent>
+                                    <CardHeader>
+                                        <h1 className="text-2xl text-gray-900">Missions</h1>
+
+                                    </CardHeader>
+                                    <hr className="border-gray-200" />
+                                    <div className="h-full">
+                                        <List>
+                                            {isNil(loaderData.organization?.missions) || loaderData.organization?.missions.length === 0 ? (
+                                                <NoData message="No missions found" />
+                                            ) : (
+                                                map(loaderData.organization?.missions, (mission: typeof mission.$inferSelect) => {
+                                                    return (
+                                                        <MissionRowCard
+                                                            key={mission.id}
+                                                            mission={mission}
+                                                            linkActive
+                                                            sponsoringOrg={mission.ChurchOrganization}
+                                                        />
+                                                    );
+                                                }))}
+                                        </List>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
                         </TabsContent>
                         <TabsContent value="associated">
                             <>
-                                <OrgAssociations org={loaderData.organization as typeof churchOrganization.$inferSelect} />                                
+                                <OrgAssociations org={loaderData.organization as typeof churchOrganization.$inferSelect} />
                             </>
                         </TabsContent>
                         <TabsContent value="members"></TabsContent>
                     </Tabs>
                 </motion.div>
-                {subRouteDetected && (
-                    <motion.div layout className="lg:flex flex-1 space-y-3 lg:space-x-3 lg:space-y-0">
-                        <Card className="flex-1">
-                            <Button className="w-36" onClick={() => navigate("")}>
-                                <ArrowLeftIcon className="w-5 h-5 mr-2" />
-                                Back
-                            </Button>
-                            <Outlet />
-                        </Card>
-                    </motion.div>
-                )}
+                <Outlet />
             </div>
             <UpdateToast
                 showUpdateToast={showUpdateToast}

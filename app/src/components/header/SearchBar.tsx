@@ -152,7 +152,7 @@ const SearchBar = (props: Props) => {
                     style={{
                         "--tw-ring-shadow": "0 0 #000 !important",
                     }}
-                    className="block rounded-md w-full p-2.5 bg-[#0a192f] border-gray-600 placeholder-gray-400 text-white border-none focus:border-none focus:border-ring-none  ml-1 mr-1 "
+                    className="block rounded-md w-full p-2.5 bg-background border-gray-600 placeholder-gray-400 text-white border-none focus:border-none focus:border-ring-none  ml-1 mr-1 "
                     placeholder="Search..."
                 />
             ) : (
@@ -179,7 +179,7 @@ const SearchBar = (props: Props) => {
                                       minWidth: "350px",
                                   }
                         }
-                        className={`p-3 pt-1 absolute top-3 bg-[#172b4d] shadow-lg text-white -left-20 lg:left-0 text-sm rounded-lg w-11/12 block z-30 ${
+                        className={`p-3 pt-1 absolute top-3 bg-background shadow-lg text-white -left-20 lg:left-0 text-sm rounded-lg w-11/12 block z-30 ${
                             openPopover ? "h-auto" : "h-12"
                         }`}
                         initial={{ height: 0 }}

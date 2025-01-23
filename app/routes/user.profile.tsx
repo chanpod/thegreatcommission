@@ -2,7 +2,7 @@ import { Role } from "server/db/schema";
 import type { Route } from "./+types";
 import { Form, useFetcher, useLoaderData } from "react-router";
 import { useContext, useState } from "react";
-import { UserContext } from "~/root";
+import { UserContext } from "~/src/providers/userProvider";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { db } from "~/server/dbConnection";
 import { UserService } from "~/services/UserService";

@@ -1,5 +1,5 @@
 
-import Geocode from "react-geocode";
+import {fromAddress} from "react-geocode";
 import React, { useRef, useState } from "react";
 import { Input } from "../input/Input";
 import { churchOrganization } from "server/db/schema";
@@ -26,7 +26,7 @@ function checkForValidUrl(value: string) {
 
 export async function convertAddressToLocation(address: string): Promise<Location | undefined> {
     // Get latitude & longitude from address.
-    return Geocode.fromAddress(address).then(
+    return fromAddress(address).then(
         (response) => {
             if (response && response.results && response.results.length > 0) {
                 const location = response.results[0].geometry.location;
@@ -56,7 +56,6 @@ const CreateChurchForm = (props: Props) => {
                     disabled={props.readOnly ?? false}
                     name="name"
                     label="Name"
-                    required
                     defaultValue={props?.initialValues?.name ?? ""}
                 />
             </div>

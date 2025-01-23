@@ -1,12 +1,13 @@
-import {ArrowRight as ArrowLongRightIcon} from "lucide-react";
-import { Button } from "~/components/ui/button";
 import { AnimatePresence, motion } from "framer-motion";
-import { useContext, useEffect, useRef, useState } from "react";
+import { ArrowRight as ArrowLongRightIcon } from "lucide-react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { Link, useMatches } from "react-router";
-import { ApplicationContext } from "~/root";
+import { Button } from "~/components/ui/button";
 import tgcIcon from "~/src/assets/images/tgcIcon.png";
 import { useClickOutside } from "~/src/hooks/useClickOutside";
+import { ApplicationContext } from "~/src/providers/appContextProvider";
 import { navigation } from "../header/Header";
+
 export function Sidenav() {
     const matches = useMatches();
     const ref = useRef(null);
@@ -73,7 +74,7 @@ export function Sidenav() {
                         transition: { duration: 0.3 },
                     }}
                     ref={ref}
-                    className="sidebar bg-[#172b4d] shadow-md"
+                    className="sidebar bg-background shadow-md"
                 >
                     <div
                         className="sidebar-header flex items-center justify-center py-4"
@@ -98,23 +99,21 @@ export function Sidenav() {
                                 return (
                                     <Link
                                         onClick={() => setSideNavOpen(false)}
-                                        className={`flex flex-row items-center m-2 h-14 px-4 rounded-lg text-gray-300 hover:bg-gray-100 hover:text-gray-700 ${
-                                            current
-                                                ? "bg-[#0a192f] text-white justify-items-between rounded-md"
-                                                : "bg-[#172b4d]"
-                                        }`}
-                                        style={
-                                            current
-                                                ? {
-                                                      justifyContent: "space-between",
-                                                  }
-                                                : null
-                                        }
+                                        className={`flex flex-row items-center justify-between m-2 h-11 px-2 rounded-lg text-gray-300 hover:bg-gray-100 hover:text-gray-700 ${current
+                                            ? "bg-primary text-white rounded-md"
+                                            : "bg-background rounded-md"
+                                            }`}
                                         key={item.name}
                                         to={item.href}
                                     >
-                                        {/* <ChurchIcon /> */}
-                                        {item.name}
+                                        <div className="flex flex-row items-center space-x-2">
+                                            <div>
+                                                {React.createElement(item.icon)}
+                                            </div>
+                                            <div>
+                                                {item.name}
+                                            </div>
+                                        </div>
                                         {current ? <ArrowLongRightIcon className="block h-6 w-6" /> : null}
                                     </Link>
                                 );

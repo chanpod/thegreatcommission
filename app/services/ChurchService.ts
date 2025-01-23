@@ -4,8 +4,11 @@ import type { churchOrganization, users } from "server/db/schema";
 
 export class ChurchService {
     currentChurch: typeof churchOrganization | undefined;
-    constructor(churchIn: typeof churchOrganization | undefined = undefined) {
+    adminIds: string[] | undefined;
+
+    constructor(churchIn: typeof churchOrganization | undefined = undefined, adminIdsIn: string[] | undefined = undefined) {
         this.currentChurch = churchIn;
+        this.adminIds = adminIdsIn;
     }
 
     async getChurchFormDataFromRequest(request: Request): Promise<IChurchFormData> {
@@ -23,9 +26,9 @@ export class ChurchService {
         return church;
     }
 
-    userIsAdmin(user: typeof users): boolean {
-        const userService = new UserService(user);
-        // return this.currentChurch?.adminsIds.includes(user?.id) || userService.userIsAdmin() || false;
-        return false;
+    userIsAdmin(user: typeof users, roles: typeof roles): boolean {
+        const userService = new UserService(user, roles);        
+        return this.adminIds?.includes(user?.id) || userService.userIsAdmin() || false;
+        
     }
 }

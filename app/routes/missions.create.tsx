@@ -6,7 +6,7 @@ import CreateMissionForm from "~/src/components/forms/createMission/CreateMissio
 import type { Route } from "./+types";
 import { missions } from "server/db/schema";
 import { db } from "~/server/dbConnection";
-import { Card } from "~/components/ui/card";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
 
 export interface IMissionsFormData {
     title: string;
@@ -51,8 +51,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 export default function CreateChurch() {
     return (
-        <div className="flex-col space-y-5 ">
-            <h1 className="text-3xl">Create a Missions Organization</h1>
+        <Card className="bg-white">
+            <CardContent>
+                <CardHeader>
+
+                    <div className="flex-col space-y-5 ">
+                        <h1 className="text-3xl">Create a Missions Organization</h1>
+                    </div>
+                </CardHeader>
 
             <Card className="text-black max-w-[700px]">
                 <h1 className="text-3xl">Information</h1>
@@ -61,7 +67,8 @@ export default function CreateChurch() {
                     <CreateMissionForm />
                     <Button type="submit">Submit</Button>
                 </Form>
-            </Card>
-        </div>
+                </Card>
+            </CardContent>
+        </Card>
     );
 }
