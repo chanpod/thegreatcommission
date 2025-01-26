@@ -32,6 +32,7 @@ import {
 } from "~/components/ui/tooltip";
 import { churchOrganization, missionaries, missions } from "server/db/schema";
 import { DatePicker } from "../../datepicker/DatePicker";
+import { Stack } from "../../layout/Stack";
 
 export interface IMissionForm extends typeof missions.$inferInsert {
     churchOrganization: typeof churchOrganization.$inferSelect;
@@ -76,7 +77,7 @@ const CreateMissionForm = (props: Props) => {
     }
 
     return (
-        <div className="space-y-3">
+        <Stack>
             <div>
                 <Label>Mission Event Type</Label>
                 <Select>
@@ -177,7 +178,7 @@ const CreateMissionForm = (props: Props) => {
                     <DatePicker
                         disabled={props.readOnly ?? false}
                         useRange={false}
-                        name="beginDate"                        
+                        name="beginDate"
                         date={startDate}
                         onChange={startDateChanged}
                     />
@@ -190,13 +191,13 @@ const CreateMissionForm = (props: Props) => {
                 </div>
                 <div className="flex-col">
                     <Label>End Date</Label>
-                    <DatePicker
+                    {/* <DatePicker
                         disabled={props.readOnly ?? false}
                         useRange={false}
-                        name="endDate"                        
+                        name="endDate"
                         date={endDateForm}
                         onChange={endDateChanged}
-                    />
+                    /> */}
                     <input type="hidden" name="endDate" value={endDateForm?.startDate} />
                 </div>
             </div>
@@ -231,7 +232,7 @@ const CreateMissionForm = (props: Props) => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </Stack>
     );
 };
 

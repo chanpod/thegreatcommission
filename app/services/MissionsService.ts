@@ -8,8 +8,8 @@ export class MissionsService {
         this.currentMission = missionIn;
     }
 
-    async getMissionsFormData(request: Request): Promise<Partial<typeof missions>> {
-        const formData = await request.formData();
+    async getMissionsFormData(formData: FormData): Promise<Partial<typeof missions>> {
+        
         const location: Location = {
             lat: parseFloat(formData.get("lat") as string),
             lng: parseFloat(formData.get("lng") as string),

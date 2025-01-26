@@ -1,12 +1,13 @@
-import { Form, useFetcher } from "react-router";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { MissionsService } from "~/services/MissionsService";
-import { Button } from "~/components/ui/button";;
-import CreateMissionForm from "~/src/components/forms/createMission/CreateMissionForm";
-import type { Route } from "./+types";
+import { Form } from "react-router";
 import { missions } from "server/db/schema";
+import { Button } from "~/components/ui/button";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { db } from "~/server/dbConnection";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import { MissionsService } from "~/services/MissionsService";
+import CreateMissionForm from "~/src/components/forms/createMission/CreateMissionForm";
+import { PageLayout } from "~/src/components/layout/PageLayout";
+import type { Route } from "./+types";
+;
 
 export interface IMissionsFormData {
     title: string;
@@ -35,7 +36,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
         console.log("endDate", endDate);
 
         const missionsService = new MissionsService();
-        const newMission = await missionsService.getMissionsFormData(request) as typeof missions.$inferInsert;
+        const newMission = await missionsService.getMissionsFormData(form) as typeof missions.$inferInsert;
 
         const response = await db.insert(missions).values(newMission);
 
@@ -51,24 +52,12 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 export default function CreateChurch() {
     return (
-        <Card className="bg-white">
-            <CardContent>
-                <CardHeader>
+        <PageLayout title="Create a Missions Organization">
 
-                    <div className="flex-col space-y-5 ">
-                        <h1 className="text-3xl">Create a Missions Organization</h1>
-                    </div>
-                </CardHeader>
-
-            <Card className="text-black max-w-[700px]">
-                <h1 className="text-3xl">Information</h1>
-                <hr className="my-2" />
-                <Form method="post" className="space-y-5">
-                    <CreateMissionForm />
-                    <Button type="submit">Submit</Button>
-                </Form>
-                </Card>
-            </CardContent>
-        </Card>
+            <Form method="post" className="space-y-5">
+                <CreateMissionForm />
+                <Button type="submit">Submit</Button>
+            </Form>
+        </PageLayout>
     );
 }

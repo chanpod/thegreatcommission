@@ -10,6 +10,7 @@ import type { Route } from "./+types";
 import { Sheet, SheetContent } from "~/components/ui/sheet";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { PageLayout } from "~/src/components/layout/PageLayout";
 
 
 
@@ -28,7 +29,7 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
         const user = await authenticator.isAuthenticated(request);
         if (!user) return data({ message: "Not Authenticated" }, { status: 401 });
 
-        
+
         const churchService = new ChurchService();
         const newChurch = await churchService.getChurchFormDataFromRequest(request);
 
@@ -50,16 +51,16 @@ const Update = () => {
     const navigate = useNavigate();
     const actionData = useActionData();
     const [isOpen, setIsOpen] = useState(true);
-    
-    
+
+
 
     useEffect(() => {
 
-        toast.success("Church Updated", {
-            description: "The church has been updated successfully",
-        })
 
         if (actionData?.success) {
+            toast.success("Church Updated", {
+                description: "The church has been updated successfully",
+            })
             setIsOpen(false);
             toast("The church has been updated successfully")
             setTimeout(() => {
@@ -70,8 +71,8 @@ const Update = () => {
 
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
-        if (!open) {          
-      
+        if (!open) {
+
             setTimeout(() => {
                 navigate("/churches/" + loaderData?.organization?.id);
             }, 300); // Match sheet close animation duration
@@ -79,15 +80,14 @@ const Update = () => {
     };
 
     return (
-        <Sheet open={isOpen} onOpenChange={handleOpenChange}>            
+        <Sheet open={isOpen} onOpenChange={handleOpenChange}>
             <SheetContent>
-       
-                <h1 className="text-3xl">Update</h1>
-                <hr className="my-2" />
-                <Form method="put" className="space-y-4">
-                <CreateChurchForm initialValues={loaderData?.organization} />
-                    <Button type="submit">Update</Button>
-                </Form>
+                <PageLayout title="Update" className="mt-3">
+                    <Form method="put" className="space-y-4">
+                        <CreateChurchForm initialValues={loaderData?.organization} />
+                        <Button type="submit">Update</Button>
+                    </Form>
+                </PageLayout>
             </SheetContent>
         </Sheet>
     );

@@ -12,16 +12,17 @@ import type { Route } from "./+types";
 import { churchOrganization, organizationMembershipRequest } from "server/db/schema";
 import { and, eq, exists, not } from "drizzle-orm";
 import { Button } from "~/components/ui/button";
-import { Tabs, TabsTrigger } from "~/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { PageLayout } from "~/src/components/layout/PageLayout";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
     const organization = await db.select().from(churchOrganization)
-                                          .where(eq(churchOrganization.id, params.organization))    
-                                          .then(([organization]) => organization);
+        .where(eq(churchOrganization.id, params.organization))
+        .then(([organization]) => organization);
 
-
+    console.log(organization);
     return {
-        requestingOrg: organization,  
+        requestingOrg: organization,
 
     };
 };
@@ -204,15 +205,17 @@ const AssociateChurch = () => {
     }
 
     return (
-        <div className="space-y-3">
-            <h1 className="text-3xl">Associate</h1>
-            <Tabs aria-label="Tabs with underline" style="underline">
-                <TabsTrigger value="current">Current Parent Organization</TabsTrigger>
-                <TabsTrigger value="makeNewRequest">Make New Request</TabsTrigger>
-                <TabsTrigger value="previousRequest">Previous Request</TabsTrigger>
+        <PageLayout title="Associate">
+            <Tabs defaultValue="current">
+                <TabsList>
+                    <TabsTrigger value="current">Current Parent Organization</TabsTrigger>
+                    <TabsTrigger value="makeNewRequest">Make New Request</TabsTrigger>
+                    <TabsTrigger value="previousRequest">Previous Request</TabsTrigger>
+                </TabsList>
             </Tabs>
-            
-        </div>
+
+
+        </PageLayout>
     );
 };
 

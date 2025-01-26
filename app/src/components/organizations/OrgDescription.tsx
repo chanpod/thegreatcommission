@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Carousel, CarouselItem } from "~/components/ui/carousel";
 import { convertAddressToLocation } from "../forms/createChurch/CreateChurchForm";
 import OrgLocation from "./OrgLocation";
+import { DataDisplay } from "../dataDisplay/data";
 
 const OrgDescription = ({ org }: { org: typeof churchOrganization }) => {
     const [location, setLocation] = useState<typeof location | undefined>(undefined);
@@ -48,13 +49,10 @@ const OrgDescription = ({ org }: { org: typeof churchOrganization }) => {
 
                     <hr className="border-gray-200" />
                     <section className="flex flex-col space-y-3">
-                        <div className="flex flex-col">
-                            <div className="text-gray-500">Location</div>
+                        <DataDisplay label="Location">
                             <OrgLocation org={org} />
-                        </div>
-                        <div className="flex flex-col">
-                            <div className="text-gray-500">Website</div>
-
+                        </DataDisplay>
+                        <DataDisplay label="Website">
                             {org.mainChurchWebsite && (
                                 <a href={org.mainChurchWebsite} className="text-blue-600 hover:text-blue-800">
                                     <div className="flex space-x-3 items-center">
@@ -63,7 +61,7 @@ const OrgDescription = ({ org }: { org: typeof churchOrganization }) => {
                                     </div>
                                 </a>
                             )}
-                        </div>
+                        </DataDisplay>
                     </section>
                 </CardContent>
             </Card>

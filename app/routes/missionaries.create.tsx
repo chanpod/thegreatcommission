@@ -6,6 +6,7 @@ import type { Route } from "./+types";
 import { db } from "~/server/dbConnection";
 import { missionaries } from "server/db/schema";
 import { Card } from "~/components/ui/card";
+import { PageLayout } from "~/src/components/layout/PageLayout";
 
 export const action = async ({ request }: Route.ActionArgs) => {
     console.log("Create missionary action");
@@ -22,7 +23,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
             email: form.get("email") as string,
             city: form.get("city") as string,
             state: form.get("state") as string,
-            zip: form.get("zip") as string,            
+            zip: form.get("zip") as string,
             updatedAt: new Date(),
             createdAt: new Date(),
         };
@@ -41,24 +42,19 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 export default function CreateChurch() {
     return (
-        <div className="flex-col space-y-5 ">
-            <h1 className="text-3xl">Create a Missions Organization</h1>
+        <PageLayout title="Create a Missionary">
 
-            <Card className="text-black max-w-[700px]">
-                <h1 className="text-3xl">Information</h1>
-                <hr className="my-2" />
-                <Form method="post">
-                    <Input name="firstName" label="First Name" />
-                    <Input name="lastName" label="Last Name" />
-                    <Input name="middleName" label="Middle Name" />
-                    <Input name="email" label="email" />
-                    <Input name="city" label="City" />
-                    <Input name="state" label="State" />
-                    <Input name="zip" label="Zip Code" />
+            <Form method="post">
+                <Input name="firstName" label="First Name" />
+                <Input name="lastName" label="Last Name" />
+                <Input name="middleName" label="Middle Name" />
+                <Input name="email" label="email" />
+                <Input name="city" label="City" />
+                <Input name="state" label="State" />
+                <Input name="zip" label="Zip Code" />
 
-                    <Button type="submit">Submit</Button>
-                </Form>
-            </Card>
-        </div>
+                <Button type="submit">Submit</Button>
+            </Form>
+        </PageLayout>
     );
 }

@@ -1,8 +1,9 @@
 
-import {fromAddress} from "react-geocode";
-import React, { useRef, useState } from "react";
-import { Input } from "../input/Input";
+import { useState } from "react";
+import { fromAddress } from "react-geocode";
 import { churchOrganization } from "server/db/schema";
+import { Stack } from "../../layout/Stack";
+import { Input } from "../input/Input";
 
 
 export interface IChurchFormData extends typeof churchOrganization.$inferSelect {
@@ -50,76 +51,69 @@ const CreateChurchForm = (props: Props) => {
     const churchWebsiteUrlValid = churchWebsiteUrl.length > 0 ? checkForValidUrl(churchWebsiteUrl) : true;
 
     return (
-        <div className="flex flex-wrap space-y-3">
-            <div className="flex-initial w-full">
-                <Input
-                    disabled={props.readOnly ?? false}
-                    name="name"
-                    label="Name"
-                    defaultValue={props?.initialValues?.name ?? ""}
-                />
-            </div>
-            <div className="flex-initial w-full">
-                <Input
-                    disabled={props.readOnly ?? false}
-                    name="street"
-                    label="Street"                    
-                    defaultValue={props?.initialValues?.street ?? ""}
-                />
-            </div>
-            <div className="flex flex-wrap space-x-3">
-                <div className="flex-initial w-80">
-                    <Input
-                        disabled={props.readOnly ?? false}
-                        name="city"
-                        label="City"
-                        defaultValue={props?.initialValues?.city ?? ""}
-                    />
-                </div>
-                <div className="flex-initial w-80">
-                    <Input
-                        className="flex-1"
-                        disabled={props.readOnly ?? false}
-                        name="state"
-                        label="State"
-                        defaultValue={props?.initialValues?.state ?? ""}
-                    />
-                </div>
-                <div className="flex-initial w-80">
-                    <Input
-                        className="flex-1"
-                        disabled={props.readOnly ?? false}
-                        name="zip"
-                        label="Zip Code"
-                        defaultValue={props?.initialValues?.zip ?? ""}
-                    />
-                </div>
-            </div>
-            <div className="flex-initial w-full">
-                <Input
-                    className="max-w-lg"
-                    disabled={props.readOnly ?? false}
-                    name="churchBannerUrl"
-                    label="Church Banner Image URL"
-                    defaultValue={props?.initialValues?.churchBannerUrl ?? ""}
-                    color={churchBannerUrlValid ? "" : "failure"}
-                    onChange={(e) => setChurchBannerUrl(e.target.value)}
-                    helperText={churchBannerUrlValid ? "" : "Invalid URL"}
-                />
-            </div>
-            <div className="flex-initial w-full">
-                <Input
-                    className="max-w-lg"
-                    disabled={props.readOnly ?? false}
-                    name="mainChurchWebsite"
-                    label="Main Website"
-                    defaultValue={props?.initialValues?.mainChurchWebsite ?? ""}
-                    color={churchWebsiteUrlValid ? "" : "failure"}
-                    onChange={(e) => setChurchWebsiteUrl(e.target.value)}
-                    helperText={churchWebsiteUrlValid ? "" : "Invalid URL"}
-                />
-            </div>
-        </div>
+
+        <Stack>
+
+            <Input
+                disabled={props.readOnly ?? false}
+                name="name"
+                label="Name"
+                defaultValue={props?.initialValues?.name ?? ""}
+            />
+
+            <Input
+                disabled={props.readOnly ?? false}
+                name="street"
+                label="Street"
+                defaultValue={props?.initialValues?.street ?? ""}
+            />
+
+            <Input
+                disabled={props.readOnly ?? false}
+                name="city"
+                label="City"
+                defaultValue={props?.initialValues?.city ?? ""}
+            />
+
+            <Input
+                className="flex-1"
+                disabled={props.readOnly ?? false}
+                name="state"
+                label="State"
+                defaultValue={props?.initialValues?.state ?? ""}
+            />
+
+            <Input
+                className="flex-1"
+                disabled={props.readOnly ?? false}
+                name="zip"
+                label="Zip Code"
+                defaultValue={props?.initialValues?.zip ?? ""}
+            />
+
+            <Input
+                className="max-w-lg"
+                disabled={props.readOnly ?? false}
+                name="churchBannerUrl"
+                label="Church Banner Image URL"
+                defaultValue={props?.initialValues?.churchBannerUrl ?? ""}
+                color={churchBannerUrlValid ? "" : "failure"}
+                onChange={(e) => setChurchBannerUrl(e.target.value)}
+                helperText={churchBannerUrlValid ? "" : "Invalid URL"}
+            />
+
+            <Input
+                className="max-w-lg"
+                disabled={props.readOnly ?? false}
+                name="mainChurchWebsite"
+                label="Main Website"
+                defaultValue={props?.initialValues?.mainChurchWebsite ?? ""}
+                color={churchWebsiteUrlValid ? "" : "failure"}
+                onChange={(e) => setChurchWebsiteUrl(e.target.value)}
+                helperText={churchWebsiteUrlValid ? "" : "Invalid URL"}
+            />
+
+        </Stack>
     );
 };
 

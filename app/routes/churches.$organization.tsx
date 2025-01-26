@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { UserContext } from "~/src/providers/userProvider";
 import { NoData } from "~/components/ui/no-data";
+import { PageLayout } from "~/src/components/layout/PageLayout";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
     const parentOrganizationAlias = aliasedTable(churchOrganization, 'parentOrganization')
@@ -194,32 +195,25 @@ const ChurchPage = () => {
                             <OrgDescription org={loaderData.organization as typeof churchOrganization.$inferSelect} />
                         </TabsContent>
                         <TabsContent value="missions">
-                            <Card className="bg-white">
-                                <CardContent>
-                                    <CardHeader>
-                                        <h1 className="text-2xl text-gray-900">Missions</h1>
-
-                                    </CardHeader>
-                                    <hr className="border-gray-200" />
-                                    <div className="h-full">
-                                        <List>
-                                            {isNil(loaderData.organization?.missions) || loaderData.organization?.missions.length === 0 ? (
-                                                <NoData message="No missions found" />
-                                            ) : (
-                                                map(loaderData.organization?.missions, (mission: typeof mission.$inferSelect) => {
-                                                    return (
-                                                        <MissionRowCard
-                                                            key={mission.id}
-                                                            mission={mission}
-                                                            linkActive
-                                                            sponsoringOrg={mission.ChurchOrganization}
-                                                        />
-                                                    );
-                                                }))}
-                                        </List>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                            <PageLayout title="Missions">
+                                <div className="h-full">
+                                    <List>
+                                        {isNil(loaderData.organization?.missions) || loaderData.organization?.missions.length === 0 ? (
+                                            <NoData message="No missions found" />
+                                        ) : (
+                                            map(loaderData.organization?.missions, (mission: typeof mission.$inferSelect) => {
+                                                return (
+                                                    <MissionRowCard
+                                                        key={mission.id}
+                                                        mission={mission}
+                                                        linkActive
+                                                        sponsoringOrg={mission.ChurchOrganization}
+                                                    />
+                                                );
+                                            }))}
+                                    </List>
+                                </div>
+                            </PageLayout>
 
                         </TabsContent>
                         <TabsContent value="associated">
