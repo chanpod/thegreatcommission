@@ -7,6 +7,7 @@ import { db } from "~/server/dbConnection";
 import { missionaries } from "server/db/schema";
 import { Card } from "~/components/ui/card";
 import { PageLayout } from "~/src/components/layout/PageLayout";
+import UsersForm from "~/src/components/forms/users/UsersForm";
 
 export const action = async ({ request }: Route.ActionArgs) => {
     console.log("Create missionary action");
@@ -45,13 +46,7 @@ export default function CreateChurch() {
         <PageLayout title="Create a Missionary">
 
             <Form method="post">
-                <Input name="firstName" label="First Name" />
-                <Input name="lastName" label="Last Name" />
-                <Input name="middleName" label="Middle Name" />
-                <Input name="email" label="email" />
-                <Input name="city" label="City" />
-                <Input name="state" label="State" />
-                <Input name="zip" label="Zip Code" />
+                <UsersForm defaultValues={{}} />
 
                 <Button type="submit">Submit</Button>
             </Form>

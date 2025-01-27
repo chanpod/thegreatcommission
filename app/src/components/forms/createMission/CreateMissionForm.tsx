@@ -1,5 +1,5 @@
 import { addDays } from "date-fns";
-import { useState } from "react";
+import { use, useContext, useState } from "react";
 import { InfoIcon as InfoCircledIcon } from "lucide-react";
 
 import SearchBar from "../../header/SearchBar";
@@ -33,6 +33,7 @@ import {
 import { churchOrganization, missionaries, missions } from "server/db/schema";
 import { DatePicker } from "../../datepicker/DatePicker";
 import { Stack } from "../../layout/Stack";
+import { ApplicationContext } from "~/src/providers/appContextProvider";
 
 export interface IMissionForm extends typeof missions.$inferInsert {
     churchOrganization: typeof churchOrganization.$inferSelect;
@@ -46,16 +47,11 @@ interface Props {
 const CreateMissionForm = (props: Props) => {
     const beginDate = props.initialValues?.beginDate ? new Date(props.initialValues?.beginDate) : new Date();
     const endDate = props.initialValues?.endDate ? new Date(props.initialValues?.endDate) : new Date();
-    const [startDate, setStartDate] = useState<Date | undefined>({
-        startDate: beginDate,
-        endDate: addDays(new Date(), 2),
-    });
-    const [endDateForm, setEndDate] = useState<Date | undefined>({
-        startDate: endDate,
-        endDate: addDays(endDate, 2),
-    });
+    const [startDate, setStartDate] = useState<Date | undefined>(beginDate);
+    const [endDateForm, setEndDate] = useState<Date | undefined>(endDate);
     const [selectedOrg, setSelectedOrg] = useState<typeof churchOrganization | undefined>();
     const [showLocationSelect, setShowLocationSelect] = useState(false);
+    const { env } = use(ApplicationContext);
     const [selectedCoordinates, setSelectedCoordinates] = useState({
         lat: props.initialValues?.lat ?? 0,
         lng: props.initialValues?.lng ?? 0,
@@ -184,21 +180,26 @@ const CreateMissionForm = (props: Props) => {
                     />
                     <input
                         type="hidden"
-                        defaultValue={beginDate.toISOString()}
+                        defaultValue={beginDate}
                         name="beginDate"
-                        value={startDate?.startDate}
+                        value={startDate}
                     />
                 </div>
                 <div className="flex-col">
                     <Label>End Date</Label>
-                    {/* <DatePicker
+                    <DatePicker
                         disabled={props.readOnly ?? false}
                         useRange={false}
                         name="endDate"
                         date={endDateForm}
                         onChange={endDateChanged}
-                    /> */}
-                    <input type="hidden" name="endDate" value={endDateForm?.startDate} />
+                    />
+                    <input
+                        type="hidden"
+                        defaultValue={endDateForm}
+                        name="endDate"
+                        value={endDateForm}
+                    />
                 </div>
             </div>
 
@@ -219,7 +220,7 @@ const CreateMissionForm = (props: Props) => {
                         <DialogTitle>Select Location</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-6">
-                        <WorldMap coordinatesChanged={(coordinates) => setSelectedCoordinates(coordinates)} />
+                        <WorldMap coordinatesChanged={(coordinates) => setSelectedCoordinates(coordinates)} googleMapsApiKey={env.mapsApiZ} />
                         <p>Lat: {selectedCoordinates.lat} Lng: {selectedCoordinates.lng}</p>
                     </div>
                     <DialogFooter>

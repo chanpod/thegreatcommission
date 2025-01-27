@@ -7,7 +7,8 @@ import { MissionsService } from "~/services/MissionsService";
 import CreateMissionForm from "~/src/components/forms/createMission/CreateMissionForm";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import type { Route } from "./+types";
-;
+import { MissionsDataService } from "~/server/services/data/MissionsData.service";
+
 
 export interface IMissionsFormData {
     title: string;
@@ -27,18 +28,15 @@ export const action = async ({ request }: Route.ActionArgs) => {
     const user = await authenticator.isAuthenticated(request);
 
     if (request.method === "POST") {
+        const missionsDataService = new MissionsDataService();
         const form = await request.formData();
 
-        const startDate = form.get("beginDate") as string;
-        const endDate = form.get("endDate") as string;
 
-        console.log("startDate", startDate);
-        console.log("endDate", endDate);
 
         const missionsService = new MissionsService();
-        const newMission = await missionsService.getMissionsFormData(form) as typeof missions.$inferInsert;
+        const newMission = await missionsService.getMissionsFormData(form);
 
-        const response = await db.insert(missions).values(newMission);
+        const response = await missionsDataService.createMission(newMission);
 
         console.log("response", response);
 

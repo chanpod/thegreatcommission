@@ -1,3 +1,4 @@
+import { isDate, parseISO } from "date-fns";
 import type { missions } from "server/db/schema";
 import type { IMissionsFormData } from "~/routes/missions.create";
 
@@ -15,12 +16,16 @@ export class MissionsService {
             lng: parseFloat(formData.get("lng") as string),
         };
 
-        console.log(formData.get("sensitive"));
+        const beginDate = new Date(formData.get("beginDate") as string);
+        const endDate = new Date(formData.get("endDate") as string);
+
+  
+        
         const missionFormData: Partial<typeof missions> = {
             title: formData.get("title") as string,
             description: formData.get("description") as string,
-            beginDate: new Date(formData.get("beginDate") as string).toISOString(),
-            endDate: new Date(formData.get("endDate") as string).toISOString(),
+            beginDate: beginDate,
+            endDate: endDate,
             churchOrganizationId: formData.get("churchOrganizationId") as string,
             lat: location.lat,
             lng: location.lng,

@@ -1,33 +1,22 @@
-import { data, Link, Outlet, redirect, useActionData, useFetcher, useLoaderData, useLocation, useNavigate } from "react-router";
+import { data, Link, Outlet, redirect, useActionData, useFetcher, useLoaderData, useNavigate } from "react-router";
 
 import { motion } from "framer-motion";
-import { isNil, map } from "lodash-es";
-import { Fragment, useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { ChurchService } from "~/services/ChurchService";
 
-import List from "~/src/components/listItems/List";
-import { MissionRowCard } from "~/src/components/listItems/components/MissionRowCard";
-import { OrgAssociations } from "~/src/components/organizations/OrgAssociations";
-import OrgDescription from "~/src/components/organizations/OrgDescription";
-import UpdateToast from "~/src/components/toast/UpdateToast";
-import { classNames } from "~/src/helpers";
-import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
-import { db } from "~/server/dbConnection";
+import { aliasedTable, and, eq } from "drizzle-orm";
+import { ArrowRight as ArrowNarrowRightIcon, Pencil as PencilIcon, Trash as TrashIcon } from "lucide-react";
 import { churchOrganization, usersTochurchOrganization } from "server/db/schema";
-import { aliasedTable, eq, and } from "drizzle-orm";
-import type { Route } from "./+types";
-import { ArrowRight as ArrowNarrowRightIcon } from "lucide-react";
-import { ArrowLeft as ArrowLeftIcon } from "lucide-react";
-import { Pencil as PencilIcon } from "lucide-react";
-import { Trash as TrashIcon } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import { db } from "~/server/dbConnection";
+import UpdateToast from "~/src/components/toast/UpdateToast";
+import { classNames } from "~/src/helpers";
+import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import { UserContext } from "~/src/providers/userProvider";
-import { NoData } from "~/components/ui/no-data";
-import { PageLayout } from "~/src/components/layout/PageLayout";
+import type { Route } from "./+types";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
     const parentOrganizationAlias = aliasedTable(churchOrganization, 'parentOrganization')
@@ -77,21 +66,17 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
 
 
 const ChurchPage = () => {
-    const { isLoggedIn, user } = useIsLoggedIn();
+    const { user } = useIsLoggedIn();
     const { roles } = useContext(UserContext);
     const [showUpdateToast, setShowUpdateToast] = useState(false);
     const loaderData = useLoaderData<typeof loader>();
     const actionData = useActionData();
     const deleteFetcher = useFetcher();
-    const loading = deleteFetcher.state === "submitting" || deleteFetcher.state === "loading";
+
     const navigate = useNavigate();
-    const location = useLocation();
+
 
     const churchService = new ChurchService(loaderData?.organization!, loaderData?.adminIds);
-    const subRouteDetected =
-        location.pathname.includes("update") ||
-        location.pathname.includes("associate") ||
-        location.pathname.includes("request");
 
     function deleteChurch() {
         deleteFetcher.submit({}, { method: "delete", action: `/churches/${loaderData.organization?.id}` });
@@ -143,7 +128,7 @@ const ChurchPage = () => {
                         </div>
 
                         <DropdownMenuContent className="absolute space-y-2 right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                            <DropdownMenuItem onClick={() => navigate(`update`)}
+                            <DropdownMenuItem onClick={() => navigate(`details/update`)}
                                 className={classNames(
                                     "cursor-pointer block px-4 py-2 text-sm text-gray-700 hover:text-white"
                                 )}>
@@ -157,6 +142,14 @@ const ChurchPage = () => {
                                 )}>
                                 <div>
                                     Associate Org
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`members/add`)}
+                                className={classNames(
+                                    "cursor-pointer block px-4 py-2 text-sm text-gray-700 hover:text-white"
+                                )}>
+                                <div>
+                                    Add Member
                                 </div>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => navigate(`request`)}
@@ -184,47 +177,20 @@ const ChurchPage = () => {
             </div>
             <div className="lg:flex space-y-3 lg:space-x-3 lg:space-y-0">
                 <motion.div layout className="flex-1 space-y-3">
-                    <Tabs defaultValue="details">
+                    <Tabs>
                         <TabsList>
-                            <TabsTrigger value="details">Details</TabsTrigger>
-                            <TabsTrigger value="missions">Missions</TabsTrigger>
-                            <TabsTrigger value="associated">Associated Orgs</TabsTrigger>
-                            <TabsTrigger value="members" disabled>Members</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate(`details`)}>Details</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate(`missions`)}>Missions</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate(`associations`)}>Associated Orgs</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate(`members`)}>Members</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="details">
-                            <OrgDescription org={loaderData.organization as typeof churchOrganization.$inferSelect} />
+                        <TabsContent>
+                            <Outlet />
                         </TabsContent>
-                        <TabsContent value="missions">
-                            <PageLayout title="Missions">
-                                <div className="h-full">
-                                    <List>
-                                        {isNil(loaderData.organization?.missions) || loaderData.organization?.missions.length === 0 ? (
-                                            <NoData message="No missions found" />
-                                        ) : (
-                                            map(loaderData.organization?.missions, (mission: typeof mission.$inferSelect) => {
-                                                return (
-                                                    <MissionRowCard
-                                                        key={mission.id}
-                                                        mission={mission}
-                                                        linkActive
-                                                        sponsoringOrg={mission.ChurchOrganization}
-                                                    />
-                                                );
-                                            }))}
-                                    </List>
-                                </div>
-                            </PageLayout>
 
-                        </TabsContent>
-                        <TabsContent value="associated">
-                            <>
-                                <OrgAssociations org={loaderData.organization as typeof churchOrganization.$inferSelect} />
-                            </>
-                        </TabsContent>
-                        <TabsContent value="members"></TabsContent>
                     </Tabs>
                 </motion.div>
-                <Outlet />
+
             </div>
             <UpdateToast
                 showUpdateToast={showUpdateToast}

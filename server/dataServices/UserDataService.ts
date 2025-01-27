@@ -1,19 +1,37 @@
-import { eq } from "drizzle-orm";
+import { aliasedTable, eq } from "drizzle-orm";
 
-import { roles, users, usersToRoles } from "server/db/schema";
+import { churchOrganization, roles as rolesSchema, users as usersSchema, usersToRoles } from "server/db/schema";
 import { db } from "~/server/dbConnection";
 
-export class UserDataService {
-   
-    async getUser(email: string, includes: {roles: boolean, churches: boolean} = {roles: false, churches: false}): Promise<{users: typeof users, roles: typeof roles[]}> {
-        let query = db.select().from(users).where(eq(users.email, email))
+export async function updateUser(userId: string, user: typeof usersSchema) {
+    return await db.update(usersSchema).set({
+        ...user,
+    }).where(eq(usersSchema.id, userId));
+}
 
-        if (includes.roles) {
-            
-            query.leftJoin(usersToRoles, eq(users.id, usersToRoles.userId))
-            query.leftJoin(roles, eq(usersToRoles.roleId, roles.id))
-        }
+export async function getUser(email: string, includes: {roles: boolean, churches: boolean} = {roles: false, churches: false}): Promise<{users: typeof usersSchema, roles: typeof rolesSchema[]}> {
+    let query = db.select().from(usersSchema).where(eq(usersSchema.email, email))
+    let users;
+    let roles = [];
 
-        return await query.then((result) => result[0]);
+    if (includes.roles) {
+        const rolesAlias = aliasedTable(rolesSchema, 'roles')
+        query.leftJoin(usersToRoles, eq(usersSchema.id, usersToRoles.userId))
+        query.leftJoin(rolesAlias, eq(usersToRoles.roleId, rolesAlias.id))
+
+        const result = await query.then((result) => result[0]);
+
+        users = result.users as typeof users;
+        roles = result.roles as typeof roles[];
+    }
+    else{
+        const result = await query.then((result) => result[0]);
+        users = result as typeof users;
+    }
+
+    return {
+        users,
+        roles
     }
 }
+

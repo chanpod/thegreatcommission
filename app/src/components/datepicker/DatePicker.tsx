@@ -14,12 +14,13 @@ interface DatePickerProps {
   date?: Date
   disabled?: boolean
   name?: string
-  
+
   useRange?: boolean
   onChange?: (date: Date | undefined) => void
 }
 
 export function DatePicker({ date, disabled, name, useRange, onChange }: DatePickerProps) {
+
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date)
 
   return (
@@ -39,8 +40,8 @@ export function DatePicker({ date, disabled, name, useRange, onChange }: DatePic
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar            
-          mode={useRange ? "range" : "single"}                    
+        <Calendar
+          mode={useRange ? "range" : "single"}
           selected={selectedDate}
           onSelect={(date) => {
             setSelectedDate(date)

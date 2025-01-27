@@ -3,11 +3,18 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const users = pgTable('users', {
   id: text('id').primaryKey().$defaultFn(() => uuidv4()),
-  email: text('email').unique().notNull(),
+  email: text('email').unique(),
   firstName: text('first_name'),
-  lastName: text('last_name'),
-  googleId: text('google_id').unique(),
+  lastName: text('last_name'),  
+  middleName: text('middle_name'),  
+  phone: text('phone'),  
+  address: text('address'),
+  city: text('city'),
+  state: text('state'),
+  zip: text('zip'),
+  country: text('country'),
   avatarUrl: text('avatar_url'),
+  googleId: text('google_id').unique(),  
 });
 
 export const roles = pgTable('roles', {
@@ -38,29 +45,6 @@ export const missions = pgTable('missions', {
   fundingRaised: integer('funding_raised'),
   photoUrls: text('photo_urls').array(),
   churchOrganizationId: text('church_organization_id').references(() => churchOrganization.id),
-});
-
-export const missionaries = pgTable('missionaries', {
-  id: text('id').primaryKey().$defaultFn(() => uuidv4()),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').notNull(),
-  userId: text('user_id').references(() => users.id),
-  firstName: text('first_name'),
-  middleName: text('middle_name'),
-  lastName: text('last_name'),
-  phone: text('phone'),
-  email: text('email'),
-  address: text('address'),
-  city: text('city'),
-  state: text('state'),
-  zip: text('zip'),
-  country: text('country'),
-  avatarUrl: text('avatar_url'),
-});
-
-export const missionariesToMissions = pgTable('missionaries_to_missions', {
-  missionaryId: text('missionary_id').notNull().references(() => missionaries.id),
-  missionId: text('mission_id').notNull().references(() => missions.id),
 });
 
 export const usersToMissions = pgTable('users_to_missions', {

@@ -52,8 +52,6 @@ const Update = () => {
     const actionData = useActionData();
     const [isOpen, setIsOpen] = useState(true);
 
-
-
     useEffect(() => {
 
 

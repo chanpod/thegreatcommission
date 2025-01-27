@@ -9,7 +9,8 @@ import {
 } from "react-router";
 
 import { Toaster } from "~/components/ui/sonner";
-import { UserDataService } from "server/dataServices/UserDataService";
+
+import { getUser } from "@/server/dataServices/UserDataService";
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 import { authenticator } from "./server/auth/strategies/authenticaiton";
@@ -35,7 +36,7 @@ export const links: Route.LinksFunction = () => [
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
   const userSession = await authenticator.isAuthenticated(request);
-  const userDataService = new UserDataService();
+
   if (!userSession) {
     return {
       userContext: {
@@ -49,7 +50,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
   }
 
 
-  const getUserQuery = await userDataService.getUser(userSession.email, { roles: true, churches: false });
+  const getUserQuery = await getUser(userSession.email, { roles: true, churches: false });
 
   return {
     userContext: {
