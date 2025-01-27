@@ -86,3 +86,17 @@ export const organizationMembershipRequest = pgTable('organization_membership_re
   status: text('status').default('pending').notNull(),
   type: text('type').default('organization').notNull(),
 });
+
+export const userPreferences = pgTable('user_preferences', {
+  id: text('id').primaryKey().$defaultFn(() => uuidv4()),
+  userId: text('user_id').notNull().references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+  emailNotifications: boolean('email_notifications').default(true).notNull(),
+  smsNotifications: boolean('sms_notifications').default(false).notNull(),
+  phoneNotifications: boolean('phone_notifications').default(false).notNull(),
+  emailFrequency: text('email_frequency').default('daily').notNull(), // daily, weekly, monthly
+  smsFrequency: text('sms_frequency').default('daily').notNull(),
+  phoneFrequency: text('phone_frequency').default('weekly').notNull(),
+  notificationTypes: text('notification_types').array().default(['general']).notNull(), // general, events, missions, etc
+});

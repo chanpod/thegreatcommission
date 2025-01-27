@@ -10,6 +10,7 @@ export default function UsersForm({ defaultValues }: { defaultValues: any }) {
             <Input name="city" label="City" defaultValue={defaultValues.city} />
             <Input name="state" label="State" defaultValue={defaultValues.state} />
             <Input name="zip" label="Zip Code" defaultValue={defaultValues.zip} />
+            <Input name="phone" label="Phone" defaultValue={defaultValues.phone} />
         </>
     );
 }

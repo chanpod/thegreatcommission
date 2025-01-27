@@ -22,6 +22,6 @@ export default defineConfig(({ isSsrBuild, command }) => ({
     noExternal: command === "build" ? true : undefined,
   },
   plugins: [reactRouter(), tsconfigPaths(), cjsInterop({
-    dependencies: ["@untitled-ui/icons-react"],
+    dependencies: ["@untitled-ui/icons-react", "twilio"],
   })],
 }));
