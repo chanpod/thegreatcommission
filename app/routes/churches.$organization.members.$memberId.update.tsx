@@ -11,15 +11,20 @@ import { PageLayout } from "~/src/components/layout/PageLayout";
 import UsersForm from "~/src/components/forms/users/UsersForm";
 import { updateUser } from "@/server/dataServices/UserDataService";
 import { updateUserPreferences } from "@/server/dataServices/UserPreferences";
-
+import { getUserPreferences } from "@/server/dataServices/UserPreferences";
 
 export const loader = async ({ request, params }) => {
     const user = await db.select().from(users)
         .where(eq(users.id, params.memberId))
         .then((data) => data[0]);
 
+    const userPreferences = await getUserPreferences(params.memberId);
+
+    console.log("userPreferences", userPreferences);
+
     return {
         user,
+        userPreferences,
         orgId: params.organization,
     };
 };
@@ -72,7 +77,7 @@ export const action = async ({ request, params }) => {
 };
 
 const AddMember = () => {
-    const { user, orgId } = useLoaderData();
+    const { user, orgId, userPreferences } = useLoaderData();
     const navigate = useNavigate();
     const actionData = useActionData();
     const [isOpen, setIsOpen] = useState(true);
@@ -103,7 +108,7 @@ const AddMember = () => {
             <SheetContent>
                 <PageLayout title="Edit Member" className="mt-3">
                     <Form method="put" className="space-y-4">
-                        <UsersForm defaultValues={user} />
+                        <UsersForm defaultValues={{ ...user, ...userPreferences }} />
                         <Button type="submit">Update Member</Button>
                     </Form>
                 </PageLayout>

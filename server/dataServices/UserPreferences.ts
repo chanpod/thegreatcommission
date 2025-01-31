@@ -6,8 +6,10 @@ export async function getUserPreferences(userId: string) {
 	const userPreferencesResponse = await db
 		.select()
 		.from(userPreferences)
-		.where(eq(userPreferences.userId, userId));
-	return userPreferences;
+		.where(eq(userPreferences.userId, userId))
+		.then((res) => res[0]);
+
+	return userPreferencesResponse;
 }
 
 export async function updateUserPreferences(

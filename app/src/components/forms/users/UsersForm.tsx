@@ -2,6 +2,9 @@ import { Label } from "~/components/ui/label";
 import { Input } from "../input/Input";
 
 export default function UsersForm({ defaultValues }: { defaultValues: any }) {
+
+    console.log("defaultValues", defaultValues);
+
     return (
         <>
             <Input name="firstName" label="First Name" defaultValue={defaultValues.firstName} />
@@ -20,7 +23,7 @@ export default function UsersForm({ defaultValues }: { defaultValues: any }) {
                             type="checkbox"
                             id="preferEmail"
                             name="preferEmail"
-                            defaultChecked={defaultValues.emailNotifications}
+                            defaultChecked={defaultValues.emailNotifications === true}
                             className="rounded border-gray-300"
                         />
                         <Label htmlFor="preferEmail" className="text-sm">Email</Label>
@@ -30,7 +33,7 @@ export default function UsersForm({ defaultValues }: { defaultValues: any }) {
                             type="checkbox"
                             id="preferText"
                             name="preferText"
-                            defaultChecked={defaultValues.smsNotifications}
+                            defaultChecked={defaultValues.smsNotifications === true}
                             className="rounded border-gray-300"
                         />
                         <Label htmlFor="preferText" className="text-sm">Text Message</Label>
@@ -40,7 +43,7 @@ export default function UsersForm({ defaultValues }: { defaultValues: any }) {
                             type="checkbox"
                             id="preferCall"
                             name="preferCall"
-                            defaultChecked={defaultValues.phoneNotifications}
+                            defaultChecked={defaultValues.phoneNotifications === true}
                             className="rounded border-gray-300"
                         />
                         <Label htmlFor="preferCall" className="text-sm">Phone Call</Label>
