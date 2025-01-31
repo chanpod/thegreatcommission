@@ -1,27 +1,40 @@
+import { userPreferences, users, usersTochurchOrganization } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import { Form, Outlet, useActionData, useFetcher, useLoaderData, useNavigate, useParams, useSubmit } from "react-router";
-import { users, usersTochurchOrganization } from "@/server/db/schema";
+import { Outlet, useActionData, useFetcher, useLoaderData, useNavigate, useParams, useSubmit } from "react-router";
 import { db } from "~/server/dbConnection";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { NoData } from "~/components/ui/no-data";
-import List from "~/src/components/listItems/List";
-import { DataDisplay } from "~/src/components/dataDisplay/data";
-import { Stack } from "~/src/components/layout/Stack";
-import { PencilIcon, PhoneIcon, MailIcon, MessageSquareIcon } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "~/components/ui/dropdown-menu";
-import { TrashIcon } from "lucide-react";
-import { DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
-import { Button } from "~/components/ui/button";
-import { EllipsisVerticalIcon } from "lucide-react";
-import twilio from "twilio";
-import { Input } from "~/src/components/forms/input/Input";
+import { EllipsisVerticalIcon, MailIcon, MessageSquareIcon, PencilIcon, PhoneIcon, TrashIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
-import { Label } from "~/components/ui/label";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "~/components/ui/table"
 import { toast } from "sonner";
+import twilio from "twilio";
+import { Button } from "~/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
+import { Label } from "~/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
+import { Input } from "~/src/components/forms/input/Input";
+import {
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    useReactTable,
+} from "@tanstack/react-table"
+import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
+import sgMail from "@sendgrid/mail";
+import { Checkbox } from "~/components/ui/checkbox";
+
+
 
 export const loader = async ({ params }) => {
     const members = await db
@@ -43,51 +56,53 @@ export const action = async ({ request, params }) => {
     const twilioClient = twilio(accountSid, authToken);
     const formData = await request.formData();
     const requestType = formData.get("requestType");
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
     const message = formData.get("message");
     console.log("request type", requestType);
     console.log("message", message);
 
-    switch (requestType) {
-        case "call": {
+    const userId = formData.get("userId");
+    const user = await db.select().from(users).where(eq(users.id, userId)).then(res => res[0]);
+    const userPreferencesResponse = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).then(res => res[0]);
+    const usersPhone = user.phone?.startsWith('1') ? user.phone : `1${user.phone}`;
 
-            const userId = formData.get("userId");
 
-            const user = await db.select().from(users).where(eq(users.id, userId)).then(res => res[0]);
-
-            const response = await twilioClient.calls.create({
-                twiml: `<Response><Play>https://drive.google.com/file/d/1W9jN3a-ccPld4rH7qt2O0_qpCYP4olKU/view?usp=drive_link</Play><Say>Hello, ${user.firstName}! ${message}</Say></Response>`,
-                to: `+${user.phone?.startsWith('1') ? user.phone : '1' + user.phone}`,
-                from: "+18445479466",
-            });
-
-            console.log("response", response);
-
-            return { success: true, message: "Call sent" };
-        }
-        case "email": {
-            const userId = formData.get("userId");
-            const user = await db.select().from(users).where(eq(users.id, userId)).then(res => res[0]);
-            const response = await twilioClient.messages.create({
-                to: user.email,
-                from: "+18445479466",
-                body: message,
-            });
-            return { success: true, message: "Email sent" };
-        }
-        case "text": {
-            const userId = formData.get("userId");
-            const user = await db.select().from(users).where(eq(users.id, userId)).then(res => res[0]);
-            const response = await twilioClient.messages.create({
-                to: user.phone,
-                from: "+18445479466",
-                body: message,
-            });
-            return { success: true, message: "Text sent" };
-        }
-        default:
-            return { success: false, message: "Invalid request type" };
+    if (userPreferencesResponse.phoneNotifications) {
+        console.log("sending call");
+        const response = await twilioClient.calls.create({
+            twiml: `<Response><Say>Hello, ${user.firstName}! ${message}</Say></Response>`,
+            to: `+${usersPhone}`,
+            from: "+18445479466",
+        });
     }
+
+    if (userPreferencesResponse.emailNotifications) {
+        console.log("sending email");
+        const email = {
+            to: user.email,
+            from: "gracecommunitybrunswick@gmail.com",
+            subject: "Church App Message",
+            text: message,
+        }
+
+        sgMail.send(email);
+        return { success: true, message: "Email sent" };
+    }
+
+    if (userPreferencesResponse.smsNotifications) {
+        console.log("sending text");
+        const response = await twilioClient.messages.create({
+            to: user.phone,
+            from: "+18445479466",
+            body: message,
+        });
+
+        console.log("response", response);
+
+        return { success: true, message: "Text sent" };
+    }
+
 };
 
 export default function MembersList() {
@@ -96,13 +111,15 @@ export default function MembersList() {
     const navigate = useNavigate();
     const deleteFetcher = useFetcher();
     const submit = useSubmit();
+    const fetcher = useFetcher();
     const params = useParams();
     const [message, setMessage] = useState("");
-    const [communicationType, setCommunicationType] = useState("call");
     const [showCommunicationModal, setShowCommunicationModal] = useState(false);
     const [selectedMemberId, setSelectedMemberId] = useState(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     useEffect(() => {
+
         if (actionData?.success) {
             toast.success(actionData.message);
             setShowCommunicationModal(false);
@@ -110,74 +127,173 @@ export default function MembersList() {
         }
     }, [actionData]);
 
-    const handleCommunication = async () => {
+    useEffect(() => {
+        if (fetcher.data?.success) {
+            toast.success("Member deleted");
+            setShowDeleteConfirm(false);
+        } else {
+            toast.error("Failed to delete member");
+        }
+    }, [fetcher.data]);
 
+    const handleCommunication = async () => {
         await submit(
-            { requestType: communicationType, userId: selectedMemberId, message },
+            { userId: selectedMemberId, message },
             { method: "post", action: `/churches/${params.organization}/members` }
         );
 
     };
 
+    const handleDelete = async () => {
+        const response = await fetcher.submit({
+            userId: selectedMemberId,
+        }, {
+            method: "delete",
+            action: `/churches/${params.organization}/members/${selectedMemberId}`
+        })
+
+        console.log("response", response);
+    }
+
+    const columns = [
+        {
+            accessorKey: "select",
+            header: "",
+            cell: ({ row }) => (
+                <Checkbox
+                    checked={row.getIsSelected()}
+                    onCheckedChange={(value) => row.toggleSelected(!!value)}
+                    aria-label="Select row"
+                />
+            ),
+            enableSorting: false,
+            enableHiding: false,
+        },
+        {
+            accessorKey: "user.firstName",
+            header: "First Name",
+        },
+        {
+            accessorKey: "user.lastName",
+            header: "Last Name",
+        },
+        {
+            accessorKey: "user.email",
+            header: "Email",
+        },
+        {
+            accessorKey: "role",
+            header: "Role",
+            cell: ({ row }) => (
+                row.getValue("role") ? "Admin" : "Member"
+            ),
+        },
+        {
+            id: "actions",
+            cell: ({ row }) => {
+                const member = row.original;
+                return (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger>
+                            <Button variant="ghost" size="icon">
+                                <EllipsisVerticalIcon className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => navigate(`${member.user.id}/update`)}>
+                                <PencilIcon className="h-4 w-4 mr-2" />
+                                Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                                setSelectedMemberId(member.user.id);
+                                setShowDeleteConfirm(true);
+                            }}>
+                                <TrashIcon className="h-4 w-4 mr-2" />
+                                Delete
+
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    setSelectedMemberId(member.user.id);
+                                    setShowCommunicationModal(true);
+                                }}
+                            >
+                                <MessageSquareIcon className="h-4 w-4 mr-2" />
+                                Communicate
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )
+            }
+        }
+    ]
+
+    const table = useReactTable({
+        data: members,
+        columns,
+        getCoreRowModel: getCoreRowModel(),
+    })
+
     return (
         <PageLayout title="Members" actions={<Button onClick={() => navigate("add")}>Add Member</Button>}>
-            <List>
-                {members.length === 0 ? (
-                    <NoData message="No members found" />
-                ) : (
-                    members?.map((member) => (
-                        <div key={member.user.id} className="flex items-center p-4 border-b">
-                            <Avatar className="h-10 w-10 mr-4">
-                                <AvatarImage src={member.user.avatarUrl || undefined} />
-                                <AvatarFallback>
-                                    {member.user.firstName?.[0]}
-                                    {member.user.lastName?.[0]}
-                                </AvatarFallback>
-                            </Avatar>
-                            <Stack className="flex-1">
-                                <DataDisplay label="Name" value={`${member.user.firstName} ${member.user.lastName}`}>
-                                    {member.user.firstName} {member.user.lastName}
-                                </DataDisplay>
-                                <Stack direction="horizontal">
-                                    <DataDisplay label="Role">
-                                        {member.role ? "Admin" : "Member"}
-                                    </DataDisplay>
-
-                                    <DataDisplay label="Email">
-                                        {member.user.email}
-                                    </DataDisplay>
-                                </Stack>
-                            </Stack>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger>
-                                    <Button variant="ghost" size="icon">
-                                        <EllipsisVerticalIcon className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuItem onClick={() => navigate(`${member.user.id}/update`)}>
-                                        <PencilIcon className="h-4 w-4 mr-2" />
-                                        Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            setSelectedMemberId(member.user.id);
-                                            setShowCommunicationModal(true);
-                                        }}
-                                    >
-                                        <MessageSquareIcon className="h-4 w-4 mr-2" />
-                                        Communicate
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="text-red-600" onClick={() => deleteFetcher.submit({}, { method: "delete", action: `${member.user.id}/update` })}>
-                                        <TrashIcon className="h-4 w-4 mr-2" />
-                                        Delete
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    ))
-                )}
-            </List>
+            <Table className="w-full text-gray-900">
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>
+                            <Checkbox
+                                checked={table.getIsAllRowsSelected()}
+                                onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
+                                aria-label="Select all rows"
+                            />
+                        </TableHead>
+                    </TableRow>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                            {headerGroup.headers.map((header) => {
+                                return (
+                                    <TableHead key={header.id}>
+                                        {header.isPlaceholder
+                                            ? null
+                                            : flexRender(
+                                                header.column.columnDef.header,
+                                                header.getContext()
+                                            )}
+                                    </TableHead>
+                                )
+                            })}
+                        </TableRow>
+                    ))}
+                </TableHeader>
+                <TableBody>
+                    {table.getRowModel().rows?.length ? (
+                        table.getRowModel().rows.map((row) => (
+                            <TableRow
+                                key={row.id}
+                                className={row.getIsSelected() ? "text-white" : ""}
+                                data-state={row.getIsSelected() && "selected"}
+                            >
+                                {row.getVisibleCells().map((cell) => (
+                                    <TableCell key={cell.id}>
+                                        {flexRender(
+                                            cell.column.columnDef.cell,
+                                            cell.getContext()
+                                        )}
+                                    </TableCell>
+                                ))}
+                            </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                            <TableCell
+                                colSpan={columns.length}
+                                className="h-24 text-center"
+                            >
+                                No results.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
 
             <Dialog open={showCommunicationModal} onOpenChange={setShowCommunicationModal} >
                 <DialogContent>
@@ -197,25 +313,20 @@ export default function MembersList() {
                                 placeholder="Enter your message..."
                             />
                         </div>
-                        <RadioGroup value={communicationType} onValueChange={setCommunicationType}>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="call" id="call" />
-                                <Label htmlFor="call"><PhoneIcon className="h-4 w-4 inline mr-2" />Phone Call</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="email" id="email" />
-                                <Label htmlFor="email"><MailIcon className="h-4 w-4 inline mr-2" />Email</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="text" id="text" />
-                                <Label htmlFor="text"><MessageSquareIcon className="h-4 w-4 inline mr-2" />Text Message</Label>
-                            </div>
-                        </RadioGroup>
+
                         <Button onClick={handleCommunication}>Send</Button>
                     </div>
 
                 </DialogContent>
             </Dialog>
+            <DeleteConfirm
+                title="Delete Member"
+                description="Are you sure you want to delete this member?"
+                loading={fetcher.state === "submitting"}
+                open={showDeleteConfirm}
+                onOpenChange={setShowDeleteConfirm}
+                onConfirm={handleDelete}
+            />
 
             <Outlet />
         </PageLayout>

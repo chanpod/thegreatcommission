@@ -2,7 +2,7 @@ import { data, Form, useActionData, useLoaderData, useNavigate } from "react-rou
 import { Button } from "~/components/ui/button";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { db } from "~/server/dbConnection";
-import { churchOrganization, users, usersTochurchOrganization } from "server/db/schema";
+import { churchOrganization, userPreferences, users, usersTochurchOrganization } from "server/db/schema";
 import { eq } from "drizzle-orm";
 import { Sheet, SheetContent } from "~/components/ui/sheet";
 import { useEffect, useState } from "react";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import UsersForm from "~/src/components/forms/users/UsersForm";
 import { updateUser } from "@/server/dataServices/UserDataService";
+import { updateUserPreferences } from "@/server/dataServices/UserPreferences";
 
 
 export const loader = async ({ request, params }) => {
@@ -41,6 +42,15 @@ export const action = async ({ request, params }) => {
         if (!authUser) return data({ message: "Not Authenticated" }, { status: 401 });
 
         const formData = await request.formData();
+
+        const userPreferencesData = {
+            emailNotifications: formData.get("preferEmail"),
+            smsNotifications: formData.get("preferText"),
+            phoneNotifications: formData.get("preferCall"),
+        } as typeof userPreferences
+
+        const userPreferencesResponse = await updateUserPreferences(params.memberId, userPreferencesData);
+
         const user = {
             firstName: formData.get("firstName"),
             lastName: formData.get("lastName"),
@@ -91,10 +101,10 @@ const AddMember = () => {
     return (
         <Sheet open={isOpen} onOpenChange={handleOpenChange}>
             <SheetContent>
-                <PageLayout title="Add Member" className="mt-3">
+                <PageLayout title="Edit Member" className="mt-3">
                     <Form method="put" className="space-y-4">
                         <UsersForm defaultValues={user} />
-                        <Button type="submit">Add Member</Button>
+                        <Button type="submit">Update Member</Button>
                     </Form>
                 </PageLayout>
             </SheetContent>
