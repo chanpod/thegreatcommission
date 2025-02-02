@@ -131,7 +131,7 @@ export default function MembersList() {
         if (fetcher.data?.success) {
             toast.success("Member deleted");
             setShowDeleteConfirm(false);
-        } else {
+        } else if (fetcher.data?.error) {
             toast.error("Failed to delete member");
         }
     }, [fetcher.data]);

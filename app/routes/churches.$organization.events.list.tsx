@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { format, isSameDay } from 'date-fns'
-import { useLoaderData } from 'react-router'
+import { useLoaderData, useSubmit, useParams } from 'react-router'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '~/components/ui/tabs'
 import {
     Card,
@@ -9,11 +9,12 @@ import {
     CardDescription,
     CardContent,
 } from '~/components/ui/card'
-import { Calendar, Clock, MapPin } from 'lucide-react'
+import { Calendar, Clock, MapPin, Edit } from 'lucide-react'
 import { db } from '~/server/dbConnection'
 import { events } from 'server/db/schema'
 import { eq } from 'drizzle-orm'
-import type { Route } from '~/+types/root'
+import { Button } from '~/components/ui/button'
+import { EventDialog } from '~/components/events/EventDialog'
 
 interface Event {
     id: string
@@ -23,6 +24,7 @@ interface Event {
     end: Date
     type: 'local' | 'recurring' | 'mission'
     location: string | null
+    allDay?: boolean
 }
 
 // Loader function to get events for the list view
@@ -43,6 +45,7 @@ export async function loader({ params }: { params: { organization: string } }) {
         end: event.endDate,
         type: event.type as 'local' | 'recurring' | 'mission',
         location: event.location,
+        allDay: event.allDay,
     }))
 
     // Pre-sort events into upcoming and previous
@@ -53,7 +56,7 @@ export async function loader({ params }: { params: { organization: string } }) {
     return { upcomingEvents, previousEvents }
 }
 
-function EventCard({ event }: { event: Event }) {
+function EventCard({ event, onEdit }: { event: Event; onEdit: () => void }) {
     const typeColors = {
         local: 'rounded px-2 py-1 bg-blue-100 text-blue-800',
         recurring: 'rounded px-2 py-1 bg-green-100 text-green-800',
@@ -68,13 +71,24 @@ function EventCard({ event }: { event: Event }) {
                         <CardTitle>{event.title}</CardTitle>
                         <CardDescription>{event.description}</CardDescription>
                     </div>
-                    <span
-                        className={
-                            typeColors[event.type as keyof typeof typeColors]
-                        }
-                    >
-                        {event.type}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span
+                            className={
+                                typeColors[event.type as keyof typeof typeColors]
+                            }
+                        >
+                            {event.type}
+                        </span>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onEdit}
+                            className="h-8 w-8"
+                        >
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Edit event</span>
+                        </Button>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -107,6 +121,39 @@ function EventCard({ event }: { event: Event }) {
 export default function EventsList() {
     const { upcomingEvents, previousEvents } = useLoaderData<typeof loader>()
     const [activeTab, setActiveTab] = useState('upcoming')
+    const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+    const organization = useParams().organization
+    const submit = useSubmit()
+
+    const handleUpdateEvent = (event: Event) => {
+        const formData = new FormData()
+        formData.append('action', 'update')
+        formData.append('id', event.id)
+        formData.append('title', event.title)
+        formData.append('description', event.description || '')
+        formData.append('startDate', event.start.toISOString())
+        formData.append('endDate', event.end.toISOString())
+        formData.append('allDay', String(event.allDay))
+        formData.append('type', event.type)
+        formData.append('location', event.location || '')
+
+        submit(formData, { method: 'post', action: `/churches/${organization}/events` })
+        setIsEditDialogOpen(false)
+        setSelectedEvent(null)
+    }
+
+    const handleDeleteEvent = () => {
+        if (selectedEvent) {
+            const formData = new FormData()
+            formData.append('action', 'delete')
+            formData.append('id', selectedEvent.id)
+
+            submit(formData, { method: 'post', action: `/churches/${organization}/events` })
+            setIsEditDialogOpen(false)
+            setSelectedEvent(null)
+        }
+    }
 
     return (
         <div className="space-y-6">
@@ -123,7 +170,14 @@ export default function EventsList() {
                         </p>
                     ) : (
                         upcomingEvents.map((event) => (
-                            <EventCard key={event.id} event={event} />
+                            <EventCard
+                                key={event.id}
+                                event={event}
+                                onEdit={() => {
+                                    setSelectedEvent(event)
+                                    setIsEditDialogOpen(true)
+                                }}
+                            />
                         ))
                     )}
                 </TabsContent>
@@ -135,11 +189,27 @@ export default function EventsList() {
                         </p>
                     ) : (
                         previousEvents.map((event) => (
-                            <EventCard key={event.id} event={event} />
+                            <EventCard
+                                key={event.id}
+                                event={event}
+                                onEdit={() => {
+                                    setSelectedEvent(event)
+                                    setIsEditDialogOpen(true)
+                                }}
+                            />
                         ))
                     )}
                 </TabsContent>
             </Tabs>
+
+            <EventDialog
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+                event={selectedEvent || undefined}
+                onSubmit={handleUpdateEvent}
+                onDelete={handleDeleteEvent}
+                mode="edit"
+            />
         </div>
     )
 } 
