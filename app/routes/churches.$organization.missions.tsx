@@ -1,16 +1,17 @@
 import { eq } from "drizzle-orm";
-import { useLoaderData } from "react-router";
+import { Link, Outlet, useLoaderData } from "react-router";
 import { churchOrganization, missions as missionSchema } from "@/server/db/schema";
 import { db } from "~/server/dbConnection";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import { NoData } from "~/components/ui/no-data";
 import List from "~/src/components/listItems/List";
 import { isNil, map } from "lodash-es";
-import MissionRowCard from "~/src/components/listItems/components/MissionRowCard";
+import { MissionRowCard } from "~/src/components/listItems/components/MissionRowCard";
+import { Button } from "~/components/ui/button";
 
 export const loader = async ({ params }) => {
     const missions = await db.select().from(missionSchema).where(eq(missionSchema.churchOrganizationId, params.organization));
-
+    console.log("missions", missions);
     return { missions };
 };
 
@@ -36,6 +37,8 @@ export default function MissionsList() {
                         }))}
                 </List>
             </div>
+
+            <Outlet />
         </PageLayout>
     );
 }

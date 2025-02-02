@@ -14,7 +14,7 @@ import { eq } from "drizzle-orm";
 import { churchOrganization, missions } from "server/db/schema";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-    const missionsData = await db.select().from(missions).innerJoin(churchOrganization, eq(missions.churchOrganizationId, churchOrganization.id));
+    const missionsData = await db.select().from(missions);
 
     return {
         missions: missionsData,

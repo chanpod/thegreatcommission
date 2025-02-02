@@ -59,5 +59,5 @@ export const MissionRowCard = ({ mission, linkActive, sponsoringOrg }: Props) =>
             </div>
         </CardButton>
     );
-    return linkActive ? <Link to={`/missions/${mission.id}`}>{card}</Link> : card;
+    return linkActive ? <Link to={`/churches/${mission?.churchOrganizationId}/missions/${mission.id}`}>{card}</Link> : card;
 };

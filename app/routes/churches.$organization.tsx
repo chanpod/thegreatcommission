@@ -183,6 +183,8 @@ const ChurchPage = () => {
                             <TabsTrigger onClick={() => navigate(`missions`)}>Missions</TabsTrigger>
                             <TabsTrigger onClick={() => navigate(`associations`)}>Associated Orgs</TabsTrigger>
                             <TabsTrigger onClick={() => navigate(`members`)}>Members</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate(`landing`)}>Landing Page</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate(`events/calendar`)}>Calendar</TabsTrigger>
                         </TabsList>
                         <TabsContent>
                             <Outlet />

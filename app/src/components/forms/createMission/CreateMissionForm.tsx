@@ -30,14 +30,18 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "~/components/ui/tooltip";
-import { churchOrganization, missionaries, missions } from "server/db/schema";
+
 import { DatePicker } from "../../datepicker/DatePicker";
 import { Stack } from "../../layout/Stack";
 import { ApplicationContext } from "~/src/providers/appContextProvider";
+import { missions } from "@/server/db/schema";
+import type { missions as missionsType } from "@/server/db/schema";
+import type { churchOrganization } from "@/server/db/schema";
 
-export interface IMissionForm extends typeof missions.$inferInsert {
+export interface IMissionForm extends missionsType {
     churchOrganization: typeof churchOrganization.$inferSelect;
 }
+
 
 interface Props {
     initialValues?: IMissionForm | null;
@@ -67,10 +71,11 @@ const CreateMissionForm = (props: Props) => {
         setEndDate(newValue);
     };
 
-    function onChurchSelection(selected: typeof churchOrganization | typeof missionaries) {
+    function onChurchSelection(selected: typeof churchOrganization) {
         console.log(selected);
         setSelectedOrg(selected as typeof churchOrganization);
     }
+
 
     return (
         <Stack>

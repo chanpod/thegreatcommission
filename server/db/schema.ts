@@ -156,3 +156,52 @@ export const userPreferences = pgTable("user_preferences", {
 		.default(["general"])
 		.notNull(), // general, events, missions, etc
 });
+
+export const events = pgTable("events", {
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => uuidv4()),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at").notNull(),
+	title: text("title").notNull(),
+	description: text("description"),
+	startDate: timestamp("start_date").notNull(),
+	endDate: timestamp("end_date").notNull(),
+	allDay: boolean("all_day").default(false),
+	// Type can be: 'local' (one-time local event), 'recurring' (weekly service), 'mission' (mission trip)
+	type: text("type").notNull().default("local"),
+	// For recurring events
+	recurrence: text("recurrence"), // JSON string containing recurrence rules
+	// Location details
+	location: text("location"),
+	lat: integer("lat"),
+	lng: integer("lng"),
+	// For mission trips
+	volunteersNeeded: integer("volunteers_needed"),
+	investment: integer("investment"),
+	fundingRaised: integer("funding_raised"),
+	// Organization that owns this event
+	churchOrganizationId: text("church_organization_id")
+		.notNull()
+		.references(() => churchOrganization.id),
+	// Optional parent event (for series)
+	parentEventId: text("parent_event_id").references(
+		(): AnyPgColumn => events.id,
+	),
+});
+
+// Table for users attending/participating in events
+export const usersToEvents = pgTable("users_to_events", {
+	userId: text("user_id")
+		.notNull()
+		.references(() => users.id),
+	eventId: text("event_id")
+		.notNull()
+		.references(() => events.id),
+	// Role can be: 'attendee', 'organizer', 'volunteer'
+	role: text("role").notNull().default("attendee"),
+	// For mission trips: status can be 'interested', 'confirmed', 'declined'
+	status: text("status"),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at").notNull(),
+});
