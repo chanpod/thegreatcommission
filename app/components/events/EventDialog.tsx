@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format, addHours, setHours, setMinutes } from 'date-fns'
 import { Button } from '~/components/ui/button'
 import {
@@ -22,17 +22,9 @@ import {
 import { Checkbox } from '~/components/ui/checkbox'
 import { Calendar } from '~/components/ui/calendar'
 import { TimeField } from '~/components/ui/time-field'
+import type { events } from 'server/db/schema'
 
-interface Event {
-    id?: string
-    title: string
-    description?: string
-    start: Date
-    end: Date
-    allDay?: boolean
-    type?: 'local' | 'recurring' | 'mission'
-    location?: string
-}
+type Event = typeof events.$inferSelect;
 
 interface EventDialogProps {
     open: boolean
@@ -51,17 +43,38 @@ export function EventDialog({
     onDelete,
     mode
 }: EventDialogProps) {
-    const [event, setEvent] = useState<Event>(
-        initialEvent || {
+    const [event, setEvent] = useState<Event>(() => {
+        if (initialEvent) {
+            return {
+                ...initialEvent,
+                // Ensure dates are Date objects
+                startDate: new Date(initialEvent.startDate),
+                endDate: new Date(initialEvent.endDate),
+            }
+        }
+        return {
             title: '',
             description: '',
             type: 'local',
             location: '',
             allDay: false,
-            start: new Date(),
-            end: addHours(new Date(), 1),
+            startDate: new Date(),
+            endDate: addHours(new Date(), 1),
+            churchOrganizationId: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        } as Event
+    })
+
+    useEffect(() => {
+        if (initialEvent) {
+            setEvent({
+                ...initialEvent,
+                startDate: new Date(initialEvent.startDate ?? new Date()),
+                endDate: new Date(initialEvent.endDate ?? new Date()),
+            })
         }
-    )
+    }, [initialEvent])
 
     const handleDateChange = (date: Date | undefined, isStart: boolean) => {
         if (!date) return
@@ -69,13 +82,13 @@ export function EventDialog({
         if (isStart) {
             setEvent((prev) => ({
                 ...prev,
-                start: date,
-                end: prev.end && date > prev.end ? addHours(date, 1) : prev.end,
+                startDate: date,
+                endDate: prev.endDate && date > prev.endDate ? addHours(date, 1) : prev.endDate,
             }))
         } else {
             setEvent((prev) => ({
                 ...prev,
-                end: date,
+                endDate: date,
             }))
         }
     }
@@ -85,21 +98,23 @@ export function EventDialog({
 
         if (isStart) {
             setEvent((prev) => {
-                const newStart = setMinutes(setHours(prev.start, hours), minutes)
-                const newEnd = prev.end && newStart > prev.end ? addHours(newStart, 1) : prev.end
+                const newStart = setMinutes(setHours(prev.startDate, hours), minutes)
+                const newEnd = prev.endDate && newStart > prev.endDate ? addHours(newStart, 1) : prev.endDate
                 return {
                     ...prev,
-                    start: newStart,
-                    end: newEnd,
+                    startDate: newStart,
+                    endDate: newEnd,
                 }
             })
         } else {
             setEvent((prev) => ({
                 ...prev,
-                end: setMinutes(setHours(prev.end, hours), minutes),
+                endDate: setMinutes(setHours(prev.endDate, hours), minutes),
             }))
         }
     }
+
+
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,7 +145,7 @@ export function EventDialog({
                         <Label htmlFor="description">Description</Label>
                         <Textarea
                             id="description"
-                            value={event.description}
+                            value={event.description || ''}
                             onChange={(e) =>
                                 setEvent({
                                     ...event,
@@ -170,7 +185,7 @@ export function EventDialog({
                         <Label htmlFor="location">Location</Label>
                         <Input
                             id="location"
-                            value={event.location}
+                            value={event.location || ''}
                             onChange={(e) =>
                                 setEvent({
                                     ...event,
@@ -197,13 +212,13 @@ export function EventDialog({
                         <div className="flex gap-4">
                             <Calendar
                                 mode="single"
-                                selected={event.start}
+                                selected={event.startDate}
                                 onSelect={(date) => handleDateChange(date, true)}
                                 initialFocus
                             />
                             {!event.allDay && (
                                 <TimeField
-                                    value={format(event.start, 'HH:mm')}
+                                    value={format(event.startDate, 'HH:mm')}
                                     onChange={(value) => handleTimeChange(value, true)}
                                 />
                             )}
@@ -214,18 +229,64 @@ export function EventDialog({
                         <div className="flex gap-4">
                             <Calendar
                                 mode="single"
-                                selected={event.end}
+                                selected={event.endDate}
                                 onSelect={(date) => handleDateChange(date, false)}
                                 initialFocus
                             />
                             {!event.allDay && (
                                 <TimeField
-                                    value={format(event.end, 'HH:mm')}
+                                    value={format(event.endDate, 'HH:mm')}
                                     onChange={(value) => handleTimeChange(value, false)}
                                 />
                             )}
                         </div>
                     </div>
+                    {event.type === 'mission' && (
+                        <>
+                            <div className="grid gap-2">
+                                <Label htmlFor="volunteersNeeded">Volunteers Needed</Label>
+                                <Input
+                                    id="volunteersNeeded"
+                                    type="number"
+                                    value={event.volunteersNeeded || ''}
+                                    onChange={(e) =>
+                                        setEvent({
+                                            ...event,
+                                            volunteersNeeded: Number.parseInt(e.target.value) || 0,
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="investment">Investment Goal</Label>
+                                <Input
+                                    id="investment"
+                                    type="number"
+                                    value={event.investment || ''}
+                                    onChange={(e) =>
+                                        setEvent({
+                                            ...event,
+                                            investment: Number.parseInt(e.target.value) || 0,
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="fundingRaised">Funding Raised</Label>
+                                <Input
+                                    id="fundingRaised"
+                                    type="number"
+                                    value={event.fundingRaised || ''}
+                                    onChange={(e) =>
+                                        setEvent({
+                                            ...event,
+                                            fundingRaised: Number.parseInt(e.target.value) || 0,
+                                        })
+                                    }
+                                />
+                            </div>
+                        </>
+                    )}
                 </div>
                 <DialogFooter className="gap-2 sm:gap-0">
                     {mode === 'edit' && onDelete && (
