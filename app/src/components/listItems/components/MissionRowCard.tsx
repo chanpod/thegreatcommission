@@ -59,5 +59,5 @@ export const MissionRowCard = ({ mission, linkActive }: Props) => {
             </div>
         </CardButton>
     );
-    return linkActive ? <Link to={`/churches/${mission.churchOrganizationId}/events/${mission.id}`}>{card}</Link> : card;
+    return linkActive ? <Link to={`/missions/${mission.id}`}>{card}</Link> : card;
 };

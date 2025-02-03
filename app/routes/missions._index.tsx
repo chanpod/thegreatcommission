@@ -11,10 +11,10 @@ import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import type { Route } from "./+types";
 import { db } from "~/server/dbConnection";
 import { eq } from "drizzle-orm";
-import { churchOrganization, missions } from "server/db/schema";
+import { churchOrganization, events, missions } from "server/db/schema";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-    const missionsData = await db.select().from(missions);
+    const missionsData = await db.select().from(events).where(eq(events.type, "mission"));
 
     return {
         missions: missionsData,

@@ -11,7 +11,7 @@ import { Fragment, useState } from "react";
 
 import { db } from "~/server/dbConnection";
 import { eq } from "drizzle-orm";
-import { missions, churchOrganization } from "server/db/schema";
+import { missions, churchOrganization, events } from "server/db/schema";
 import CurrencyFormatter from "~/src/components/forms/currencyFormat/CurrencyFormatter";
 
 import MissionDescription from "~/src/components/missions/Description";
@@ -44,20 +44,23 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
 };
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
-    const mission = await db.select()
-        .from(missions)
-        .where(eq(missions.id, params.mission as string))
-        .innerJoin(churchOrganization, eq(missions.churchOrganizationId, churchOrganization.id));
+    const missionResponse = await db.select()
+        .from(events)
+        .where(eq(events.id, params.mission as string))
+        .innerJoin(churchOrganization, eq(events.churchOrganizationId, churchOrganization.id))
+        .then((res) => res[0]);
+
+    console.log(missionResponse)
 
     return {
-        mission,
+        mission: missionResponse.events,
     };
 };
 
 const MissionaryPage = () => {
     const { isLoggedIn } = useIsLoggedIn();
     const [showUpdateToast, setShowUpdateToast] = useState(false);
-    const loaderData = useLoaderData();
+    const loaderData = useLoaderData<typeof loader>();
     const actionData = useActionData();
     const deleteFetcher = useFetcher();
     const loading = deleteFetcher.state === "submitting" || deleteFetcher.state === "loading";
@@ -70,11 +73,13 @@ const MissionaryPage = () => {
 
     function getEndTime() {
         if (loaderData.mission?.endDate) {
-            return format(new Date(loaderData.mission?.endDate), "MM-dd-yyyy");
+            return format(new Date(loaderData.mission?.endDate ?? ""), "MM-dd-yyyy");
         } else {
             return "Indefinite";
         }
     }
+
+    console.log(loaderData.mission)
 
     return (
         <div>
@@ -97,7 +102,7 @@ const MissionaryPage = () => {
                     </div>
                     <div className="text-sm text-gray-500 items-center flex">
                         <CalendarIcon className="w-4 h-4 mr-2" />
-                        {format(new Date(loaderData.mission?.beginDate), "MM-dd-yyyy")} until {getEndTime()}
+                        {format(new Date(loaderData.mission?.startDate), "MM-dd-yyyy")} until {getEndTime()}
                     </div>
                     <div className="text-sm text-gray-500">
                         <Link
@@ -153,7 +158,7 @@ const MissionaryPage = () => {
                     </Card>
                 </div>
             </div>
-            
+
             <Dialog open={showDialog} onOpenChange={setShowDialog}>
                 <DialogContent>
                     <DialogHeader>
@@ -170,7 +175,7 @@ const MissionaryPage = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            
+
         </div>
     );
 };
