@@ -1,13 +1,12 @@
-import { Button } from "~/components/ui/button";;
-import { Input } from "~/src/components/forms/input/Input";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { Form } from "react-router";
-import type { Route } from "./+types";
+import { users } from "server/db/schema";
+import { Button } from "~/components/ui/button";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { db } from "~/server/dbConnection";
-import { missionaries } from "server/db/schema";
-import { Card } from "~/components/ui/card";
-import { PageLayout } from "~/src/components/layout/PageLayout";
 import UsersForm from "~/src/components/forms/users/UsersForm";
+import { PageLayout } from "~/src/components/layout/PageLayout";
+import type { Route } from "./+types";
+
 
 export const action = async ({ request }: Route.ActionArgs) => {
     console.log("Create missionary action");
@@ -17,7 +16,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
     if (request.method === "POST") {
         const form = await request.formData();
 
-        const newMissionary: typeof missionaries.$inferInsert = {
+        const newMissionary: typeof users.$inferInsert = {
             firstName: form.get("firstName") as string,
             lastName: form.get("lastName") as string,
             middleName: form.get("middleName") as string,
@@ -29,19 +28,19 @@ export const action = async ({ request }: Route.ActionArgs) => {
             createdAt: new Date(),
         };
 
-        const response = await db.insert(missionaries).values(newMissionary);
+        const response = await db.insert(users).values(newMissionary);
 
         console.log("response", response);
 
         return {
-            newChurch: response,
+            newMissionary: response,
         };
     }
 
     return { message: "Hello World" };
 };
 
-export default function CreateChurch() {
+export default function CreateMissionary() {
     return (
         <PageLayout title="Create a Missionary">
 

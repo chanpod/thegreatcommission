@@ -8,13 +8,13 @@ import { MissionaryRowCard } from "~/src/components/listItems/components/Mission
 import Toolbar from "~/src/components/toolbar/Toolbar";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import type { Route } from "./+types";
-import { missionaries } from "server/db/schema";
+import { users } from "server/db/schema";
 import { db } from "~/server/dbConnection";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
     const url = new URL(request.url);
 
-    const missionariesData = await db.select().from(missionaries);
+    const missionariesData = await db.select().from(users);
 
     return {
         missionaries: missionariesData,

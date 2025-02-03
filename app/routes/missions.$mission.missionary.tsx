@@ -4,7 +4,7 @@ import List from "~/src/components/listItems/List";
 import MissionaryListItem from "~/src/components/missions/MissionaryListItem";
 import type { Route } from "./+types";
 import { eq, and, ne, notInArray } from "drizzle-orm";
-import { missions, missionaries, missionariesToMissions } from "server/db/schema";
+import { missions, users, usersToMissions } from "server/db/schema";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
     const url = new URL(request.url);
@@ -14,11 +14,11 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 
     const missionaryIds = missionsWithMissionaries.map(m => m.id);
 
-    const availableMissionaries = await db.select().from(missionaries)
+    const availableMissionaries = await db.select().from(users)
         .where(
             and(
-                ne(missionaries.id, params.mission as string),
-                notInArray(missionaries.id, missionaryIds)
+                ne(users.id, params.mission as string),
+                notInArray(users.id, missionaryIds)
             )
         );
 
@@ -32,8 +32,8 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
     const form = await request.formData();
 
     if (request.method === "POST") {
-        const response = await db.insert(missionariesToMissions).values({
-            missionaryId: form.get("missionaryId") as string,
+        const response = await db.insert(usersToMissions).values({
+            userId: form.get("userId") as string,
             missionId: params.mission as string,
         });
 
@@ -41,9 +41,9 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
             response,
         };
     } else if (request.method === "DELETE") {
-        
-        const response = await db.delete(missionariesToMissions)            
-            .where(eq(missionariesToMissions.missionaryId, form.get("missionaryId") as string));
+
+        const response = await db.delete(usersToMissions)
+            .where(eq(usersToMissions.userId, form.get("userId") as string));
 
         return {
             response,
@@ -56,10 +56,10 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
 const AddMissionary = () => {
     const loaderData = useLoaderData();
     const fetcher = useFetcher();
-    function addMissionary(missionary: typeof missionaries.$inferSelect) {
+    function addMissionary(missionary: typeof users.$inferSelect) {
         fetcher.submit(
             {
-                missionaryId: missionary.id,
+                userId: missionary.id,
             },
             { method: "post" }
         );
@@ -71,7 +71,7 @@ const AddMissionary = () => {
             <div>
                 {loaderData?.missionaries.length === 0 ? <span>No missionaries to add right now</span> : null}
                 <List>
-                    {loaderData?.missionaries?.map((missionary: typeof missionaries.$inferSelect) => {
+                    {loaderData?.missionaries?.map((missionary: typeof users.$inferSelect) => {
                         return <MissionaryListItem editing key={missionary.id} missionary={missionary} />;
                     })}
                 </List>

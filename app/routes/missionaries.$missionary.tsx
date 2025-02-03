@@ -3,7 +3,7 @@ import { Pencil as PencilIcon } from "lucide-react";
 import { Outlet, useLoaderData, useNavigate, useParams } from "react-router";
 
 import { eq } from "drizzle-orm";
-import { missionaries } from "server/db/schema";
+
 import { Button } from "~/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
@@ -11,13 +11,15 @@ import { db } from "~/server/dbConnection";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import type { Route } from "./+types";
 import { PageLayout } from "~/src/components/layout/PageLayout";
+import { users } from "@/server/db/schema";
+
 
 export const action = async ({ request }: Route.ActionArgs) => {
     return {};
 };
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
-    const missionary = await db.select().from(missionaries).where(eq(missionaries.id, params.missionary!)).then(([missionary]) => missionary);
+    const missionary = await db.select().from(users).where(eq(users.id, params.missionary)).then(([missionary]) => missionary);
 
     return {
         missionary,
