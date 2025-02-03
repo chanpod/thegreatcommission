@@ -22,7 +22,10 @@ import {
 import { Checkbox } from '~/components/ui/checkbox'
 import { Calendar } from '~/components/ui/calendar'
 import { TimeField } from '~/components/ui/time-field'
+import { CalendarIcon } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
 import type { events } from 'server/db/schema'
+import { cn } from '~/lib/utils'
 
 type Event = typeof events.$inferSelect;
 
@@ -113,8 +116,6 @@ export function EventDialog({
             }))
         }
     }
-
-
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -210,12 +211,34 @@ export function EventDialog({
                     <div className="grid gap-2">
                         <Label>Start Date</Label>
                         <div className="flex gap-4">
-                            <Calendar
-                                mode="single"
-                                selected={event.startDate}
-                                onSelect={(date) => handleDateChange(date, true)}
-                                initialFocus
-                            />
+                            <div className="relative flex-1">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className="w-full top-0 h-full px-3 py-2"
+                                        >
+                                            {event.startDate ? (
+                                                format(event.startDate, "PPP")
+                                            ) : (
+                                                <span>Pick a date</span>
+                                            )}
+                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                        </Button>
+
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={event.startDate}
+                                            onSelect={(date) => handleDateChange(date, true)}
+                                            disabled={(date) => date < new Date()
+                                            }
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                             {!event.allDay && (
                                 <TimeField
                                     value={format(event.startDate, 'HH:mm')}
@@ -227,12 +250,34 @@ export function EventDialog({
                     <div className="grid gap-2">
                         <Label>End Date</Label>
                         <div className="flex gap-4">
-                            <Calendar
-                                mode="single"
-                                selected={event.endDate}
-                                onSelect={(date) => handleDateChange(date, false)}
-                                initialFocus
-                            />
+                            <div className="relative flex-1">
+
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className="w-full top-0 h-full px-3 py-2"
+                                        >
+                                            {event.endDate ? (
+                                                format(event.endDate, "PPP")
+                                            ) : (
+                                                <span>Pick a date</span>
+                                            )}
+                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                        </Button>
+
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={event.endDate}
+                                            onSelect={(date) => handleDateChange(date, false)}
+                                            disabled={(date) => date < new Date() || date < event.startDate}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                             {!event.allDay && (
                                 <TimeField
                                     value={format(event.endDate, 'HH:mm')}
@@ -318,4 +363,4 @@ export function EventDialog({
             </DialogContent>
         </Dialog>
     )
-} 
+}
