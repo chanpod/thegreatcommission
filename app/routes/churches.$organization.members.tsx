@@ -1,10 +1,10 @@
-import { userPreferences, users, usersTochurchOrganization } from "@/server/db/schema";
+import { userPreferences, users, usersTochurchOrganization, teams, usersToTeams, organizationRoles, usersToOrganizationRoles } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { Outlet, useActionData, useFetcher, useLoaderData, useNavigate, useParams, useSubmit } from "react-router";
 import { db } from "~/server/dbConnection";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 
-import { EllipsisVerticalIcon, MailIcon, MessageSquareIcon, PencilIcon, PhoneIcon, TrashIcon } from "lucide-react";
+import { EllipsisVerticalIcon, MailIcon, MessageSquareIcon, PencilIcon, PhoneIcon, TrashIcon, UserPlusIcon, UsersIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
     Table,
@@ -33,18 +33,47 @@ import {
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
 import sgMail from "@sendgrid/mail";
 import { Checkbox } from "~/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
+import { Badge } from "~/components/ui/badge";
 
 export const loader = async ({ params }) => {
     const members = await db
         .select({
             user: users,
-            role: usersTochurchOrganization.isAdmin
+            isAdmin: usersTochurchOrganization.isAdmin,
+            teams: usersToTeams,
+            roles: usersToOrganizationRoles
         })
         .from(usersTochurchOrganization)
         .where(eq(usersTochurchOrganization.churchOrganizationId, params.organization))
-        .innerJoin(users, eq(users.id, usersTochurchOrganization.userId));
+        .innerJoin(users, eq(users.id, usersTochurchOrganization.userId))
+        .leftJoin(usersToTeams, eq(users.id, usersToTeams.userId))
+        .leftJoin(usersToOrganizationRoles, eq(users.id, usersToOrganizationRoles.userId));
 
-    return { members };
+    // Get all teams for the organization
+    const orgTeams = await db
+        .select()
+        .from(teams)
+        .where(eq(teams.churchOrganizationId, params.organization));
+
+    // Get all roles for the organization
+    const orgRoles = await db
+        .select()
+        .from(organizationRoles)
+        .where(eq(organizationRoles.churchOrganizationId, params.organization));
+
+    // Transform the data to ensure teams and roles are arrays
+    const transformedMembers = members.map(member => ({
+        ...member,
+        teams: Array.isArray(member.teams) ? member.teams : [member.teams].filter(Boolean),
+        roles: Array.isArray(member.roles) ? member.roles : [member.roles].filter(Boolean)
+    }));
+
+    return {
+        members: transformedMembers,
+        teams: orgTeams,
+        roles: orgRoles
+    };
 };
 
 const formatPhoneNumber = (phone: string) => {
@@ -67,7 +96,7 @@ export const action = async ({ request, params }) => {
 
     const message = formData.get("message");
     const userIds = formData.getAll("userIds[]");
-    let messagesSent = [];
+    const messagesSent = [];
 
     for (const userId of userIds) {
         const user = await db.select().from(users).where(eq(users.id, userId)).then(res => res[0]);
@@ -109,7 +138,7 @@ export const action = async ({ request, params }) => {
 };
 
 export default function MembersList() {
-    const { members } = useLoaderData<typeof loader>();
+    const { members, teams, roles } = useLoaderData<typeof loader>();
     const actionData = useActionData<typeof action>();
     const navigate = useNavigate();
     const deleteFetcher = useFetcher();
@@ -121,6 +150,8 @@ export default function MembersList() {
     const [selectedMemberId, setSelectedMemberId] = useState(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [rowSelection, setRowSelection] = useState({});
+    const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+    const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
     useEffect(() => {
         if (actionData?.success) {
@@ -141,11 +172,12 @@ export default function MembersList() {
     }, [fetcher.data]);
 
     const handleCommunication = async () => {
-        const selectedMembers = Object.keys(rowSelection).map(index => members[parseInt(index)].user.id);
+        const selectedMembers = Object.keys(rowSelection).map(index => members[Number.parseInt(index, 10)].user.id);
         const formData = new FormData();
         formData.append("message", message);
-        selectedMembers.forEach(id => formData.append("userIds[]", id));
-
+        for (const id of selectedMembers) {
+            formData.append("userIds[]", id);
+        }
         await submit(formData, { method: "post" });
     };
 
@@ -157,6 +189,12 @@ export default function MembersList() {
             action: `/churches/${params.organization}/members/${selectedMemberId}`
         });
     }
+
+    const filteredMembers = members.filter(member => {
+        if (selectedTeam && selectedTeam !== 'all' && !member.teams?.find(t => t.teamId === selectedTeam)) return false;
+        if (selectedRole && selectedRole !== 'all' && !member.roles?.find(r => r.organizationRoleId === selectedRole)) return false;
+        return true;
+    });
 
     const columns = [
         {
@@ -191,11 +229,43 @@ export default function MembersList() {
             header: "Email",
         },
         {
-            accessorKey: "role",
-            header: "Role",
-            cell: ({ row }) => (
-                row.getValue("role") ? "Admin" : "Member"
-            ),
+            accessorKey: "teams",
+            header: "Teams",
+            cell: ({ row }) => {
+                const memberTeams = teams.filter(team =>
+                    row.original.teams?.some(ut => ut.teamId === team.id)
+                );
+                return (
+                    <div className="flex gap-1 flex-wrap">
+                        {memberTeams.map(team => (
+                            <Badge
+                                key={team.id}
+                                style={{ backgroundColor: team.color || '#666' }}
+                            >
+                                {team.name}
+                            </Badge>
+                        ))}
+                    </div>
+                );
+            }
+        },
+        {
+            accessorKey: "roles",
+            header: "Roles",
+            cell: ({ row }) => {
+                const memberRoles = roles.filter(role =>
+                    row.original.roles?.some(ur => ur.organizationRoleId === role.id)
+                );
+                return (
+                    <div className="flex gap-1 flex-wrap">
+                        {memberRoles.map(role => (
+                            <Badge key={role.id} variant="outline">
+                                {role.name}
+                            </Badge>
+                        ))}
+                    </div>
+                );
+            }
         },
         {
             id: "actions",
@@ -228,7 +298,7 @@ export default function MembersList() {
     ]
 
     const table = useReactTable({
-        data: members,
+        data: filteredMembers,
         columns,
         getCoreRowModel: getCoreRowModel(),
         onRowSelectionChange: setRowSelection,
@@ -240,66 +310,108 @@ export default function MembersList() {
     const selectedCount = Object.keys(rowSelection).length;
 
     return (
-        <PageLayout title="Members" actions={
-            <div className="flex gap-2">
-                {selectedCount > 0 && (
-                    <Button onClick={() => setShowCommunicationModal(true)}>
-                        <MessageSquareIcon className="h-4 w-4 mr-2" />
-                        Message Selected ({selectedCount})
-                    </Button>
-                )}
-                <Button onClick={() => navigate("add")}>Add Member</Button>
-            </div>
-        }>
-            <Table className="w-full text-gray-900">
-                <TableHeader>
-                    {table.getHeaderGroups().map((headerGroup) => (
-                        <TableRow key={headerGroup.id}>
-                            {headerGroup.headers.map((header) => {
-                                return (
-                                    <TableHead key={header.id}>
-                                        {header.isPlaceholder
-                                            ? null
-                                            : flexRender(
-                                                header.column.columnDef.header,
-                                                header.getContext()
-                                            )}
-                                    </TableHead>
-                                )
-                            })}
-                        </TableRow>
-                    ))}
-                </TableHeader>
-                <TableBody>
-                    {table.getRowModel().rows?.length ? (
-                        table.getRowModel().rows.map((row) => (
-                            <TableRow
-                                key={row.id}
-                                className={row.getIsSelected() ? "text-white" : ""}
-                                data-state={row.getIsSelected() && "selected"}
-                            >
-                                {row.getVisibleCells().map((cell) => (
-                                    <TableCell key={cell.id}>
-                                        {flexRender(
-                                            cell.column.columnDef.cell,
-                                            cell.getContext()
-                                        )}
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                        ))
-                    ) : (
-                        <TableRow>
-                            <TableCell
-                                colSpan={columns.length}
-                                className="h-24 text-center"
-                            >
-                                No results.
-                            </TableCell>
-                        </TableRow>
+        <PageLayout
+            title="Members"
+            actions={
+                <div className="flex gap-2">
+                    {selectedCount > 0 && (
+                        <Button onClick={() => setShowCommunicationModal(true)}>
+                            <MessageSquareIcon className="h-4 w-4 mr-2" />
+                            Message Selected ({selectedCount})
+                        </Button>
                     )}
-                </TableBody>
-            </Table>
+                    <Button onClick={() => navigate("add")}>
+                        <UserPlusIcon className="h-4 w-4 mr-2" />
+                        Add Member
+                    </Button>
+                </div>
+            }
+        >
+            <div className="space-y-4">
+                <div className="flex gap-4">
+                    <div className="w-48">
+                        <Label>Filter by Team</Label>
+                        <Select
+                            value={selectedTeam || undefined}
+                            onValueChange={setSelectedTeam}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="All Teams" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Teams</SelectItem>
+                                {teams.map(team => (
+                                    <SelectItem key={team.id} value={team.id}>
+                                        {team.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="w-48">
+                        <Label>Filter by Role</Label>
+                        <Select
+                            value={selectedRole || undefined}
+                            onValueChange={setSelectedRole}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="All Roles" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Roles</SelectItem>
+                                {roles.map(role => (
+                                    <SelectItem key={role.id} value={role.id}>
+                                        {role.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <TableRow key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => (
+                                        <TableHead key={header.id}>
+                                            {header.isPlaceholder
+                                                ? null
+                                                : flexRender(
+                                                    header.column.columnDef.header,
+                                                    header.getContext()
+                                                )}
+                                        </TableHead>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableHeader>
+                        <TableBody>
+                            {table.getRowModel().rows?.length ? (
+                                table.getRowModel().rows.map((row) => (
+                                    <TableRow
+                                        key={row.id}
+                                        data-state={row.getIsSelected() && "selected"}
+                                    >
+                                        {row.getVisibleCells().map((cell) => (
+                                            <TableCell key={cell.id}>
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                        No members found.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </div>
 
             <Dialog open={showCommunicationModal} onOpenChange={setShowCommunicationModal} >
                 <DialogContent>

@@ -205,3 +205,88 @@ export const usersToEvents = pgTable("users_to_events", {
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at").notNull(),
 });
+
+export const landingPageConfig = pgTable("landing_page_config", {
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => uuidv4()),
+	churchOrganizationId: text("church_organization_id")
+		.notNull()
+		.references(() => churchOrganization.id)
+		.unique(),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at").notNull(),
+	// Hero section
+	heroImage: text("hero_image"),
+	heroHeadline: text("hero_headline"),
+	heroSubheadline: text("hero_subheadline"),
+	// About section
+	aboutTitle: text("about_title"),
+	aboutContent: text("about_content"),
+	// Footer
+	footerContent: text("footer_content"),
+	socialLinks: text("social_links"), // JSON string containing social media links
+	// Contact information (override church organization default if needed)
+	contactEmail: text("contact_email"),
+	contactPhone: text("contact_phone"),
+	contactAddress: text("contact_address"),
+});
+
+export const teams = pgTable("teams", {
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => uuidv4()),
+	churchOrganizationId: text("church_organization_id")
+		.notNull()
+		.references(() => churchOrganization.id),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at").notNull(),
+	name: text("name").notNull(),
+	description: text("description"),
+	type: text("type").notNull(), // ministry, missions, worship, etc.
+	color: text("color"), // For UI display
+	isActive: boolean("is_active").default(true).notNull(),
+});
+
+export const usersToTeams = pgTable("users_to_teams", {
+	userId: text("user_id")
+		.notNull()
+		.references(() => users.id),
+	teamId: text("team_id")
+		.notNull()
+		.references(() => teams.id),
+	role: text("role").notNull().default("member"), // leader, member
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at").notNull(),
+});
+
+// Enhance roles table with organization context and permissions
+export const organizationRoles = pgTable("organization_roles", {
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => uuidv4()),
+	churchOrganizationId: text("church_organization_id")
+		.notNull()
+		.references(() => churchOrganization.id),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at").notNull(),
+	name: text("name").notNull(),
+	description: text("description"),
+	permissions: text("permissions").array(), // Array of permission strings
+	isDefault: boolean("is_default").default(false).notNull(), // For auto-assignment to new members
+	isActive: boolean("is_active").default(true).notNull(),
+});
+
+export const usersToOrganizationRoles = pgTable("users_to_organization_roles", {
+	userId: text("user_id")
+		.notNull()
+		.references(() => users.id),
+	organizationRoleId: text("organization_role_id")
+		.notNull()
+		.references(() => organizationRoles.id),
+	churchOrganizationId: text("church_organization_id")
+		.notNull()
+		.references(() => churchOrganization.id),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at").notNull(),
+});

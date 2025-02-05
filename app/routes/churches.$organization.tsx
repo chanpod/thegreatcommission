@@ -17,51 +17,84 @@ import { classNames } from "~/src/helpers";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import { UserContext } from "~/src/providers/userProvider";
 import type { Route } from "./+types";
+import type { LoaderArgs, ActionArgs } from "@remix-run/node";
 
-export const loader = async ({ request, params }: Route.LoaderArgs) => {
-    const parentOrganizationAlias = aliasedTable(churchOrganization, 'parentOrganization')
-    const organizationReponse = await db.select().from(churchOrganization)
-        .where(eq(churchOrganization.id, params.organization!))
-        .leftJoin(parentOrganizationAlias, eq(churchOrganization.id, parentOrganizationAlias.id))
-        .then((data) => {
-            return data[0];
-        })
-
-    const adminIds = await db.select().from(usersTochurchOrganization).where(and(eq(usersTochurchOrganization.churchOrganizationId, params.organization!), eq(usersTochurchOrganization.isAdmin, true)))
-
-    const organization = organizationReponse.church_organizations
-    const parentOrganization = organizationReponse.parentOrganization
-
-    return {
-        organization: organization,
-        parentOrganization: parentOrganization,
-        adminIds: adminIds.map((admin) => admin.userId)
+type LoaderData = {
+    organization: typeof churchOrganization.$inferSelect & {
+        parentOrganization?: typeof churchOrganization.$inferSelect;
     };
+    adminIds: string[];
 };
 
-export const action = async ({ request, params }: Route.ActionArgs) => {
+export const loader = async ({ request, params }: LoaderArgs) => {
+    if (!params.organization) {
+        throw new Error("Organization ID is required");
+    }
+
+    const parentOrganizationAlias = aliasedTable(churchOrganization, 'parentOrganization')
+    const organizationResponse = await db.select({
+        organization: churchOrganization,
+        parentOrganization: parentOrganizationAlias
+    })
+        .from(churchOrganization)
+        .where(eq(churchOrganization.id, params.organization))
+        .leftJoin(parentOrganizationAlias, eq(churchOrganization.id, parentOrganizationAlias.id))
+        .then(data => data[0]);
+
+    const adminIds = await db.select()
+        .from(usersTochurchOrganization)
+        .where(and(
+            eq(usersTochurchOrganization.churchOrganizationId, params.organization),
+            eq(usersTochurchOrganization.isAdmin, true)
+        ));
+
+    return {
+        organization: {
+            ...organizationResponse.organization,
+            parentOrganization: organizationResponse.parentOrganization
+        },
+        adminIds: adminIds.map(admin => admin.userId)
+    } satisfies LoaderData;
+};
+
+export const action = async ({ request, params }: ActionArgs) => {
+    if (!params.organization) {
+        throw new Error("Organization ID is required");
+    }
+
     if (request.method === "PUT") {
         const user = await authenticator.isAuthenticated(request);
         if (!user) return data({ message: "Not Authenticated" }, { status: 401 });
 
-        console.log("Updating the church");
         const churchService = new ChurchService();
-        const newChurch: typeof churchOrganization.$inferInsert = await churchService.getChurchFormDataFromRequest(request);
+        const formData = await churchService.getChurchFormDataFromRequest(request);
+        const newChurch = {
+            ...formData,
+            updatedAt: new Date(),
+            createdById: user.id
+        };
 
-        const response = await db.update(churchOrganization).set(newChurch).where(eq(churchOrganization.id, params.organization!));
+        const response = await db.update(churchOrganization)
+            .set(newChurch)
+            .where(eq(churchOrganization.id, params.organization));
 
         return {
             organization: response,
             success: true,
         };
-    } else if (request.method === "DELETE") {
+    }
+
+    if (request.method === "DELETE") {
         const user = await authenticator.isAuthenticated(request);
         if (!user) return data({ message: "Not Authenticated" }, { status: 401 });
 
-        const response = await db.delete(churchOrganization).where(eq(churchOrganization.id, params.organization!));
+        const response = await db.delete(churchOrganization)
+            .where(eq(churchOrganization.id, params.organization));
 
         return redirect("/churches");
     }
+
+    return { error: "Invalid request method" };
 };
 
 
@@ -79,16 +112,18 @@ const ChurchPage = () => {
     const churchService = new ChurchService(loaderData?.organization!, loaderData?.adminIds);
 
     function deleteChurch() {
-        deleteFetcher.submit({}, { method: "delete", action: `/churches/${loaderData.organization?.id}` });
+        if (!loaderData.organization?.id) return;
+        deleteFetcher.submit({}, { method: "delete", action: '/churches/' + loaderData.organization.id });
     }
 
     function removeChurchAssociation(org: typeof churchOrganization.$inferSelect) {
+        if (!loaderData.organization?.id) return;
         deleteFetcher.submit(
             {
                 orgId: org.id,
-                parentOrgId: loaderData.organization?.id,
+                parentOrgId: loaderData.organization.id,
             },
-            { method: "delete", action: `/churches/${loaderData.organization?.id}/associate` }
+            { method: "delete", action: '/churches/' + loaderData.organization.id + '/associate' }
         );
     }
 
@@ -160,16 +195,13 @@ const ChurchPage = () => {
                                     Manage Request -{" "}
                                     {loaderData.organization?.organizationMembershipRequest?.length}
                                 </div>
-
                             </DropdownMenuItem>
-
                             <DropdownMenuItem className="h-11  w-full flex items-center"
                                 onClick={deleteChurch}>
                                 <Button variant="destructive" className="w-full">
                                     <TrashIcon className="h-4 w-4 mr-2" />
                                     Delete
                                 </Button>
-
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -179,20 +211,20 @@ const ChurchPage = () => {
                 <motion.div layout className="flex-1 space-y-3">
                     <Tabs>
                         <TabsList>
-                            <TabsTrigger onClick={() => navigate(`details`)}>Details</TabsTrigger>
-                            <TabsTrigger onClick={() => navigate(`missions`)}>Missions</TabsTrigger>
-                            <TabsTrigger onClick={() => navigate(`associations`)}>Associated Orgs</TabsTrigger>
-                            <TabsTrigger onClick={() => navigate(`members`)}>Members</TabsTrigger>
-                            <TabsTrigger onClick={() => navigate(`landing`)}>Landing Page</TabsTrigger>
-                            <TabsTrigger onClick={() => navigate(`events`)}>Calendar</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate('details')}>Details</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate('missions')}>Missions</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate('associations')}>Associated Orgs</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate('members')}>Members</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate('teams')}>Teams</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate('roles')}>Roles</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate('landing')}>Landing Page</TabsTrigger>
+                            <TabsTrigger onClick={() => navigate('events')}>Calendar</TabsTrigger>
                         </TabsList>
                         <TabsContent>
                             <Outlet />
                         </TabsContent>
-
                     </Tabs>
                 </motion.div>
-
             </div>
             <UpdateToast
                 showUpdateToast={showUpdateToast}
