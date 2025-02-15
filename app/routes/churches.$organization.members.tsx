@@ -30,7 +30,7 @@ import {
     TableRow,
 } from "~/components/ui/table";
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
-import { Input } from "~/src/components/forms/input/Input";
+import { MessageComposer } from "~/components/messaging/MessageComposer";
 
 
 export const loader = async ({ params }) => {
@@ -39,13 +39,15 @@ export const loader = async ({ params }) => {
             user: users,
             isAdmin: usersTochurchOrganization.isAdmin,
             teams: usersToTeams,
-            roles: usersToOrganizationRoles
+            roles: usersToOrganizationRoles,
+            preferences: userPreferences
         })
         .from(usersTochurchOrganization)
         .where(eq(usersTochurchOrganization.churchOrganizationId, params.organization))
         .innerJoin(users, eq(users.id, usersTochurchOrganization.userId))
         .leftJoin(usersToTeams, eq(users.id, usersToTeams.userId))
-        .leftJoin(usersToOrganizationRoles, eq(users.id, usersToOrganizationRoles.userId));
+        .leftJoin(usersToOrganizationRoles, eq(users.id, usersToOrganizationRoles.userId))
+        .leftJoin(userPreferences, eq(users.id, userPreferences.userId));
 
     // Get all teams for the organization
     const orgTeams = await db
@@ -92,42 +94,84 @@ export const action = async ({ request, params }) => {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
     const message = formData.get("message");
+    const messageType = formData.get("type");
     const userIds = formData.getAll("userIds[]");
+    const format = formData.get("format") ? JSON.parse(formData.get("format")) : undefined;
     const messagesSent = [];
 
     for (const userId of userIds) {
         const user = await db.select().from(users).where(eq(users.id, userId)).then(res => res[0]);
         const userPreferencesResponse = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).then(res => res[0]);
 
-        if (userPreferencesResponse.phoneNotifications) {
-            const usersPhone = user.phone?.startsWith('1') ? user.phone : `1${user.phone}`;
-            await twilioClient.calls.create({
-                twiml: `<Response><Say>Hello, ${user.firstName}! ${message}</Say></Response>`,
-                to: `+${usersPhone}`,
-                from: "+18445479466",
-            });
-            messagesSent.push(`call to ${user.firstName}`);
-        }
-
-        if (userPreferencesResponse.emailNotifications) {
-            const email = {
-                to: user.email,
-                from: "gracecommunitybrunswick@gmail.com",
-                subject: "Church App Message",
-                text: message,
+        if (messageType === "alert") {
+            // Send using user's preferred method
+            if (userPreferencesResponse.phoneNotifications) {
+                const usersPhone = user.phone?.startsWith('1') ? user.phone : `1${user.phone}`;
+                await twilioClient.calls.create({
+                    twiml: `<Response><Say>Hello, ${user.firstName}! ${message}</Say></Response>`,
+                    to: `+${usersPhone}`,
+                    from: "+18445479466",
+                });
+                messagesSent.push(`call to ${user.firstName}`);
             }
-            await sgMail.send(email);
-            messagesSent.push(`email to ${user.firstName}`);
-        }
+            if (userPreferencesResponse.emailNotifications) {
+                const email = {
+                    to: user.email,
+                    from: "gracecommunitybrunswick@gmail.com",
+                    subject: "Church App Message",
+                    text: message,
+                }
+                await sgMail.send(email);
+                messagesSent.push(`email to ${user.firstName}`);
+            }
+            if (userPreferencesResponse.smsNotifications) {
+                const formattedPhone = formatPhoneNumber(user.phone);
+                await twilioClient.messages.create({
+                    to: formattedPhone,
+                    from: "+18445479466",
+                    body: message,
+                });
+                messagesSent.push(`text to ${user.firstName}`);
+            }
+        } else {
+            // Send using specified method
+            if (messageType === "phone") {
+                const usersPhone = formatPhoneNumber(user.phone);
+                await twilioClient.calls.create({
+                    twiml: `<Response><Say>Hello, ${user.firstName}! ${message}</Say></Response>`,
+                    to: usersPhone,
+                    from: "+18445479466",
+                });
+                messagesSent.push(`call to ${user.firstName}`);
+            } else if (messageType === "email") {
+                let formattedMessage = message;
+                if (format) {
+                    // Convert the message to HTML if formatting is applied
+                    formattedMessage = `
+                        <div style="font-family: sans-serif;">
+                            ${format.bold ? `<strong>${message}</strong>` : message}
+                        </div>
+                    `;
+                }
 
-        if (userPreferencesResponse.smsNotifications) {
-            const formattedPhone = formatPhoneNumber(user.phone);
-            await twilioClient.messages.create({
-                to: formattedPhone,
-                from: "+18445479466",
-                body: message,
-            });
-            messagesSent.push(`text to ${user.firstName}`);
+                const email = {
+                    to: user.email,
+                    from: "gracecommunitybrunswick@gmail.com",
+                    subject: "Church App Message",
+                    text: message, // Fallback plain text
+                    html: formattedMessage,
+                }
+                await sgMail.send(email);
+                messagesSent.push(`email to ${user.firstName}`);
+            } else if (messageType === "sms") {
+                const formattedPhone = formatPhoneNumber(user.phone);
+                await twilioClient.messages.create({
+                    to: formattedPhone,
+                    from: "+18445479466",
+                    body: message,
+                });
+                messagesSent.push(`text to ${user.firstName}`);
+            }
         }
     }
 
@@ -315,6 +359,14 @@ export default function MembersList() {
 
     const selectedCount = Object.keys(rowSelection).length;
 
+    const selectedMembersList = Object.keys(rowSelection).map(index => {
+        const member = members[Number.parseInt(index, 10)];
+        return {
+            ...member.user,
+            preferences: member.preferences
+        };
+    });
+
     return (
         <PageLayout
             title="Members"
@@ -426,26 +478,28 @@ export default function MembersList() {
                 </div>
             </div>
 
-            <Dialog open={showCommunicationModal} onOpenChange={setShowCommunicationModal} >
-                <DialogContent>
+            <Dialog open={showCommunicationModal} onOpenChange={setShowCommunicationModal}>
+                <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Send Message to {selectedCount} Members</DialogTitle>
+                        <DialogTitle>Message Members</DialogTitle>
                     </DialogHeader>
 
-                    <div className="space-y-4 bg-white p-4 rounded-md">
-                        <div>
-                            <Label>Message</Label>
-                            <Input
-                                name="message"
-                                type="text"
-                                value={message}
-                                onChange={(e) => setMessage(e.target.value)}
-                                placeholder="Enter your message..."
-                            />
-                        </div>
-
-                        <Button onClick={handleCommunication}>Send</Button>
-                    </div>
+                    <MessageComposer
+                        selectedMembers={selectedMembersList}
+                        onSend={async (data) => {
+                            const formData = new FormData();
+                            formData.append("message", data.message);
+                            formData.append("type", data.type);
+                            if (data.format) {
+                                formData.append("format", JSON.stringify(data.format));
+                            }
+                            for (const id of Object.keys(rowSelection).map(index => members[Number.parseInt(index, 10)].user.id)) {
+                                formData.append("userIds[]", id);
+                            }
+                            await submit(formData, { method: "post" });
+                        }}
+                        onCancel={() => setShowCommunicationModal(false)}
+                    />
                 </DialogContent>
             </Dialog>
 
