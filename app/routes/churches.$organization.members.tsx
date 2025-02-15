@@ -1,11 +1,26 @@
-import { userPreferences, users, usersTochurchOrganization, teams, usersToTeams, organizationRoles, usersToOrganizationRoles } from "@/server/db/schema";
+import { organizationRoles, teams, userPreferences, users, usersTochurchOrganization, usersToOrganizationRoles, usersToTeams } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { Outlet, useActionData, useFetcher, useLoaderData, useNavigate, useParams, useSubmit } from "react-router";
 import { db } from "~/server/dbConnection";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 
-import { EllipsisVerticalIcon, MailIcon, MessageSquareIcon, PencilIcon, PhoneIcon, TrashIcon, UserPlusIcon, UsersIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import sgMail from "@sendgrid/mail";
+import {
+    flexRender,
+    getCoreRowModel,
+    useReactTable
+} from "@tanstack/react-table";
+import { EllipsisVerticalIcon, MessageSquareIcon, PencilIcon, TrashIcon, UserPlusIcon } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { toast } from "sonner";
+import twilio from "twilio";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import { Checkbox } from "~/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
+import { Label } from "~/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import {
     Table,
     TableBody,
@@ -13,28 +28,10 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from "~/components/ui/table"
-import { toast } from "sonner";
-import twilio from "twilio";
-import { Button } from "~/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu";
-import { Label } from "~/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
-import { Input } from "~/src/components/forms/input/Input";
-import {
-    flexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    getSortedRowModel,
-    useReactTable,
-} from "@tanstack/react-table"
+} from "~/components/ui/table";
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
-import sgMail from "@sendgrid/mail";
-import { Checkbox } from "~/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
-import { Badge } from "~/components/ui/badge";
+import { Input } from "~/src/components/forms/input/Input";
+
 
 export const loader = async ({ params }) => {
     const members = await db
@@ -190,13 +187,17 @@ export default function MembersList() {
         });
     }
 
-    const filteredMembers = members.filter(member => {
-        if (selectedTeam && selectedTeam !== 'all' && !member.teams?.find(t => t.teamId === selectedTeam)) return false;
-        if (selectedRole && selectedRole !== 'all' && !member.roles?.find(r => r.organizationRoleId === selectedRole)) return false;
-        return true;
-    });
+    // Memoize the filtered members
+    const filteredMembers = useMemo(() => {
+        return members.filter(member => {
+            if (selectedTeam && selectedTeam !== 'all' && !member.teams?.find(t => t.teamId === selectedTeam)) return false;
+            if (selectedRole && selectedRole !== 'all' && !member.roles?.find(r => r.organizationRoleId === selectedRole)) return false;
+            return true;
+        });
+    }, [members, selectedTeam, selectedRole]);
 
-    const columns = [
+    // Memoize the columns configuration
+    const columns = useMemo(() => [
         {
             accessorKey: "select",
             header: ({ table }) => (
@@ -295,7 +296,7 @@ export default function MembersList() {
                 )
             }
         }
-    ]
+    ], []);
 
     const table = useReactTable({
         data: filteredMembers,
@@ -305,7 +306,12 @@ export default function MembersList() {
         state: {
             rowSelection,
         },
-    })
+        enableRowSelection: true,
+        // Disable features we're not using to improve performance
+        enableSorting: false,
+        enableFilters: false,
+        enableColumnFilters: false,
+    });
 
     const selectedCount = Object.keys(rowSelection).length;
 
@@ -335,7 +341,7 @@ export default function MembersList() {
                             value={selectedTeam || undefined}
                             onValueChange={setSelectedTeam}
                         >
-                            <SelectTrigger>
+                            <SelectTrigger className="text-gray-900">
                                 <SelectValue placeholder="All Teams" />
                             </SelectTrigger>
                             <SelectContent>
@@ -354,7 +360,7 @@ export default function MembersList() {
                             value={selectedRole || undefined}
                             onValueChange={setSelectedRole}
                         >
-                            <SelectTrigger>
+                            <SelectTrigger className="text-gray-900">
                                 <SelectValue placeholder="All Roles" />
                             </SelectTrigger>
                             <SelectContent>
@@ -375,7 +381,7 @@ export default function MembersList() {
                             {table.getHeaderGroups().map((headerGroup) => (
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => (
-                                        <TableHead key={header.id}>
+                                        <TableHead key={header.id} className="text-gray-900 font-medium">
                                             {header.isPlaceholder
                                                 ? null
                                                 : flexRender(
@@ -389,21 +395,28 @@ export default function MembersList() {
                         </TableHeader>
                         <TableBody>
                             {table.getRowModel().rows?.length ? (
-                                table.getRowModel().rows.map((row) => (
-                                    <TableRow
-                                        key={row.id}
-                                        data-state={row.getIsSelected() && "selected"}
-                                    >
-                                        {row.getVisibleCells().map((cell) => (
-                                            <TableCell key={cell.id}>
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
+                                table.getRowModel().rows.slice(0, 50).map((row) => {
+                                    const selected = row.getIsSelected()
+                                    return (
+                                        <TableRow
+                                            key={row.id}
+                                            data-state={row.getIsSelected() && "selected"}
+                                        >
+                                            {row.getVisibleCells().map((cell) => (
+                                                <TableCell
+                                                    key={cell.id}
+                                                    className={` ${selected ? 'text-white-500' : 'text-gray-900'}`}
+                                                >
+
+                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    )
+                                })
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                    <TableCell colSpan={columns.length} className="h-24 text-center text-gray-900">
                                         No members found.
                                     </TableCell>
                                 </TableRow>
