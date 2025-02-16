@@ -8,7 +8,11 @@ import {
     Mail,
     MessageSquare,
     Phone,
-    AlertTriangle
+    AlertTriangle,
+    Link as LinkIcon,
+    AlignLeft,
+    AlignCenter,
+    AlignRight
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
@@ -19,6 +23,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Textarea } from "~/components/ui/textarea";
 import { Toggle } from "~/components/ui/toggle";
 import { Alert, AlertDescription } from "~/components/ui/alert";
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Link from '@tiptap/extension-link'
+import TextAlign from '@tiptap/extension-text-align'
+import BulletList from '@tiptap/extension-bullet-list'
+import ListItem from '@tiptap/extension-list-item'
+import OrderedList from '@tiptap/extension-ordered-list'
+
 const MAX_ALERT_LENGTH = 160;
 
 interface MessageComposerProps {
@@ -56,6 +68,25 @@ export function MessageComposer({ onSend, onCancel, selectedMembers }: MessageCo
         overscan: 5,
     });
 
+    const editor = useEditor({
+        extensions: [
+            StarterKit.configure({
+                bulletList: false,
+                orderedList: false,
+                listItem: false,
+            }),
+            Link,
+            TextAlign.configure({
+                types: ['heading', 'paragraph'],
+            }),
+            BulletList,
+            OrderedList,
+            ListItem,
+        ],
+        content: '',
+
+    })
+
     // Force virtualizer to update when popover opens
     useEffect(() => {
         if (isOpen) {
@@ -64,13 +95,19 @@ export function MessageComposer({ onSend, onCancel, selectedMembers }: MessageCo
     }, [isOpen, virtualizer]);
 
     const handleSend = () => {
-        if (!message.trim()) return;
-
-        onSend({
-            message,
-            type: messageType === "alert" ? "alert" : customType,
-            format: messageType === "custom" && customType === "email" ? format : undefined,
-        });
+        if (messageType === "custom" && customType === "email") {
+            if (!editor?.getHTML()) return;
+            onSend({
+                message: editor.getHTML(),
+                type: customType,
+            });
+        } else {
+            if (!message.trim()) return;
+            onSend({
+                message,
+                type: messageType === "alert" ? "alert" : customType,
+            });
+        }
     };
 
     const isAlertTooLong = messageType === "alert" && message.length > MAX_ALERT_LENGTH;
@@ -261,33 +298,61 @@ export function MessageComposer({ onSend, onCancel, selectedMembers }: MessageCo
                     </RadioGroup>
 
                     {customType === "email" && (
-                        <div className="space-y-2">
-                            <div className="flex gap-2">
-                                <Toggle
-                                    pressed={format.bold}
-                                    onPressedChange={(pressed) => setFormat({ ...format, bold: pressed })}
-                                >
-                                    <Bold className="h-4 w-4" />
-                                </Toggle>
-                                <Toggle
-                                    pressed={format.italic}
-                                    onPressedChange={(pressed) => setFormat({ ...format, italic: pressed })}
-                                >
-                                    <Italic className="h-4 w-4" />
-                                </Toggle>
-                                <Toggle
-                                    pressed={format.list}
-                                    onPressedChange={(pressed) => setFormat({ ...format, list: pressed })}
-                                >
-                                    <List className="h-4 w-4" />
-                                </Toggle>
+                        <div className="space-y-4">
+                            <div className="border rounded-md">
+                                <div className="border-b bg-muted p-2 flex gap-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => editor?.chain().focus().toggleBold().run()}
+                                        className={editor?.isActive('bold') ? 'bg-muted-foreground/20' : ''}
+                                    >
+                                        <Bold className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => editor?.chain().focus().toggleItalic().run()}
+                                        className={editor?.isActive('italic') ? 'bg-muted-foreground/20' : ''}
+                                    >
+                                        <Italic className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                                        className={editor?.isActive('bulletList') ? 'bg-muted-foreground/20' : ''}
+                                    >
+                                        <List className="h-4 w-4" />
+                                    </Button>
+                                    <div className="h-4 w-px bg-border mx-2" />
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => editor?.chain().focus().setTextAlign('left').run()}
+                                        className={editor?.isActive({ textAlign: 'left' }) ? 'bg-muted-foreground/20' : ''}
+                                    >
+                                        <AlignLeft className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => editor?.chain().focus().setTextAlign('center').run()}
+                                        className={editor?.isActive({ textAlign: 'center' }) ? 'bg-muted-foreground/20' : ''}
+                                    >
+                                        <AlignCenter className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => editor?.chain().focus().setTextAlign('right').run()}
+                                        className={editor?.isActive({ textAlign: 'right' }) ? 'bg-muted-foreground/20' : ''}
+                                    >
+                                        <AlignRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                <EditorContent editor={editor} />
                             </div>
-                            <Textarea
-                                value={message}
-                                onChange={(e) => setMessage(e.target.value)}
-                                placeholder="Compose your email message..."
-                                className="min-h-[200px]"
-                            />
                         </div>
                     )}
 

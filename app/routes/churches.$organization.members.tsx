@@ -89,6 +89,7 @@ const formatPhoneNumber = (phone: string) => {
 export const action = async ({ request, params }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
+
     const twilioClient = twilio(accountSid, authToken);
     const formData = await request.formData();
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -144,22 +145,12 @@ export const action = async ({ request, params }) => {
                 });
                 messagesSent.push(`call to ${user.firstName}`);
             } else if (messageType === "email") {
-                let formattedMessage = message;
-                if (format) {
-                    // Convert the message to HTML if formatting is applied
-                    formattedMessage = `
-                        <div style="font-family: sans-serif;">
-                            ${format.bold ? `<strong>${message}</strong>` : message}
-                        </div>
-                    `;
-                }
-
                 const email = {
                     to: user.email,
                     from: "gracecommunitybrunswick@gmail.com",
                     subject: "Church App Message",
-                    text: message, // Fallback plain text
-                    html: formattedMessage,
+                    text: message.replace(/<[^>]*>/g, ''), // Strip HTML for plain text version
+                    html: message, // TinyMCE output is already HTML
                 }
                 await sgMail.send(email);
                 messagesSent.push(`email to ${user.firstName}`);
