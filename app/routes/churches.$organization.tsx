@@ -7,6 +7,7 @@ import {
 	useFetcher,
 	useLoaderData,
 	useNavigate,
+	useLocation,
 } from "react-router";
 
 import { motion } from "framer-motion";
@@ -137,13 +138,20 @@ const ChurchPage = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData();
 	const deleteFetcher = useFetcher();
-
+	const location = useLocation();
 	const navigate = useNavigate();
 
 	const churchService = new ChurchService(
 		loaderData?.organization!,
 		loaderData?.adminIds,
 	);
+
+	// Get the current tab from the URL path
+	const getCurrentTab = () => {
+		const path = location.pathname.split("/").pop();
+		if (!path || path === loaderData.organization?.id) return "details";
+		return path;
+	};
 
 	function deleteChurch() {
 		if (!loaderData.organization?.id) return;
@@ -176,120 +184,116 @@ const ChurchPage = () => {
 	}, [actionData]);
 
 	return (
-		<div className="md:flex-col sm:flex space-y-4">
-			<div className="flex">
-				<div className="flex-1">
-					<h1 className="text-3xl"> {loaderData.organization?.name} </h1>
-					<div className="text-sm text-gray-500">
-						Last Updated:{" "}
-						{loaderData.organization?.updatedAt.toLocaleDateString()}
-					</div>
-					<div className="text-sm text-gray-500">
+		<div className="min-h-screen flex flex-col">
+			<div className="p-4 space-y-4">
+				<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+					<div className="flex-1 space-y-1">
+						<h1 className="text-2xl sm:text-3xl font-bold">
+							{loaderData.organization?.name}
+						</h1>
+						<div className="text-sm text-gray-500">
+							Last Updated:{" "}
+							{loaderData.organization?.updatedAt.toLocaleDateString()}
+						</div>
 						{loaderData.organization?.parentOrganizationId && (
 							<Link
-								className="flex items-center"
+								className="flex items-center text-sm text-gray-500 hover:text-gray-700"
 								to={`/churches/${loaderData.organization?.parentOrganizationId}`}
 							>
 								Parent Org: {loaderData.organization?.parentOrganization?.name}
-								<ArrowNarrowRightIcon className="w-4 h-4" />
+								<ArrowNarrowRightIcon className="w-4 h-4 ml-1" />
 							</Link>
 						)}
 					</div>
-				</div>
-				{churchService.userIsAdmin(user, roles) && (
-					<DropdownMenu>
-						<div className="">
-							<DropdownMenuTrigger className="flex items-center">
+
+					{churchService.userIsAdmin(user, roles) && (
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
 								<Button>
-									<span className="sr-only">Open user menu</span>
-									<PencilIcon className="h-6 w-6 " />
+									<PencilIcon className="h-4 w-4 sm:mr-2" />
+									<span className="hidden sm:inline">Manage</span>
 								</Button>
 							</DropdownMenuTrigger>
-						</div>
-
-						<DropdownMenuContent className="absolute space-y-2 right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-							<DropdownMenuItem
-								onClick={() => navigate(`details/update`)}
-								className={classNames(
-									"cursor-pointer block px-4 py-2 text-sm text-gray-700 hover:text-white",
-								)}
-							>
-								<div>Edit</div>
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								onClick={() => navigate(`associate`)}
-								className={classNames(
-									"cursor-pointer block px-4 py-2 text-sm text-gray-700 hover:text-white",
-								)}
-							>
-								<div>Associate Org</div>
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								onClick={() => navigate(`members/add`)}
-								className={classNames(
-									"cursor-pointer block px-4 py-2 text-sm text-gray-700 hover:text-white",
-								)}
-							>
-								<div>Add Member</div>
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								onClick={() => navigate(`request`)}
-								className={classNames(
-									"cursor-pointer block px-4 py-2 text-sm text-gray-700 hover:text-white",
-								)}
-							>
-								<div>
-									Manage Request -{" "}
-									{
-										loaderData.organization?.organizationMembershipRequest
-											?.length
-									}
-								</div>
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								className="h-11  w-full flex items-center"
-								onClick={deleteChurch}
-							>
-								<Button variant="destructive" className="w-full">
+							<DropdownMenuContent align="end" className="w-48">
+								<DropdownMenuItem onClick={() => navigate("details/update")}>
+									Edit Details
+								</DropdownMenuItem>
+								<DropdownMenuItem onClick={() => navigate("associate")}>
+									Associate Org
+								</DropdownMenuItem>
+								<DropdownMenuItem onClick={() => navigate("members/add")}>
+									Add Member
+								</DropdownMenuItem>
+								<DropdownMenuItem onClick={() => navigate("request")}>
+									Manage Request (
+									{loaderData.organization?.organizationMembershipRequest
+										?.length || 0}
+									)
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									className="text-red-600"
+									onClick={deleteChurch}
+								>
 									<TrashIcon className="h-4 w-4 mr-2" />
 									Delete
-								</Button>
-							</DropdownMenuItem>
-						</DropdownMenuContent>
-					</DropdownMenu>
-				)}
-			</div>
-			<div className="lg:flex space-y-3 lg:space-x-3 lg:space-y-0">
-				<motion.div layout className="flex-1 space-y-3">
-					<Tabs>
-						<TabsList>
-							<TabsTrigger onClick={() => navigate("details")}>
-								Details
-							</TabsTrigger>
-							<TabsTrigger onClick={() => navigate("missions")}>
-								Missions
-							</TabsTrigger>
-							<TabsTrigger onClick={() => navigate("associations")}>
-								Associated Orgs
-							</TabsTrigger>
-							<TabsTrigger onClick={() => navigate("members")}>
-								Members
-							</TabsTrigger>
-							<TabsTrigger onClick={() => navigate("teams")}>Teams</TabsTrigger>
-							<TabsTrigger onClick={() => navigate("roles")}>Roles</TabsTrigger>
-							<TabsTrigger onClick={() => navigate("landing")}>
-								Landing Page
-							</TabsTrigger>
-							<TabsTrigger onClick={() => navigate("events")}>
-								Calendar
-							</TabsTrigger>
-						</TabsList>
-						<TabsContent>
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					)}
+				</div>
+
+				<div className="w-full">
+					<Tabs value={getCurrentTab()} className="w-full">
+						<div className="overflow-x-auto pb-2">
+							<TabsList className="inline-flex w-auto min-w-full sm:w-full border-b pb-px">
+								<TabsTrigger
+									value="details"
+									onClick={() => navigate("details")}
+								>
+									Details
+								</TabsTrigger>
+								<TabsTrigger
+									value="missions"
+									onClick={() => navigate("missions")}
+								>
+									Missions
+								</TabsTrigger>
+								<TabsTrigger
+									value="associations"
+									onClick={() => navigate("associations")}
+								>
+									Associated Orgs
+								</TabsTrigger>
+								<TabsTrigger
+									value="members"
+									onClick={() => navigate("members")}
+								>
+									Members
+								</TabsTrigger>
+								<TabsTrigger value="teams" onClick={() => navigate("teams")}>
+									Teams
+								</TabsTrigger>
+								<TabsTrigger value="roles" onClick={() => navigate("roles")}>
+									Roles
+								</TabsTrigger>
+								<TabsTrigger
+									value="landing"
+									onClick={() => navigate("landing")}
+								>
+									Landing Page
+								</TabsTrigger>
+								<TabsTrigger value="events" onClick={() => navigate("events")}>
+									Calendar
+								</TabsTrigger>
+							</TabsList>
+						</div>
+						<div className="mt-4 overflow-x-hidden">
 							<Outlet />
-						</TabsContent>
+						</div>
 					</Tabs>
-				</motion.div>
+				</div>
 			</div>
+
 			<UpdateToast
 				showUpdateToast={showUpdateToast}
 				message="Updated Successfully"

@@ -438,6 +438,14 @@ export default function MembersList() {
 								</DropdownMenuItem>
 								<DropdownMenuItem
 									onClick={() => {
+										navigate(`${member.user.id}/assign`);
+									}}
+								>
+									<UserPlusIcon className="h-4 w-4 mr-2" />
+									Edit Teams & Roles
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={() => {
 										setSelectedMemberId(member.user.id);
 										setShowDeleteConfirm(true);
 									}}
