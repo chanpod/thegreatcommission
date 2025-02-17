@@ -1,29 +1,32 @@
 import {
-	data,
 	Link,
 	Outlet,
+	data,
+	isRouteErrorResponse,
 	redirect,
 	useActionData,
 	useFetcher,
 	useLoaderData,
-	useNavigate,
 	useLocation,
+	useNavigate,
+	useRouteError,
 } from "react-router";
 
-import { motion } from "framer-motion";
 import { useContext, useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { ChurchService } from "~/services/ChurchService";
 
-import { aliasedTable, and, eq } from "drizzle-orm";
+import { aliasedTable, eq } from "drizzle-orm";
 import {
 	ArrowRight as ArrowNarrowRightIcon,
 	Pencil as PencilIcon,
 	Trash as TrashIcon,
 } from "lucide-react";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import {
 	churchOrganization,
-	usersTochurchOrganization,
+	organizationRoles,
+	usersToOrganizationRoles,
 } from "server/db/schema";
 import { Button } from "~/components/ui/button";
 import {
@@ -32,27 +35,21 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { db } from "~/server/dbConnection";
+import { AuthorizationService } from "~/services/AuthorizationService";
 import UpdateToast from "~/src/components/toast/UpdateToast";
-import { classNames } from "~/src/helpers";
-import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import { UserContext } from "~/src/providers/userProvider";
 import type { Route } from "./+types";
-import type { LoaderArgs, ActionArgs } from "@remix-run/node";
 
-type LoaderData = {
-	organization: typeof churchOrganization.$inferSelect & {
-		parentOrganization?: typeof churchOrganization.$inferSelect;
-	};
-	adminIds: string[];
-};
+import stylesheet from "~/components/messaging/styles.css?url";
 
-export const loader = async ({ request, params }: LoaderArgs) => {
-	if (!params.organization) {
-		throw new Error("Organization ID is required");
-	}
+export const links: Route.LinksFunction = () => [
+	{ rel: "stylesheet", href: stylesheet },
+];
 
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+	// Get the organization data first
 	const parentOrganizationAlias = aliasedTable(
 		churchOrganization,
 		"parentOrganization",
@@ -66,30 +63,86 @@ export const loader = async ({ request, params }: LoaderArgs) => {
 		.where(eq(churchOrganization.id, params.organization))
 		.leftJoin(
 			parentOrganizationAlias,
-			eq(churchOrganization.id, parentOrganizationAlias.id),
+			eq(churchOrganization.parentOrganizationId, parentOrganizationAlias.id),
 		)
 		.then((data) => data[0]);
 
-	const adminIds = await db
-		.select()
-		.from(usersTochurchOrganization)
-		.where(
-			and(
-				eq(usersTochurchOrganization.churchOrganizationId, params.organization),
-				eq(usersTochurchOrganization.isAdmin, true),
-			),
+	if (!organizationResponse) {
+		throw new Error("Organization not found");
+	}
+
+	// Try to get authenticated user and their permissions
+	const user = await authenticator.isAuthenticated(request);
+	let orgRoles = null;
+	let userRoleAssignments = null;
+	let permissions = {
+		canEdit: false,
+		canDelete: false,
+		canManageMembers: false,
+		canManageRoles: false,
+		canManageTeams: false,
+	};
+
+	if (user) {
+		// Get all roles for the organization
+		orgRoles = await db
+			.select()
+			.from(organizationRoles)
+			.where(eq(organizationRoles.churchOrganizationId, params.organization));
+
+		// Get user's role assignments
+		userRoleAssignments = await db
+			.select()
+			.from(usersToOrganizationRoles)
+			.where(
+				eq(usersToOrganizationRoles.churchOrganizationId, params.organization),
+			);
+
+		// Create authorization service
+		const authService = new AuthorizationService(
+			user,
+			orgRoles,
+			userRoleAssignments,
 		);
+
+		// Set permissions based on user's roles
+		permissions = {
+			canEdit: authService.hasPermission(
+				"organization.update",
+				params.organization,
+			),
+			canDelete: authService.hasPermission(
+				"organization.delete",
+				params.organization,
+			),
+			canManageMembers: authService.hasPermission(
+				"members.create",
+				params.organization,
+			),
+			canManageRoles: authService.hasPermission(
+				"roles.create",
+				params.organization,
+			),
+			canManageTeams: authService.hasPermission(
+				"teams.create",
+				params.organization,
+			),
+		};
+	}
 
 	return {
 		organization: {
 			...organizationResponse.organization,
 			parentOrganization: organizationResponse.parentOrganization,
 		},
-		adminIds: adminIds.map((admin) => admin.userId),
-	} satisfies LoaderData;
+		user,
+		orgRoles,
+		userRoleAssignments,
+		permissions,
+	};
 };
 
-export const action = async ({ request, params }: ActionArgs) => {
+export const action = async ({ request, params }: ActionFunctionArgs) => {
 	if (!params.organization) {
 		throw new Error("Organization ID is required");
 	}
@@ -132,8 +185,7 @@ export const action = async ({ request, params }: ActionArgs) => {
 };
 
 const ChurchPage = () => {
-	const { user } = useIsLoggedIn();
-	const { roles } = useContext(UserContext);
+	const { user, organizationRoles, userToRoles } = useContext(UserContext);
 	const [showUpdateToast, setShowUpdateToast] = useState(false);
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData();
@@ -141,10 +193,7 @@ const ChurchPage = () => {
 	const location = useLocation();
 	const navigate = useNavigate();
 
-	const churchService = new ChurchService(
-		loaderData?.organization!,
-		loaderData?.adminIds,
-	);
+	const { permissions } = loaderData;
 
 	// Get the current tab from the URL path
 	const getCurrentTab = () => {
@@ -154,10 +203,10 @@ const ChurchPage = () => {
 	};
 
 	function deleteChurch() {
-		if (!loaderData.organization?.id) return;
+		if (!loaderData.organization?.id || !permissions.canDelete) return;
 		deleteFetcher.submit(
 			{},
-			{ method: "delete", action: "/churches/" + loaderData.organization.id },
+			{ method: "delete", action: `/churches/${loaderData.organization.id}` },
 		);
 	}
 
@@ -172,7 +221,7 @@ const ChurchPage = () => {
 			},
 			{
 				method: "delete",
-				action: "/churches/" + loaderData.organization.id + "/associate",
+				action: `/churches/${loaderData.organization.id}/associate`,
 			},
 		);
 	}
@@ -206,7 +255,9 @@ const ChurchPage = () => {
 						)}
 					</div>
 
-					{churchService.userIsAdmin(user, roles) && (
+					{(permissions.canEdit ||
+						permissions.canDelete ||
+						permissions.canManageMembers) && (
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Button>
@@ -215,28 +266,25 @@ const ChurchPage = () => {
 								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end" className="w-48">
-								<DropdownMenuItem onClick={() => navigate("details/update")}>
-									Edit Details
-								</DropdownMenuItem>
-								<DropdownMenuItem onClick={() => navigate("associate")}>
-									Associate Org
-								</DropdownMenuItem>
-								<DropdownMenuItem onClick={() => navigate("members/add")}>
-									Add Member
-								</DropdownMenuItem>
-								<DropdownMenuItem onClick={() => navigate("request")}>
-									Manage Request (
-									{loaderData.organization?.organizationMembershipRequest
-										?.length || 0}
-									)
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									className="text-red-600"
-									onClick={deleteChurch}
-								>
-									<TrashIcon className="h-4 w-4 mr-2" />
-									Delete
-								</DropdownMenuItem>
+								{permissions.canEdit && (
+									<DropdownMenuItem onClick={() => navigate("details/update")}>
+										Edit Details
+									</DropdownMenuItem>
+								)}
+								{permissions.canManageMembers && (
+									<DropdownMenuItem onClick={() => navigate("members/add")}>
+										Add Member
+									</DropdownMenuItem>
+								)}
+								{permissions.canDelete && (
+									<DropdownMenuItem
+										className="text-red-600"
+										onClick={deleteChurch}
+									>
+										<TrashIcon className="h-4 w-4 mr-2" />
+										Delete
+									</DropdownMenuItem>
+								)}
 							</DropdownMenuContent>
 						</DropdownMenu>
 					)}
@@ -257,12 +305,6 @@ const ChurchPage = () => {
 									onClick={() => navigate("missions")}
 								>
 									Missions
-								</TabsTrigger>
-								<TabsTrigger
-									value="associations"
-									onClick={() => navigate("associations")}
-								>
-									Associated Orgs
 								</TabsTrigger>
 								<TabsTrigger
 									value="members"
@@ -302,5 +344,81 @@ const ChurchPage = () => {
 		</div>
 	);
 };
+
+export function ErrorBoundary() {
+	const error = useRouteError();
+	const navigate = useNavigate();
+
+	if (isRouteErrorResponse(error)) {
+		if (error.status === 401) {
+			return (
+				<div className="min-h-screen flex flex-col items-center justify-center p-4">
+					<div className="text-center space-y-4">
+						<h1 className="text-2xl font-bold">Authentication Required</h1>
+						<p className="text-gray-600">
+							Please log in to access this organization.
+						</p>
+						<Button onClick={() => navigate("/login")}>Log In</Button>
+					</div>
+				</div>
+			);
+		}
+
+		if (error.status === 403) {
+			return (
+				<div className="min-h-screen flex flex-col items-center justify-center p-4">
+					<div className="text-center space-y-4">
+						<h1 className="text-2xl font-bold">Access Denied</h1>
+						<p className="text-gray-600">
+							You don't have permission to access this organization.
+						</p>
+						<Button onClick={() => navigate("/churches")}>
+							Return to Churches
+						</Button>
+					</div>
+				</div>
+			);
+		}
+
+		if (error.status === 404) {
+			return (
+				<div className="min-h-screen flex flex-col items-center justify-center p-4">
+					<div className="text-center space-y-4">
+						<h1 className="text-2xl font-bold">Organization Not Found</h1>
+						<p className="text-gray-600">
+							The organization you're looking for doesn't exist.
+						</p>
+						<Button onClick={() => navigate("/churches")}>
+							Return to Churches
+						</Button>
+					</div>
+				</div>
+			);
+		}
+	}
+
+	// For any other errors
+	return (
+		<div className="min-h-screen flex flex-col items-center justify-center p-4">
+			<div className="text-center space-y-4">
+				<h1 className="text-2xl font-bold">Unexpected Error</h1>
+				<p className="text-gray-600">
+					Something went wrong while accessing this organization.
+				</p>
+				{import.meta.env.DEV && error instanceof Error && (
+					<pre className="mt-4 p-4 bg-gray-100 rounded-lg overflow-auto text-left">
+						<code>{error.message}</code>
+						{error.stack && (
+							<code className="block mt-2 text-gray-500">{error.stack}</code>
+						)}
+					</pre>
+				)}
+				<Button onClick={() => navigate("/churches")}>
+					Return to Churches
+				</Button>
+			</div>
+		</div>
+	);
+}
 
 export default ChurchPage;

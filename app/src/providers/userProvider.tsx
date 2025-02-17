@@ -1,13 +1,58 @@
-import { createContext } from "react";
-import type { users, roles } from "server/db/schema";
+import { createContext, useEffect, useState } from "react";
+import type {
+	users,
+	organizationRoles,
+	usersToOrganizationRoles,
+} from "server/db/schema";
 
-export interface IUserContext {
-  user: typeof users.$inferSelect | undefined;
-  roles: typeof roles.$inferSelect | undefined;
+interface UserContextType {
+	user: typeof users.$inferSelect | null;
+	roles: any[] | null;
+	organizationRoles: Array<typeof organizationRoles.$inferSelect> | null;
+	userToRoles: Array<typeof usersToOrganizationRoles.$inferSelect> | null;
+	isLoggedIn: boolean;
 }
 
-export const UserContext = createContext<IUserContext>({ user: undefined, roles: undefined });
-export const UserProvider = ({ children, user, roles }: { children: React.ReactNode, user: typeof users.$inferSelect, roles: typeof roles.$inferSelect }) => {
+export const UserContext = createContext<UserContextType>({
+	user: null,
+	roles: null,
+	organizationRoles: null,
+	userToRoles: null,
+	isLoggedIn: false,
+});
 
-  return <UserContext value={{ user: user, roles: roles }}>{children}</UserContext>;
-};
+interface Props {
+	user: typeof users.$inferSelect | null;
+	roles: any[] | null;
+	organizationRoles: Array<typeof organizationRoles.$inferSelect> | null;
+	userToRoles: Array<typeof usersToOrganizationRoles.$inferSelect> | null;
+	children: React.ReactNode;
+}
+
+export function UserProvider({
+	user,
+	roles,
+	organizationRoles,
+	userToRoles,
+	children,
+}: Props) {
+	const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+	useEffect(() => {
+		setIsLoggedIn(!!user);
+	}, [user]);
+
+	return (
+		<UserContext.Provider
+			value={{
+				user,
+				roles,
+				organizationRoles,
+				userToRoles,
+				isLoggedIn,
+			}}
+		>
+			{children}
+		</UserContext.Provider>
+	);
+}

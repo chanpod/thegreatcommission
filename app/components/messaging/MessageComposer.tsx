@@ -31,7 +31,7 @@ import {
 	DialogTitle,
 } from "~/components/ui/dialog";
 import { toast } from "sonner";
-import { EmailEditor, type EmailTemplate } from "./EmailEditor";
+import { RichTextEditor, type EmailTemplate } from "./RichTextEditor";
 
 const MAX_ALERT_LENGTH = 160;
 
@@ -105,6 +105,16 @@ export function MessageComposer({
 			virtualizer.measure();
 		}
 	}, [isOpen, virtualizer]);
+
+	// Update subject when template changes
+	useEffect(() => {
+		if (selectedTemplateId) {
+			const template = EMAIL_TEMPLATES.find((t) => t.id === selectedTemplateId);
+			if (template) {
+				setSubject(template.subject);
+			}
+		}
+	}, [selectedTemplateId]);
 
 	const handleSend = () => {
 		if (messageType === "custom" && customType === "email") {
@@ -341,16 +351,24 @@ export function MessageComposer({
 						</RadioGroup>
 
 						{customType === "email" ? (
-							<EmailEditor
-								content={emailContent}
-								subject={subject}
-								onContentChange={setEmailContent}
-								onSubjectChange={setSubject}
-								templates={EMAIL_TEMPLATES}
-								selectedTemplateId={selectedTemplateId}
-								onTemplateSelect={setSelectedTemplateId}
-								onSaveDraft={handleSaveDraft}
-							/>
+							<>
+								<div>
+									<Label>Subject</Label>
+									<Input
+										value={subject}
+										onChange={(e) => setSubject(e.target.value)}
+										placeholder="Enter email subject..."
+									/>
+								</div>
+								<RichTextEditor
+									content={emailContent}
+									onContentChange={setEmailContent}
+									templates={EMAIL_TEMPLATES}
+									selectedTemplateId={selectedTemplateId}
+									onTemplateSelect={setSelectedTemplateId}
+									onSaveDraft={handleSaveDraft}
+								/>
+							</>
 						) : (
 							<div>
 								<Label>

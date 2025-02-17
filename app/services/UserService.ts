@@ -1,34 +1,57 @@
-
 import { RolesEnum } from "~/src/types/roles.enum";
-import type { roles, users } from "server/db/schema";
+import type {
+	roles,
+	users,
+	organizationRoles,
+	usersToOrganizationRoles,
+} from "server/db/schema";
+import type { Role } from "~/schema/roles";
+import { AuthorizationService } from "./AuthorizationService";
 
 export class UserService {
-    user: typeof users;
-    roles: typeof roles;
-    constructor(userIn: typeof users, rolesIn: typeof roles) {
-        this.user = userIn;
-        this.roles = rolesIn;
-    }
+	private user: typeof users.$inferSelect;
+	private roles: Array<typeof organizationRoles.$inferSelect>;
+	private userToRoles: Array<typeof usersToOrganizationRoles.$inferSelect>;
 
-    userIsSiteAdmin(): boolean {
-        if (this.user?.roles) {
-            return (
-                (this.user.roles as typeof roles[]).find((role: typeof roles) => role.name.toUpperCase() === RolesEnum.SiteAdmin) !==
-                undefined || false
-            );
-        }
+	constructor(
+		user: typeof users.$inferSelect,
+		roles: Array<typeof organizationRoles.$inferSelect>,
+		userToRoles: Array<typeof usersToOrganizationRoles.$inferSelect>,
+	) {
+		this.user = user;
+		this.roles = roles;
+		this.userToRoles = userToRoles;
+	}
 
-        return false;
-    }
+	hasPermissionInOrganization(
+		permission: string,
+		organizationId: string,
+	): boolean {
+		const authService = new AuthorizationService(
+			this.user,
+			this.roles,
+			this.userToRoles,
+		);
+		return authService.hasPermission(permission, organizationId);
+	}
 
-    userIsAdmin(): boolean {
-        let isAdmin = false;
-        if (this.user?.roles) {
-            isAdmin =
-                (this.user.roles as Role[]).find((role: Role) => role.name.toUpperCase() === RolesEnum.ADMIN) !==
-                undefined;
-        }
+	isAdminInOrganization(organizationId: string): boolean {
+		const authService = new AuthorizationService(
+			this.user,
+			this.roles,
+			this.userToRoles,
+		);
+		return authService.isAdmin(organizationId);
+	}
 
-        return isAdmin || this.userIsSiteAdmin();
-    }
+	// Helper methods for user data
+	getFullName(): string {
+		return `${this.user.firstName} ${this.user.lastName}`;
+	}
+
+	getEmail(): string {
+		return this.user.email;
+	}
+
+	// Add more user-specific helper methods as needed
 }

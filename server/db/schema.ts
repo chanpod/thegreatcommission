@@ -170,6 +170,7 @@ export const events = pgTable("events", {
 	allDay: boolean("all_day").default(false),
 	// Type can be: 'local' (one-time local event), 'recurring' (weekly service), 'mission' (mission trip)
 	type: text("type").notNull().default("local"),
+	heroImageUrl: text("hero_image_url"),
 	// For recurring events
 	recurrence: text("recurrence"), // JSON string containing recurrence rules
 	// Location details

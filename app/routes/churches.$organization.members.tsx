@@ -20,6 +20,11 @@ import {
 } from "react-router";
 import { db } from "~/server/dbConnection";
 import { PageLayout } from "~/src/components/layout/PageLayout";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
+import { ChurchService } from "~/services/ChurchService";
+import { AuthorizationService } from "~/services/AuthorizationService";
+import { UserContext } from "~/src/providers/userProvider";
+import { useContext } from "react";
 
 import sgMail from "@sendgrid/mail";
 import {
@@ -70,13 +75,58 @@ import {
 } from "~/components/ui/table";
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
 import { MessageComposer } from "~/components/messaging/MessageComposer";
-import stylesheet from "~/components/messaging/styles.css?url";
 
-export const links: Route.LinksFunction = () => [
-	{ rel: "stylesheet", href: stylesheet },
-];
+export const loader = async ({ request, params }) => {
+	const user = await authenticator.isAuthenticated(request);
+	let permissions = {
+		canAdd: false,
+		canEdit: false,
+		canDelete: false,
+		canAssign: false,
+	};
 
-export const loader = async ({ params }) => {
+	const organization = await db
+		.select()
+		.from(churchOrganization)
+		.where(eq(churchOrganization.id, params.organization))
+		.then((res) => res[0]);
+
+	if (!organization) {
+		throw new Error("Organization not found");
+	}
+
+	// Only check permissions if user is authenticated
+	if (user) {
+		// Get all roles for the organization
+		const orgRoles = await db
+			.select()
+			.from(organizationRoles)
+			.where(eq(organizationRoles.churchOrganizationId, params.organization));
+
+		// Get user's role assignments
+		const userRoleAssignments = await db
+			.select()
+			.from(usersToOrganizationRoles)
+			.where(
+				eq(usersToOrganizationRoles.churchOrganizationId, params.organization),
+			);
+
+		// Create authorization service
+		const authService = new AuthorizationService(
+			user,
+			orgRoles,
+			userRoleAssignments,
+		);
+
+		// Set permissions based on user's roles
+		permissions = {
+			canAdd: authService.canAddMembers(params.organization),
+			canEdit: authService.canEditMembers(params.organization),
+			canDelete: authService.canDeleteMembers(params.organization),
+			canAssign: authService.canAssignMembers(params.organization),
+		};
+	}
+
 	const members = await db
 		.select({
 			user: users,
@@ -123,7 +173,8 @@ export const loader = async ({ params }) => {
 	return {
 		members: transformedMembers,
 		teams: orgTeams,
-		roles: orgRoles,
+		roles: orgRoles || [],
+		permissions,
 	};
 };
 
@@ -267,7 +318,8 @@ export const action = async ({ request, params }) => {
 };
 
 export default function MembersList() {
-	const { members, teams, roles } = useLoaderData<typeof loader>();
+	const { members, teams, roles, permissions } = useLoaderData<typeof loader>();
+	const { user } = useContext(UserContext);
 	const actionData = useActionData<typeof action>();
 	const navigate = useNavigate();
 	const deleteFetcher = useFetcher();
@@ -346,27 +398,32 @@ export default function MembersList() {
 	// Memoize the columns configuration
 	const columns = useMemo(
 		() => [
-			{
-				accessorKey: "select",
-				header: ({ table }) => (
-					<Checkbox
-						checked={table.getIsAllPageRowsSelected()}
-						onCheckedChange={(value) =>
-							table.toggleAllPageRowsSelected(!!value)
-						}
-						aria-label="Select all"
-					/>
-				),
-				cell: ({ row }) => (
-					<Checkbox
-						checked={row.getIsSelected()}
-						onCheckedChange={(value) => row.toggleSelected(!!value)}
-						aria-label="Select row"
-					/>
-				),
-				enableSorting: false,
-				enableHiding: false,
-			},
+			// Only show select column if user is authenticated and can message members
+			...(user
+				? [
+						{
+							accessorKey: "select",
+							header: ({ table }) => (
+								<Checkbox
+									checked={table.getIsAllPageRowsSelected()}
+									onCheckedChange={(value) =>
+										table.toggleAllPageRowsSelected(!!value)
+									}
+									aria-label="Select all"
+								/>
+							),
+							cell: ({ row }) => (
+								<Checkbox
+									checked={row.getIsSelected()}
+									onCheckedChange={(value) => row.toggleSelected(!!value)}
+									aria-label="Select row"
+								/>
+							),
+							enableSorting: false,
+							enableHiding: false,
+						},
+					]
+				: []),
 			{
 				accessorKey: "user.firstName",
 				header: "First Name",
@@ -418,48 +475,59 @@ export default function MembersList() {
 					);
 				},
 			},
-			{
-				id: "actions",
-				cell: ({ row }) => {
-					const member = row.original;
-					return (
-						<DropdownMenu>
-							<DropdownMenuTrigger>
-								<Button variant="ghost" size="icon">
-									<EllipsisVerticalIcon className="h-4 w-4" />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent>
-								<DropdownMenuItem
-									onClick={() => navigate(`${member.user.id}/update`)}
-								>
-									<PencilIcon className="h-4 w-4 mr-2" />
-									Edit
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									onClick={() => {
-										navigate(`${member.user.id}/assign`);
-									}}
-								>
-									<UserPlusIcon className="h-4 w-4 mr-2" />
-									Edit Teams & Roles
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									onClick={() => {
-										setSelectedMemberId(member.user.id);
-										setShowDeleteConfirm(true);
-									}}
-								>
-									<TrashIcon className="h-4 w-4 mr-2" />
-									Delete
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					);
-				},
-			},
+			// Only show actions column if user has any permissions
+			...(permissions.canEdit || permissions.canDelete || permissions.canAssign
+				? [
+						{
+							id: "actions",
+							cell: ({ row }) => {
+								const member = row.original;
+								return (
+									<DropdownMenu>
+										<DropdownMenuTrigger>
+											<Button variant="ghost" size="icon">
+												<EllipsisVerticalIcon className="h-4 w-4" />
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent>
+											{permissions.canEdit && (
+												<DropdownMenuItem
+													onClick={() => navigate(`${member.user.id}/update`)}
+												>
+													<PencilIcon className="h-4 w-4 mr-2" />
+													Edit
+												</DropdownMenuItem>
+											)}
+											{permissions.canAssign && (
+												<DropdownMenuItem
+													onClick={() => {
+														navigate(`${member.user.id}/assign`);
+													}}
+												>
+													<UserPlusIcon className="h-4 w-4 mr-2" />
+													Edit Teams & Roles
+												</DropdownMenuItem>
+											)}
+											{permissions.canDelete && (
+												<DropdownMenuItem
+													onClick={() => {
+														setSelectedMemberId(member.user.id);
+														setShowDeleteConfirm(true);
+													}}
+												>
+													<TrashIcon className="h-4 w-4 mr-2" />
+													Delete
+												</DropdownMenuItem>
+											)}
+										</DropdownMenuContent>
+									</DropdownMenu>
+								);
+							},
+						},
+					]
+				: []),
 		],
-		[navigate, roles, teams],
+		[navigate, roles, teams, permissions, user],
 	);
 
 	const table = useReactTable({
@@ -492,16 +560,18 @@ export default function MembersList() {
 			title="Members"
 			actions={
 				<div className="flex gap-2">
-					{selectedCount > 0 && (
+					{user && selectedCount > 0 && (
 						<Button onClick={() => setShowCommunicationModal(true)}>
 							<MessageSquareIcon className="h-4 w-4 mr-2" />
 							Message Selected ({selectedCount})
 						</Button>
 					)}
-					<Button onClick={() => navigate("add")}>
-						<UserPlusIcon className="h-4 w-4 mr-2" />
-						Add Member
-					</Button>
+					{permissions.canAdd && (
+						<Button onClick={() => navigate("add")}>
+							<UserPlusIcon className="h-4 w-4 mr-2" />
+							Add Member
+						</Button>
+					)}
 				</div>
 			}
 		>
