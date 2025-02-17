@@ -4,141 +4,58 @@ import {
 	data,
 	isRouteErrorResponse,
 	redirect,
-	useActionData,
-	useFetcher,
 	useLoaderData,
 	useLocation,
 	useNavigate,
 	useRouteError,
 } from "react-router";
 
-import { useContext, useEffect, useState } from "react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { ChurchService } from "~/services/ChurchService";
 
-import { aliasedTable, eq } from "drizzle-orm";
-import {
-	ArrowRight as ArrowNarrowRightIcon,
-	Pencil as PencilIcon,
-	Trash as TrashIcon,
-} from "lucide-react";
+import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import {
-	churchOrganization,
-	organizationRoles,
-	usersToOrganizationRoles,
-} from "server/db/schema";
+import { churchOrganization } from "server/db/schema";
 import { Button } from "~/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { db } from "~/server/dbConnection";
-import { AuthorizationService } from "~/services/AuthorizationService";
-import UpdateToast from "~/src/components/toast/UpdateToast";
-import { UserContext } from "~/src/providers/userProvider";
 import type { Route } from "./+types";
 
+import { PermissionsService } from "@/server/services/PermissionsService";
+import { format } from "date-fns";
+import { Bell, Settings } from "lucide-react";
 import stylesheet from "~/components/messaging/styles.css?url";
+import { cn } from "~/lib/utils";
 
 export const links: Route.LinksFunction = () => [
 	{ rel: "stylesheet", href: stylesheet },
 ];
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	// Get the organization data first
-	const parentOrganizationAlias = aliasedTable(
-		churchOrganization,
-		"parentOrganization",
-	);
-	const organizationResponse = await db
-		.select({
-			organization: churchOrganization,
-			parentOrganization: parentOrganizationAlias,
-		})
+	const user = await authenticator.isAuthenticated(request);
+	if (!user) {
+		throw new Error("Not authenticated");
+	}
+
+	const organization = await db
+		.select()
 		.from(churchOrganization)
 		.where(eq(churchOrganization.id, params.organization))
-		.leftJoin(
-			parentOrganizationAlias,
-			eq(churchOrganization.parentOrganizationId, parentOrganizationAlias.id),
-		)
-		.then((data) => data[0]);
+		.then((rows) => rows[0]);
 
-	if (!organizationResponse) {
+	if (!organization) {
 		throw new Error("Organization not found");
 	}
 
-	// Try to get authenticated user and their permissions
-	const user = await authenticator.isAuthenticated(request);
-	let orgRoles = null;
-	let userRoleAssignments = null;
-	let permissions = {
-		canEdit: false,
-		canDelete: false,
-		canManageMembers: false,
-		canManageRoles: false,
-		canManageTeams: false,
-	};
-
-	if (user) {
-		// Get all roles for the organization
-		orgRoles = await db
-			.select()
-			.from(organizationRoles)
-			.where(eq(organizationRoles.churchOrganizationId, params.organization));
-
-		// Get user's role assignments
-		userRoleAssignments = await db
-			.select()
-			.from(usersToOrganizationRoles)
-			.where(
-				eq(usersToOrganizationRoles.churchOrganizationId, params.organization),
-			);
-
-		// Create authorization service
-		const authService = new AuthorizationService(
-			user,
-			orgRoles,
-			userRoleAssignments,
-		);
-
-		// Set permissions based on user's roles
-		permissions = {
-			canEdit: authService.hasPermission(
-				"organization.update",
-				params.organization,
-			),
-			canDelete: authService.hasPermission(
-				"organization.delete",
-				params.organization,
-			),
-			canManageMembers: authService.hasPermission(
-				"members.create",
-				params.organization,
-			),
-			canManageRoles: authService.hasPermission(
-				"roles.create",
-				params.organization,
-			),
-			canManageTeams: authService.hasPermission(
-				"teams.create",
-				params.organization,
-			),
-		};
-	}
+	const permissionsService = new PermissionsService();
+	const permissions = await permissionsService.getOrganizationPermissions(
+		user.id,
+		params.organization,
+	);
 
 	return {
-		organization: {
-			...organizationResponse.organization,
-			parentOrganization: organizationResponse.parentOrganization,
-		},
-		user,
-		orgRoles,
-		userRoleAssignments,
+		organization,
 		permissions,
+		lastUpdated: organization.updatedAt,
 	};
 };
 
@@ -184,166 +101,105 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 	return { error: "Invalid request method" };
 };
 
-const ChurchPage = () => {
-	const { user, organizationRoles, userToRoles } = useContext(UserContext);
-	const [showUpdateToast, setShowUpdateToast] = useState(false);
-	const loaderData = useLoaderData<typeof loader>();
-	const actionData = useActionData();
-	const deleteFetcher = useFetcher();
+const NAV_ITEMS = [
+	{ name: "Overview", href: "" },
+	{ name: "Members", href: "members" },
+	{ name: "Teams", href: "teams" },
+	{ name: "Events", href: "events" },
+	{ name: "Roles", href: "roles" },
+];
+
+export default function OrganizationLayout() {
+	const { organization, lastUpdated, permissions } =
+		useLoaderData<typeof loader>();
 	const location = useLocation();
-	const navigate = useNavigate();
-
-	const { permissions } = loaderData;
-
-	// Get the current tab from the URL path
-	const getCurrentTab = () => {
-		const path = location.pathname.split("/").pop();
-		if (!path || path === loaderData.organization?.id) return "details";
-		return path;
-	};
-
-	function deleteChurch() {
-		if (!loaderData.organization?.id || !permissions.canDelete) return;
-		deleteFetcher.submit(
-			{},
-			{ method: "delete", action: `/churches/${loaderData.organization.id}` },
-		);
-	}
-
-	function removeChurchAssociation(
-		org: typeof churchOrganization.$inferSelect,
-	) {
-		if (!loaderData.organization?.id) return;
-		deleteFetcher.submit(
-			{
-				orgId: org.id,
-				parentOrgId: loaderData.organization.id,
-			},
-			{
-				method: "delete",
-				action: `/churches/${loaderData.organization.id}/associate`,
-			},
-		);
-	}
-
-	useEffect(() => {
-		if (actionData?.success) {
-			setShowUpdateToast(actionData.success);
-		}
-	}, [actionData]);
+	const currentPath = location.pathname.split("/").pop() || "";
 
 	return (
-		<div className="min-h-screen flex flex-col">
-			<div className="p-4 space-y-4">
-				<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-					<div className="flex-1 space-y-1">
-						<h1 className="text-2xl sm:text-3xl font-bold">
-							{loaderData.organization?.name}
+		<div className="min-h-screen bg-gray-100">
+			{/* Header */}
+			<header className="bg-white shadow">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+					<div className="flex items-center">
+						<h1 className="text-2xl font-bold text-gray-900">
+							{organization.name}
 						</h1>
-						<div className="text-sm text-gray-500">
-							Last Updated:{" "}
-							{loaderData.organization?.updatedAt.toLocaleDateString()}
-						</div>
-						{loaderData.organization?.parentOrganizationId && (
+					</div>
+					<div className="flex items-center space-x-4">
+						<p className="text-sm text-gray-500">
+							Last updated: {format(new Date(lastUpdated), "MMM d, yyyy")}
+						</p>
+						<button
+							type="button"
+							className="p-2 rounded-full hover:bg-gray-200"
+						>
+							<Bell className="h-5 w-5 text-gray-600" />
+						</button>
+						{permissions.canEdit && (
 							<Link
-								className="flex items-center text-sm text-gray-500 hover:text-gray-700"
-								to={`/churches/${loaderData.organization?.parentOrganizationId}`}
+								to="details/update"
+								className="p-2 rounded-full hover:bg-gray-200"
 							>
-								Parent Org: {loaderData.organization?.parentOrganization?.name}
-								<ArrowNarrowRightIcon className="w-4 h-4 ml-1" />
+								<Settings className="h-5 w-5 text-gray-600" />
 							</Link>
 						)}
 					</div>
-
-					{(permissions.canEdit ||
-						permissions.canDelete ||
-						permissions.canManageMembers) && (
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button>
-									<PencilIcon className="h-4 w-4 sm:mr-2" />
-									<span className="hidden sm:inline">Manage</span>
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="w-48">
-								{permissions.canEdit && (
-									<DropdownMenuItem onClick={() => navigate("details/update")}>
-										Edit Details
-									</DropdownMenuItem>
-								)}
-								{permissions.canManageMembers && (
-									<DropdownMenuItem onClick={() => navigate("members/add")}>
-										Add Member
-									</DropdownMenuItem>
-								)}
-								{permissions.canDelete && (
-									<DropdownMenuItem
-										className="text-red-600"
-										onClick={deleteChurch}
-									>
-										<TrashIcon className="h-4 w-4 mr-2" />
-										Delete
-									</DropdownMenuItem>
-								)}
-							</DropdownMenuContent>
-						</DropdownMenu>
-					)}
 				</div>
+			</header>
 
-				<div className="w-full">
-					<Tabs value={getCurrentTab()} className="w-full">
-						<div className="overflow-x-auto pb-2">
-							<TabsList className="inline-flex w-auto min-w-full sm:w-full border-b pb-px">
-								<TabsTrigger
-									value="details"
-									onClick={() => navigate("details")}
-								>
-									Details
-								</TabsTrigger>
-								<TabsTrigger
-									value="missions"
-									onClick={() => navigate("missions")}
-								>
-									Missions
-								</TabsTrigger>
-								<TabsTrigger
-									value="members"
-									onClick={() => navigate("members")}
-								>
-									Members
-								</TabsTrigger>
-								<TabsTrigger value="teams" onClick={() => navigate("teams")}>
-									Teams
-								</TabsTrigger>
-								<TabsTrigger value="roles" onClick={() => navigate("roles")}>
-									Roles
-								</TabsTrigger>
-								<TabsTrigger
-									value="landing"
-									onClick={() => navigate("landing")}
-								>
-									Landing Page
-								</TabsTrigger>
-								<TabsTrigger value="events" onClick={() => navigate("events")}>
-									Calendar
-								</TabsTrigger>
-							</TabsList>
+			{/* Main Content */}
+			<main className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-4">
+				{/* Navigation */}
+				<nav className="mb-6">
+					<div className="sm:hidden">
+						<select
+							className="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+							value={currentPath}
+							onChange={(e) => {
+								const path = `/churches/${organization.id}/${e.target.value}`;
+								window.location.href = path;
+							}}
+						>
+							{NAV_ITEMS.map((item) => (
+								<option key={item.href} value={item.href}>
+									{item.name}
+								</option>
+							))}
+						</select>
+					</div>
+					<div className="hidden sm:block">
+						<div className="border-b border-gray-200">
+							<nav className="-mb-px flex space-x-8" aria-label="Tabs">
+								{NAV_ITEMS.map((item) => {
+									const isActive = currentPath === item.href;
+									return (
+										<Link
+											key={item.href}
+											to={item.href}
+											className={cn(
+												"whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm",
+												isActive
+													? "border-indigo-500 text-indigo-600"
+													: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300",
+											)}
+										>
+											{item.name}
+										</Link>
+									);
+								})}
+							</nav>
 						</div>
-						<div className="mt-4 overflow-x-hidden">
-							<Outlet />
-						</div>
-					</Tabs>
+					</div>
+				</nav>
+
+				{/* Content Area */}
+				<div className="bg-white shadow overflow-hidden sm:rounded-lg">
+					<Outlet />
 				</div>
-			</div>
-
-			<UpdateToast
-				showUpdateToast={showUpdateToast}
-				message="Updated Successfully"
-				onClose={() => setShowUpdateToast(false)}
-			/>
+			</main>
 		</div>
 	);
-};
+}
 
 export function ErrorBoundary() {
 	const error = useRouteError();
@@ -420,5 +276,3 @@ export function ErrorBoundary() {
 		</div>
 	);
 }
-
-export default ChurchPage;

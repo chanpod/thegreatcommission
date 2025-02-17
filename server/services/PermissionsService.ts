@@ -26,6 +26,30 @@ export class PermissionsService {
 		this.orgRolesService = new OrganizationRolesDataService(this.dbClient);
 	}
 
+	async getOrganizationPermissions(
+		userId: string,
+		organizationId: string,
+	): Promise<PermissionSet> {
+		const { authService } = await this.getAuthWithUserData(
+			userId,
+			organizationId,
+		);
+
+		return {
+			canAdd: authService.hasPermission("organization.create", organizationId),
+			canEdit: authService.hasPermission("organization.edit", organizationId),
+			canDelete: authService.hasPermission(
+				"organization.delete",
+				organizationId,
+			),
+			canView: true,
+			canAssign: authService.hasPermission(
+				"organization.assign",
+				organizationId,
+			),
+		};
+	}
+
 	/**
 	 * Get member-related permissions for a user in an organization
 	 */
@@ -81,11 +105,11 @@ export class PermissionsService {
 		);
 
 		return {
-			canAdd: authService.hasPermission("events:create"),
-			canEdit: authService.hasPermission("events:edit"),
-			canDelete: authService.hasPermission("events:delete"),
-			canView: authService.hasPermission("events:view"),
-			canAssign: authService.hasPermission("events:assign"),
+			canAdd: authService.hasPermission("events.create", organizationId),
+			canEdit: authService.hasPermission("events.edit", organizationId),
+			canDelete: authService.hasPermission("events.delete", organizationId),
+			canView: authService.hasPermission("events.view", organizationId),
+			canAssign: authService.hasPermission("events.assign", organizationId),
 		};
 	}
 
@@ -123,17 +147,17 @@ export class PermissionsService {
 		userId: string,
 		organizationId: string,
 	): Promise<PermissionSet> {
-		const { authService } = await this.getAuthWithUserData(
+		const { authService, userToOrgRoles } = await this.getAuthWithUserData(
 			userId,
 			organizationId,
 		);
 
 		return {
-			canAdd: authService.hasPermission("roles:create"),
-			canEdit: authService.hasPermission("roles:edit"),
-			canDelete: authService.hasPermission("roles:delete"),
-			canAssign: authService.hasPermission("roles:assign"),
-			canView: authService.hasPermission("roles:view"),
+			canAdd: authService.hasPermission("roles.create", organizationId),
+			canEdit: authService.hasPermission("roles.edit", organizationId),
+			canDelete: authService.hasPermission("roles.delete", organizationId),
+			canAssign: authService.hasPermission("roles.assign", organizationId),
+			canView: authService.hasPermission("roles.view", organizationId),
 		};
 	}
 }

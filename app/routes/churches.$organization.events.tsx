@@ -1,58 +1,54 @@
+import { useState, useEffect } from "react";
 import {
-	addMonths,
-	addWeeks,
-	format,
-	getDay,
-	isSameDay,
-	parse,
-	startOfDay,
-	startOfWeek,
-} from "date-fns";
+	Link,
+	useSearchParams,
+	useSubmit,
+	useLoaderData,
+	useParams,
+	useNavigate,
+	Outlet,
+} from "react-router";
+import { Button } from "~/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
+import { Plus } from "lucide-react";
+import {
+	Calendar as BigCalendar,
+	dateFnsLocalizer,
+	Views,
+} from "react-big-calendar";
+import { format, parse, startOfWeek, getDay, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
+import type { Event } from "react-big-calendar";
+import { db } from "~/server/dbConnection";
+import { events } from "server/db/schema";
 import { eq } from "drizzle-orm";
+import { EventDialog } from "~/components/events/EventDialog";
+import type { Route } from "../+types/root";
+import {
+	Card,
+	CardHeader,
+	CardTitle,
+	CardDescription,
+	CardContent,
+} from "~/components/ui/card";
 import {
 	Calendar,
 	Clock,
-	Edit,
-	ExternalLink,
 	MapPin,
-	Plus,
+	Edit,
+	LayoutGrid,
+	CalendarDays,
+	ExternalLink,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import type { Event } from "react-big-calendar";
-import {
-	Calendar as BigCalendar,
-	Views,
-	dateFnsLocalizer,
-} from "react-big-calendar";
-import {
-	Link,
-	Outlet,
-	useLoaderData,
-	useNavigate,
-	useParams,
-	useSearchParams,
-	useSubmit,
-} from "react-router";
-import { events, users, usersToEvents } from "server/db/schema";
-import { EventDialog } from "~/components/events/EventDialog";
-import { Button } from "~/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "~/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { db } from "~/server/dbConnection";
-import type { Route } from "../+types/root";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { PermissionsService } from "@/server/services/PermissionsService";
+import { cn } from "~/lib/utils";
 
 // Ensure you have the CSS imported
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { stripHtml } from "~/lib/utils";
+import {
+	PermissionsService,
+	type PermissionSet,
+} from "@/server/services/PermissionsService";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
 
 const locales = {
 	"en-US": enUS,
@@ -77,113 +73,51 @@ export interface CalendarEvent extends Event {
 	description?: string;
 	type?: "local" | "recurring" | "mission";
 	location?: string;
-	originalEventId?: string;
 }
 
-export const loader = async ({ request, params }) => {
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
+	const organizationId = params.organization;
+	if (!organizationId) {
+		throw new Error("Organization ID is required");
+	}
+
 	const user = await authenticator.isAuthenticated(request);
 	if (!user) {
-		throw new Error("Not authenticated");
+		throw new Error("User is not authenticated");
 	}
 
-	// Initialize services
+	const orgEvents = await db
+		.select()
+		.from(events)
+		.where(eq(events.churchOrganizationId, organizationId));
+
 	const permissionsService = new PermissionsService();
+	const permissions = await permissionsService.getEventPermissions(
+		user.id,
+		organizationId,
+	);
 
-	// Get permissions and events data in parallel
-	const [permissions, eventsList] = await Promise.all([
-		permissionsService.getEventPermissions(user.id, params.organization),
-		db
-			.select({
-				event: events,
-				userId: usersToEvents.userId,
-				eventId: usersToEvents.eventId,
-				user: users,
-			})
-			.from(events)
-			.where(eq(events.churchOrganizationId, params.organization))
-			.leftJoin(usersToEvents, eq(usersToEvents.eventId, events.id))
-			.leftJoin(users, eq(usersToEvents.userId, users.id)),
-	]);
-
-	// Group participants by event
-	const eventsWithParticipants = eventsList.reduce((acc, curr) => {
-		const existingEvent = acc.find((e) => e.event.id === curr.event.id);
-		if (existingEvent) {
-			if (curr.user) {
-				existingEvent.participants.push({
-					userId: curr.userId,
-					eventId: curr.eventId,
-					user: curr.user,
-				});
-			}
-			return acc;
-		}
-		acc.push({
-			event: curr.event,
-			participants: curr.user
-				? [
-						{
-							userId: curr.userId,
-							eventId: curr.eventId,
-							user: curr.user,
-						},
-					]
-				: [],
-		});
-		return acc;
-	}, [] as EventWithParticipants[]);
-
-	const now = new Date();
-	const sixMonthsFromNow = addMonths(now, 6);
-
-	// Transform events for calendar view with expanded recurring events
-	const calendarEvents: CalendarEvent[] = [];
-	for (const { event } of eventsWithParticipants) {
-		if (event.type === "recurring") {
-			// For recurring events, create instances for the next 6 months
-			let currentDate = startOfDay(event.startDate);
-			const endTime = event.endDate;
-			const duration = endTime.getTime() - event.startDate.getTime();
-
-			while (currentDate <= sixMonthsFromNow) {
-				if (currentDate >= now) {
-					const eventEndDate = new Date(currentDate.getTime() + duration);
-					calendarEvents.push({
-						id: `${event.id}-${currentDate.toISOString()}`,
-						title: event.title,
-						startDate: currentDate,
-						endDate: eventEndDate,
-						allDay: event.allDay,
-						description: event.description || undefined,
-						type: event.type,
-						location: event.location || undefined,
-						originalEventId: event.id,
-					});
-				}
-				currentDate = addWeeks(currentDate, 1);
-			}
-		} else {
-			// For non-recurring events, add them directly
-			calendarEvents.push({
-				id: event.id,
-				title: event.title,
-				startDate: event.startDate,
-				endDate: event.endDate,
-				allDay: event.allDay,
-				description: event.description || undefined,
-				type: event.type as "local" | "recurring" | "mission",
-				location: event.location || undefined,
-			});
-		}
-	}
+	// Transform the database events into calendar events
+	const calendarEvents: CalendarEvent[] = orgEvents.map((event) => ({
+		id: event.id,
+		title: event.title,
+		start: event.startDate,
+		end: event.endDate,
+		allDay: event.allDay,
+		description: event.description || undefined,
+		type: event.type as "local" | "recurring" | "mission",
+		location: event.location || undefined,
+		startDate: event.startDate,
+		endDate: event.endDate,
+	}));
 
 	// Pre-sort events into upcoming and previous
-	const upcomingEvents = eventsWithParticipants.filter(
-		({ event }) => new Date(event.startDate) >= now,
+	const now = new Date();
+	const upcomingEvents = calendarEvents.filter(
+		(event) => new Date(event.startDate) >= now,
 	);
-	const previousEvents = eventsWithParticipants.filter(
-		({ event }) =>
-			new Date(event.startDate) < now && event.type !== "recurring",
+	const previousEvents = calendarEvents.filter(
+		(event) => new Date(event.startDate) < now,
 	);
 
 	return {
@@ -194,20 +128,25 @@ export const loader = async ({ request, params }) => {
 	};
 };
 
-type EventWithParticipants = {
-	event: typeof events.$inferSelect;
-	participants: {
-		userId: string;
-		eventId: string;
-		user: typeof users.$inferSelect;
-	}[];
-};
-
 export const action = async ({ request, params }: Route.ActionArgs) => {
 	const formData = await request.formData();
 	const action = formData.get("action");
+	const user = await authenticator.isAuthenticated(request);
+	if (!user) {
+		throw new Error("User is not authenticated");
+	}
+
+	const permissionsService = new PermissionsService();
+	const permissions = await permissionsService.getEventPermissions(
+		user.id,
+		params.organization,
+	);
 
 	if (action === "create") {
+		if (!permissions.canAdd) {
+			throw new Error("You are not authorized to create events");
+		}
+
 		const eventData = {
 			title: formData.get("title") as string,
 			description: formData.get("description") as string,
@@ -230,6 +169,10 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
 	}
 
 	if (action === "update") {
+		if (!permissions.canEdit) {
+			throw new Error("You are not authorized to edit events");
+		}
+
 		const eventId = formData.get("eventId") as string;
 		const eventData = {
 			title: formData.get("title") as string,
@@ -256,6 +199,10 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
 	}
 
 	if (action === "delete") {
+		if (!permissions.canDelete) {
+			throw new Error("You are not authorized to delete events");
+		}
+
 		const eventId = formData.get("eventId") as string;
 		await db.delete(events).where(eq(events.id, eventId));
 		return { success: true };
@@ -267,12 +214,9 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
 function EventCard({
 	event,
 	onEdit,
-	organizationId,
-}: {
-	event: CalendarEvent;
-	onEdit: () => void;
-	organizationId: string;
-}) {
+	permissions,
+}: { event: CalendarEvent; onEdit: () => void; permissions: PermissionSet }) {
+	const params = useParams();
 	const typeColors = {
 		local: "rounded px-2 py-1 bg-blue-100 text-blue-800",
 		recurring: "rounded px-2 py-1 bg-green-100 text-green-800",
@@ -285,25 +229,27 @@ function EventCard({
 				<div className="flex justify-between items-start">
 					<div>
 						<CardTitle>{event.title}</CardTitle>
-						<CardDescription>
-							{stripHtml(event.description || "").slice(0, 200)}
-						</CardDescription>
+						<CardDescription>{event.description}</CardDescription>
 					</div>
 					<div className="flex items-center gap-2">
 						<span className={typeColors[event.type as keyof typeof typeColors]}>
 							{event.type}
 						</span>
-						<Button
-							variant="ghost"
-							size="icon"
-							onClick={onEdit}
-							className="h-8 w-8"
-						>
-							<Edit className="h-4 w-4" />
-							<span className="sr-only">Edit event</span>
-						</Button>
-						<Button variant="ghost" size="icon" asChild className="h-8 w-8">
-							<Link to={`/events/${event.id}/details`}>
+						{permissions.canEdit && (
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={onEdit}
+								className="h-8 w-8"
+							>
+								<Edit className="h-4 w-4" />
+								<span className="sr-only">Edit event</span>
+							</Button>
+						)}
+						<Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+							<Link
+								to={`/churches/${params.organization}/events/${event.id}/details`}
+							>
 								<ExternalLink className="h-4 w-4" />
 								<span className="sr-only">View details</span>
 							</Link>
@@ -338,139 +284,311 @@ function EventCard({
 	);
 }
 
-function CalendarEventComponent({
-	event,
-}: { event: CalendarEvent & { title: string } }) {
-	const navigate = useNavigate();
-	const eventId = event.originalEventId || event.id;
-
-	return (
-		<div className="relative group">
-			<div className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition-opacity">
-				<Button
-					variant="secondary"
-					size="sm"
-					className="h-6 w-6 p-0"
-					onClick={(e) => {
-						e.stopPropagation(); // Prevent calendar event selection
-						navigate(`/events/${eventId}/details`);
-					}}
-				>
-					<ExternalLink className="h-3 w-3" />
-				</Button>
-			</div>
-			<div className="p-1">
-				<strong>{event.title}</strong>
-				{event.location && (
-					<div className="text-xs flex items-center mt-1 text-gray-600">
-						<MapPin className="h-3 w-3 mr-1" />
-						{event.location}
-					</div>
-				)}
-			</div>
-		</div>
-	);
-}
-
 export default function EventsLayout() {
 	const { events, upcomingEvents, previousEvents, permissions } =
 		useLoaderData<typeof loader>();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-	const [selectedEvent, setSelectedEvent] = useState<
-		(typeof events)[number] | null
-	>(null);
+	const [listTab, setListTab] = useState("upcoming");
 	const organization = useParams().organization;
+	const navigate = useNavigate();
 	const submit = useSubmit();
 
+	// Get view from search params, default to calendar
 	const view = searchParams.get("view") || "calendar";
+	const calendarView = searchParams.get("calendarView") || Views.MONTH;
+	const currentDate = searchParams.get("date")
+		? new Date(searchParams.get("date")!)
+		: new Date();
 
-	const handleSelectEvent = (event: (typeof events)[number]) => {
-		setSelectedEvent(event);
+	// Update search params when view changes
+	const handleViewChange = (newView: string) => {
+		searchParams.set("view", newView);
+		setSearchParams(searchParams);
 	};
 
-	const handleCreateEvent = () => {
+	// Handle calendar navigation and view changes
+	const handleCalendarChange = (date: Date, view: string) => {
+		searchParams.set("date", date.toISOString());
+		searchParams.set("calendarView", view);
+		setSearchParams(searchParams);
+	};
+
+	// Handle create action from URL
+	useEffect(() => {
+		if (searchParams.get("action") === "create") {
+			setIsCreateDialogOpen(true);
+			// Remove the action param after opening dialog
+			searchParams.delete("action");
+			setSearchParams(searchParams);
+		}
+	}, [searchParams, setSearchParams]);
+
+	const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
 		setIsCreateDialogOpen(true);
 	};
 
+	const handleSelectEvent = (event: CalendarEvent, e: React.MouseEvent) => {
+		// Show a small popup menu with Edit and Details options
+		const menu = document.createElement("div");
+		menu.className =
+			"absolute bg-white shadow-lg rounded-lg p-2 space-y-2 z-50";
+		menu.style.left = `${e.clientX}px`;
+		menu.style.top = `${e.clientY}px`;
+
+		const editButton = document.createElement("button");
+		editButton.className =
+			"flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md";
+		editButton.innerHTML =
+			'<svg class="w-4 h-4"><use href="#edit-icon"/></svg> Edit Event';
+		editButton.onclick = () => {
+			navigate(
+				`/churches/${organization}/events/${event.id}/edit?${searchParams.toString()}`,
+			);
+			document.body.removeChild(menu);
+		};
+
+		const detailsButton = document.createElement("button");
+		detailsButton.className =
+			"flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md";
+		detailsButton.innerHTML =
+			'<svg class="w-4 h-4"><use href="#external-link-icon"/></svg> View Details';
+		detailsButton.onclick = () => {
+			navigate(`/events/${event.id}/details?${searchParams.toString()}`);
+			document.body.removeChild(menu);
+		};
+
+		if (permissions.canEdit) {
+			menu.appendChild(editButton);
+		}
+		menu.appendChild(detailsButton);
+		document.body.appendChild(menu);
+
+		// Close menu when clicking outside
+		const closeMenu = (e: MouseEvent) => {
+			if (!menu.contains(e.target as Node)) {
+				document.body.removeChild(menu);
+				document.removeEventListener("click", closeMenu);
+			}
+		};
+		setTimeout(() => document.addEventListener("click", closeMenu), 0);
+	};
+
+	const handleCreateEvent = (event: DbEvent) => {
+		const formData = new FormData();
+		formData.append("action", "create");
+		formData.append("title", event.title);
+		formData.append("description", event.description || "");
+		formData.append("startDate", event.startDate.toISOString());
+		formData.append("endDate", event.endDate.toISOString());
+		formData.append("allDay", String(event.allDay));
+		formData.append("type", event.type);
+		formData.append("location", event.location || "");
+
+		submit(formData, { method: "post" });
+		setIsCreateDialogOpen(false);
+	};
+
+	const CustomToolbar = (toolbar: any) => {
+		const goToBack = () => {
+			toolbar.onNavigate("PREV");
+		};
+		const goToNext = () => {
+			toolbar.onNavigate("NEXT");
+		};
+		const goToCurrent = () => {
+			toolbar.onNavigate("TODAY");
+		};
+
+		return (
+			<div className="flex justify-between items-center p-4 border-b">
+				<div className="flex items-center gap-2">
+					<Button variant="secondary" size="sm" onClick={goToBack}>
+						Previous
+					</Button>
+					<Button variant="secondary" size="sm" onClick={goToCurrent}>
+						Today
+					</Button>
+					<Button variant="secondary" size="sm" onClick={goToNext}>
+						Next
+					</Button>
+					<span className="text-lg font-semibold ml-4">{toolbar.label}</span>
+				</div>
+				<div className="flex bg-gray-100 rounded-lg p-1">
+					{Object.entries(Views).map(([key, value]) => (
+						<Button
+							key={key}
+							variant="ghost"
+							size="sm"
+							onClick={() => toolbar.onView(value)}
+							className={cn(
+								"rounded-lg",
+								toolbar.view === value && "bg-white shadow-sm",
+							)}
+						>
+							{key.charAt(0) + key.slice(1).toLowerCase()}
+						</Button>
+					))}
+				</div>
+			</div>
+		);
+	};
+
 	return (
-		<div className="container mx-auto py-8">
-			<div className="flex justify-between items-center mb-6">
-				<h1 className="text-2xl font-bold">Events</h1>
+		<div className="container mx-auto p-4 space-y-4">
+			{/* Add hidden SVG definitions for the popup menu icons */}
+			<svg className="hidden" aria-hidden="true" role="presentation">
+				<title>UI Icons</title>
+				<symbol
+					id="edit-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+					<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+				</symbol>
+				<symbol
+					id="external-link-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+					<polyline points="15 3 21 3 21 9" />
+					<line x1="10" y1="14" x2="21" y2="3" />
+				</symbol>
+			</svg>
+			<div className="flex justify-between items-center">
+				<div className="flex items-center gap-4">
+					<h1 className="text-2xl font-bold">Events</h1>
+					<div className="flex bg-gray-100 rounded-lg p-1">
+						<Button
+							variant="ghost"
+							size="sm"
+							className={cn(
+								"rounded-lg",
+								view === "calendar" && "bg-white shadow-sm",
+							)}
+							onClick={() => handleViewChange("calendar")}
+						>
+							<CalendarDays className="h-4 w-4" />
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							className={cn(
+								"rounded-lg",
+								view === "list" && "bg-white shadow-sm",
+							)}
+							onClick={() => handleViewChange("list")}
+						>
+							<LayoutGrid className="h-4 w-4" />
+						</Button>
+					</div>
+				</div>
 				{permissions.canAdd && (
-					<Button onClick={handleCreateEvent}>Create Event</Button>
+					<Button onClick={() => setIsCreateDialogOpen(true)}>
+						<Plus className="w-4 h-4 mr-2" />
+						Create Event
+					</Button>
 				)}
 			</div>
 
-			<Tabs
-				defaultValue={view}
-				className="w-full"
-				onValueChange={(value) => {
-					setSearchParams({ view: value });
-				}}
-			>
-				<TabsList className="grid w-full grid-cols-3 mb-4">
-					<TabsTrigger value="calendar">Calendar</TabsTrigger>
-					<TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-					<TabsTrigger value="previous">Previous</TabsTrigger>
-				</TabsList>
-
-				<TabsContent value="calendar">
-					<Calendar
+			{view === "calendar" ? (
+				<div className="flex-1 min-h-[600px]">
+					<BigCalendar
+						localizer={localizer}
 						events={events}
-						onSelectEvent={handleSelectEvent}
-						permissions={permissions}
+						startAccessor="start"
+						endAccessor="end"
+						style={{ height: "100%", minHeight: "600px" }}
+						selectable
+						onSelectSlot={handleSelectSlot}
+						onSelectEvent={(calEvent, e) => handleSelectEvent(calEvent, e)}
+						date={currentDate}
+						view={calendarView}
+						onNavigate={(date) => handleCalendarChange(date, calendarView)}
+						onView={(view) => handleCalendarChange(currentDate, view)}
+						defaultView={Views.MONTH}
+						views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
+						step={30}
+						timeslots={2}
+						components={{
+							toolbar: CustomToolbar,
+						}}
+						popup
+						className="bg-white shadow-lg rounded-lg overflow-hidden"
 					/>
-				</TabsContent>
+				</div>
+			) : (
+				<div className="space-y-6">
+					<Tabs
+						value={searchParams.get("listTab") || "upcoming"}
+						onValueChange={(value) => {
+							searchParams.set("listTab", value);
+							setSearchParams(searchParams);
+							setListTab(value);
+						}}
+					>
+						<TabsList>
+							<TabsTrigger value="upcoming">Upcoming Events</TabsTrigger>
+							<TabsTrigger value="previous">Previous Events</TabsTrigger>
+						</TabsList>
 
-				<TabsContent value="upcoming" className="space-y-4 mt-4">
-					{upcomingEvents.length === 0 ? (
-						<p className="text-center text-gray-500">No upcoming events</p>
-					) : (
-						upcomingEvents.map(({ event, participants }) => (
-							<EventCard
-								key={event.id}
-								event={event}
-								participants={participants}
-								onEdit={() => handleSelectEvent(event)}
-								organizationId={organization}
-								permissions={permissions}
-							/>
-						))
-					)}
-				</TabsContent>
+						<TabsContent value="upcoming" className="space-y-4 mt-4">
+							{upcomingEvents.length === 0 ? (
+								<p className="text-center text-gray-500">No upcoming events</p>
+							) : (
+								upcomingEvents.map((event) => (
+									<EventCard
+										key={event.id}
+										event={event}
+										permissions={permissions}
+										onEdit={() =>
+											navigate(
+												`/churches/${organization}/events/${event.id}/edit?${searchParams.toString()}`,
+											)
+										}
+									/>
+								))
+							)}
+						</TabsContent>
 
-				<TabsContent value="previous" className="space-y-4 mt-4">
-					{previousEvents.length === 0 ? (
-						<p className="text-center text-gray-500">No previous events</p>
-					) : (
-						previousEvents.map(({ event, participants }) => (
-							<EventCard
-								key={event.id}
-								event={event}
-								participants={participants}
-								onEdit={() => handleSelectEvent(event)}
-								organizationId={organization}
-								permissions={permissions}
-							/>
-						))
-					)}
-				</TabsContent>
-			</Tabs>
-
-			<EventDialog
-				event={selectedEvent}
-				open={!!selectedEvent}
-				onOpenChange={(open) => !open && setSelectedEvent(null)}
-				organizationId={organization}
-				permissions={permissions}
-			/>
+						<TabsContent value="previous" className="space-y-4 mt-4">
+							{previousEvents.length === 0 ? (
+								<p className="text-center text-gray-500">No previous events</p>
+							) : (
+								previousEvents.map((event) => (
+									<EventCard
+										key={event.id}
+										event={event}
+										permissions={permissions}
+										onEdit={() =>
+											navigate(
+												`/churches/${organization}/events/${event.id}/edit?${searchParams.toString()}`,
+											)
+										}
+									/>
+								))
+							)}
+						</TabsContent>
+					</Tabs>
+				</div>
+			)}
 			<EventDialog
 				open={isCreateDialogOpen}
 				onOpenChange={setIsCreateDialogOpen}
-				organizationId={organization}
-				permissions={permissions}
+				onSubmit={handleCreateEvent}
+				mode="create"
 			/>
+			<Outlet />
 		</div>
 	);
 }

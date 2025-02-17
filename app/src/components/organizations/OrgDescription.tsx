@@ -1,5 +1,3 @@
-
-
 import { ArrowRight as ArrowTopRightOnSquareIcon } from "lucide-react";
 import PlaceholderImageOne from "app/src/assets/images/placeholderImage1.jpg";
 import PlaceholderImageTwo from "app/src/assets/images/placeholderImage2.jpg";
@@ -13,19 +11,23 @@ import OrgLocation from "./OrgLocation";
 import { DataDisplay } from "../dataDisplay/data";
 
 const OrgDescription = ({ org }: { org: typeof churchOrganization }) => {
-    const [location, setLocation] = useState<typeof location | undefined>(undefined);
-    useEffect(() => {
-        convertAddress();
-    }, []);
+	const [location, setLocation] = useState<typeof location | undefined>(
+		undefined,
+	);
+	useEffect(() => {
+		convertAddress();
+	}, []);
 
-    async function convertAddress() {
-        const location = await convertAddressToLocation(`${org?.street} ${org?.city}, ${org?.state} ${org?.zip}`);
-        setLocation(location);
-    }
+	async function convertAddress() {
+		const location = await convertAddressToLocation(
+			`${org?.street} ${org?.city}, ${org?.state} ${org?.zip}`,
+		);
+		setLocation(location);
+	}
 
-    return (
-        <>
-            {/* <div className="h-56 sm:h-64 xl:h-80 2xl:h-96 overflow-hidden">
+	return (
+		<>
+			{/* <div className="h-56 sm:h-64 xl:h-80 2xl:h-96 overflow-hidden">
                 <Carousel plugins={[
                     Autoplay({
                         delay: 2000,
@@ -40,33 +42,28 @@ const OrgDescription = ({ org }: { org: typeof churchOrganization }) => {
                     </CarouselItem>
                 </Carousel>
             </div> */}
-            <Card className="bg-white">
-                <CardContent>
-                    <CardHeader>
-                        <h1 className="text-2xl text-gray-900">Description</h1>
-                        <div className="text-base text-gray-700">{org?.description}</div>
-                    </CardHeader>
 
-                    <hr className="border-gray-200" />
-                    <section className="flex flex-col space-y-3">
-                        <DataDisplay label="Location">
-                            <OrgLocation org={org} />
-                        </DataDisplay>
-                        <DataDisplay label="Website">
-                            {org.mainChurchWebsite && (
-                                <a href={org.mainChurchWebsite} className="text-blue-600 hover:text-blue-800">
-                                    <div className="flex space-x-3 items-center">
-                                        {org.mainChurchWebsite}
-                                        <ArrowTopRightOnSquareIcon className="w-4 h-4" />
-                                    </div>
-                                </a>
-                            )}
-                        </DataDisplay>
-                    </section>
-                </CardContent>
-            </Card>
-        </>
-    );
+			<hr className="border-gray-200" />
+			<section className="flex flex-col space-y-3 mt-4">
+				<DataDisplay label="Location">
+					<OrgLocation org={org} />
+				</DataDisplay>
+				<DataDisplay label="Website">
+					{org.mainChurchWebsite && (
+						<a
+							href={org.mainChurchWebsite}
+							className="text-blue-600 hover:text-blue-800"
+						>
+							<div className="flex space-x-3 items-center">
+								{org.mainChurchWebsite}
+								<ArrowTopRightOnSquareIcon className="w-4 h-4" />
+							</div>
+						</a>
+					)}
+				</DataDisplay>
+			</section>
+		</>
+	);
 };
 
 export default OrgDescription;

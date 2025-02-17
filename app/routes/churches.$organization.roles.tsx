@@ -1,49 +1,42 @@
 import {
 	organizationRoles as rolesTable,
-	usersToOrganizationRoles,
 	users,
+	usersToOrganizationRoles,
 } from "@/server/db/schema";
+import { PermissionsService } from "@/server/services/PermissionsService";
 import { eq } from "drizzle-orm";
+import { PencilIcon, PlusIcon, TrashIcon, UsersIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
 	useActionData,
-	useFetcher,
 	useLoaderData,
 	useNavigate,
 	useSubmit,
 } from "react-router";
-import { db } from "~/server/dbConnection";
-import { PageLayout } from "~/src/components/layout/PageLayout";
-import { Button } from "~/components/ui/button";
-import {
-	PlusIcon,
-	UsersIcon,
-	PencilIcon,
-	TrashIcon,
-	ShieldIcon,
-} from "lucide-react";
-import { Card } from "~/components/ui/card";
-import { Badge } from "~/components/ui/badge";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import { Card } from "~/components/ui/card";
+import { Checkbox } from "~/components/ui/checkbox";
 import {
 	Dialog,
 	DialogContent,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogFooter,
 } from "~/components/ui/dialog";
 import { Label } from "~/components/ui/label";
-import { Input } from "~/src/components/forms/input/Input";
-import { Checkbox } from "~/components/ui/checkbox";
-import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
-import { MembersList } from "~/src/components/listItems/components/MembersList";
 import {
 	PERMISSIONS,
 	getAllPermissions,
 	getPermissionLabel,
 } from "~/lib/permissions";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { PermissionsService } from "@/server/services/PermissionsService";
+import { db } from "~/server/dbConnection";
+import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
+import { Input } from "~/src/components/forms/input/Input";
+import { PageLayout } from "~/src/components/layout/PageLayout";
+import { MembersList } from "~/src/components/listItems/components/MembersList";
 
 type RoleWithMembers = {
 	role: typeof rolesTable.$inferSelect;
@@ -150,6 +143,8 @@ export const loader = async ({ request, params }) => {
 		return acc;
 	}, [] as RoleWithMembers[]);
 
+	console.log("permissions", permissions);
+
 	return {
 		roles: rolesWithMembers,
 		permissions,
@@ -232,7 +227,7 @@ export const action = async ({ request, params }) => {
 };
 
 export default function RolesList() {
-	const { roles } = useLoaderData<typeof loader>();
+	const { roles, permissions } = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
 	const navigate = useNavigate();
 	const [showCreateModal, setShowCreateModal] = useState(false);
@@ -286,15 +281,17 @@ export default function RolesList() {
 		<PageLayout
 			title="Roles"
 			actions={
-				<Button onClick={() => setShowCreateModal(true)}>
-					<PlusIcon className="h-4 w-4 mr-2" />
-					Create Role
-				</Button>
+				permissions.canAdd && (
+					<Button onClick={() => setShowCreateModal(true)}>
+						<PlusIcon className="h-4 w-4 mr-2" />
+						Create Role
+					</Button>
+				)
 			}
 		>
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+			<div className="grid grid-cols-1 mt-4 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				{roles.map((role) => (
-					<Card key={role.role.id} className="p-4 space-y-4">
+					<Card key={role.role.id} className="p-4 rounded-lg space-y-4">
 						<div className="flex items-start justify-between">
 							<div>
 								<h3 className="text-lg font-semibold flex items-center gap-2">
@@ -309,25 +306,27 @@ export default function RolesList() {
 									</p>
 								)}
 							</div>
-							<div className="flex gap-2">
-								<Button
-									variant="ghost"
-									size="icon"
-									onClick={() => handleEdit(role.role)}
-								>
-									<PencilIcon className="h-4 w-4" />
-								</Button>
-								<Button
-									variant="ghost"
-									size="icon"
-									onClick={() => {
-										setSelectedRole(role.role);
-										setShowDeleteConfirm(true);
-									}}
-								>
-									<TrashIcon className="h-4 w-4" />
-								</Button>
-							</div>
+							{permissions.canEdit && (
+								<div className="flex gap-2">
+									<Button
+										variant="ghost"
+										size="icon"
+										onClick={() => handleEdit(role.role)}
+									>
+										<PencilIcon className="h-4 w-4" />
+									</Button>
+									<Button
+										variant="ghost"
+										size="icon"
+										onClick={() => {
+											setSelectedRole(role.role);
+											setShowDeleteConfirm(true);
+										}}
+									>
+										<TrashIcon className="h-4 w-4" />
+									</Button>
+								</div>
+							)}
 						</div>
 						<div className="flex flex-wrap gap-1">
 							{(role.role.permissions as string[])?.map((permission) => (

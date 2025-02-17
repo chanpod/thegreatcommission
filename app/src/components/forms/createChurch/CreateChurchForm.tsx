@@ -101,17 +101,6 @@ const CreateChurchForm = (props: Props) => {
 			<Input
 				className="max-w-lg"
 				disabled={props.readOnly ?? false}
-				name="churchBannerUrl"
-				label="Church Banner Image URL"
-				defaultValue={props?.initialValues?.churchBannerUrl ?? ""}
-				color={churchBannerUrlValid ? "" : "failure"}
-				onChange={(e) => setChurchBannerUrl(e.target.value)}
-				helperText={churchBannerUrlValid ? "" : "Invalid URL"}
-			/>
-
-			<Input
-				className="max-w-lg"
-				disabled={props.readOnly ?? false}
 				name="mainChurchWebsite"
 				label="Main Website"
 				defaultValue={props?.initialValues?.mainChurchWebsite ?? ""}

@@ -72,8 +72,20 @@ export const loader = async ({ request, params }) => {
 export const action = async ({ request, params }) => {
 	const formData = await request.formData();
 	const action = formData.get("_action");
+	const user = await authenticator.isAuthenticated(request);
+	if (!user) {
+		throw new Error("Not authenticated");
+	}
+	const permissionsService = new PermissionsService();
+	const permissions = await permissionsService.getTeamPermissions(
+		user.id,
+		params.organization,
+	);
 
 	if (action === "create") {
+		if (!permissions.canAdd) {
+			return { error: "You are not authorized to create teams" };
+		}
 		const teamData = {
 			name: formData.get("name"),
 			description: formData.get("description"),
@@ -88,6 +100,9 @@ export const action = async ({ request, params }) => {
 	}
 
 	if (action === "update") {
+		if (!permissions.canEdit) {
+			return { error: "You are not authorized to update teams" };
+		}
 		const teamId = formData.get("teamId");
 		const teamData = {
 			name: formData.get("name"),
@@ -103,6 +118,9 @@ export const action = async ({ request, params }) => {
 	}
 
 	if (action === "delete") {
+		if (!permissions.canDelete) {
+			return { error: "You are not authorized to delete teams" };
+		}
 		const teamId = formData.get("teamId");
 		await db.delete(teamsTable).where(eq(teamsTable.id, teamId));
 		return { success: true, message: "Team deleted successfully" };
@@ -122,7 +140,7 @@ const TEAM_TYPES = [
 ];
 
 export default function TeamsList() {
-	const { teams } = useLoaderData<typeof loader>();
+	const { teams, permissions } = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
 	const navigate = useNavigate();
 	const [showCreateModal, setShowCreateModal] = useState(false);
@@ -171,10 +189,12 @@ export default function TeamsList() {
 		<PageLayout
 			title="Teams"
 			actions={
-				<Button onClick={() => setShowCreateModal(true)}>
-					<PlusIcon className="h-4 w-4 mr-2" />
-					Create Team
-				</Button>
+				permissions.canAdd && (
+					<Button onClick={() => setShowCreateModal(true)}>
+						<PlusIcon className="h-4 w-4 mr-2" />
+						Create Team
+					</Button>
+				)
 			}
 		>
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -190,25 +210,27 @@ export default function TeamsList() {
 									{team.team.type}
 								</Badge>
 							</div>
-							<div className="flex gap-2">
-								<Button
-									variant="ghost"
-									size="icon"
-									onClick={() => handleEdit(team.team)}
-								>
-									<PencilIcon className="h-4 w-4" />
-								</Button>
-								<Button
-									variant="ghost"
-									size="icon"
-									onClick={() => {
-										setEditingTeam(team.team);
-										setShowDeleteConfirm(true);
-									}}
-								>
-									<TrashIcon className="h-4 w-4" />
-								</Button>
-							</div>
+							{permissions.canEdit && (
+								<div className="flex gap-2">
+									<Button
+										variant="ghost"
+										size="icon"
+										onClick={() => handleEdit(team.team)}
+									>
+										<PencilIcon className="h-4 w-4" />
+									</Button>
+									<Button
+										variant="ghost"
+										size="icon"
+										onClick={() => {
+											setEditingTeam(team.team);
+											setShowDeleteConfirm(true);
+										}}
+									>
+										<TrashIcon className="h-4 w-4" />
+									</Button>
+								</div>
+							)}
 						</div>
 						{team.team.description && (
 							<p className="text-sm text-gray-600">{team.team.description}</p>
