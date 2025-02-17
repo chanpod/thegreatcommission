@@ -632,6 +632,7 @@ export default function MembersList() {
 						selectedMembers={selectedMembersList}
 						onSend={async (data) => {
 							const formData = new FormData();
+							console.log(data);
 							formData.append("message", data.message);
 							formData.append("type", data.type);
 							if (data.subject) {

@@ -1,37 +1,22 @@
-import type { users, userPreferences } from "@/server/db/schema";
+import type { userPreferences, users } from "@/server/db/schema";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-	Bell,
-	Mail,
-	MessageSquare,
-	Phone,
-	AlertTriangle,
-	Save,
-	FileText,
-	Eye,
-} from "lucide-react";
+import { AlertTriangle, Bell, Mail, MessageSquare, Phone } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Label } from "~/components/ui/label";
 import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 } from "~/components/ui/popover";
 
+import { toast } from "sonner";
+import { Alert, AlertDescription } from "~/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Textarea } from "~/components/ui/textarea";
-import { Alert, AlertDescription } from "~/components/ui/alert";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-} from "~/components/ui/dialog";
-import { toast } from "sonner";
-import { RichTextEditor, type EmailTemplate } from "./RichTextEditor";
+import { type EmailTemplate, RichTextEditor } from "./RichTextEditor";
 
 const MAX_ALERT_LENGTH = 160;
 
@@ -62,7 +47,7 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
 interface MessageComposerProps {
 	onSend: (data: {
 		message: string;
-		subject?: string;
+		subject: string;
 		type: "alert" | "email" | "sms" | "phone";
 		templateId?: string;
 	}) => void;
@@ -117,6 +102,11 @@ export function MessageComposer({
 	}, [selectedTemplateId]);
 
 	const handleSend = () => {
+		if (!subject.trim()) {
+			toast.error("Subject is required");
+			return;
+		}
+
 		if (messageType === "custom" && customType === "email") {
 			if (!emailContent.trim()) return;
 			onSend({
@@ -129,6 +119,7 @@ export function MessageComposer({
 			if (!message.trim()) return;
 			onSend({
 				message,
+				subject,
 				type: messageType === "alert" ? "alert" : customType,
 			});
 		}
@@ -306,6 +297,15 @@ export function MessageComposer({
 				<TabsContent value="alert">
 					<div className="space-y-4">
 						<div>
+							<Label>Subject</Label>
+							<Input
+								value={subject}
+								onChange={(e) => setSubject(e.target.value)}
+								placeholder="Enter message subject..."
+								required
+							/>
+						</div>
+						<div>
 							<Label>Alert Message</Label>
 							<Textarea
 								value={message}
@@ -350,25 +350,25 @@ export function MessageComposer({
 							</div>
 						</RadioGroup>
 
+						<div>
+							<Label>Subject</Label>
+							<Input
+								value={subject}
+								onChange={(e) => setSubject(e.target.value)}
+								placeholder="Enter message subject..."
+								required
+							/>
+						</div>
+
 						{customType === "email" ? (
-							<>
-								<div>
-									<Label>Subject</Label>
-									<Input
-										value={subject}
-										onChange={(e) => setSubject(e.target.value)}
-										placeholder="Enter email subject..."
-									/>
-								</div>
-								<RichTextEditor
-									content={emailContent}
-									onContentChange={setEmailContent}
-									templates={EMAIL_TEMPLATES}
-									selectedTemplateId={selectedTemplateId}
-									onTemplateSelect={setSelectedTemplateId}
-									onSaveDraft={handleSaveDraft}
-								/>
-							</>
+							<RichTextEditor
+								content={emailContent}
+								onContentChange={setEmailContent}
+								templates={EMAIL_TEMPLATES}
+								selectedTemplateId={selectedTemplateId}
+								onTemplateSelect={setSelectedTemplateId}
+								onSaveDraft={handleSaveDraft}
+							/>
 						) : (
 							<div>
 								<Label>
@@ -391,7 +391,10 @@ export function MessageComposer({
 				<Button variant="outline" onClick={onCancel}>
 					Cancel
 				</Button>
-				<Button onClick={handleSend} disabled={isAlertTooLong}>
+				<Button
+					onClick={handleSend}
+					disabled={isAlertTooLong || !subject.trim()}
+				>
 					Send Message
 				</Button>
 			</div>
