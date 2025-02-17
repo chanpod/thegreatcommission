@@ -107,6 +107,7 @@ const NAV_ITEMS = [
 	{ name: "Teams", href: "teams" },
 	{ name: "Events", href: "events" },
 	{ name: "Roles", href: "roles" },
+	{ name: "Landing Page", href: "landing" },
 ];
 
 export default function OrganizationLayout() {

@@ -1,38 +1,24 @@
-import { useLoaderData, Link } from "react-router";
+import { useLoaderData } from "react-router";
 import LandingPage from "~/src/components/churchLandingPage/LandingPage";
 import { db } from "~/server/dbConnection";
 import {
 	churchOrganization,
 	events,
 	landingPageConfig,
-	users,
-	usersToRoles,
 } from "server/db/schema";
 import { and, eq, gte } from "drizzle-orm";
-import type { Route } from "../+types/root";
-import { Button } from "~/components/ui/button";
-import { Settings } from "lucide-react";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { ChurchService } from "~/services/ChurchService";
-import { PermissionsService } from "@/server/services/PermissionsService";
+import type { Route } from "./+types";
 
-export const loader = async ({ params, request }: Route.LoaderArgs) => {
-	const user = await authenticator.isAuthenticated(request);
-	if (!user) {
-		throw new Error("Not authenticated");
-	}
-
-	const permissionsService = new PermissionsService();
-	const permissions = await permissionsService.getOrganizationPermissions(
-		user.id,
-		params.organization,
-	);
-
+export const loader = async ({ params }: Route.LoaderArgs) => {
 	const organization = await db
 		.select()
 		.from(churchOrganization)
 		.where(eq(churchOrganization.id, params.organization))
 		.then((res) => res[0]);
+
+	if (!organization) {
+		throw new Error("Organization not found");
+	}
 
 	const config = await db
 		.select()
@@ -70,27 +56,15 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 		config,
 		serviceTimes,
 		upcomingEvents,
-		permissions,
 	};
 };
 
-export default function Landing() {
-	const { organization, config, serviceTimes, upcomingEvents, permissions } =
+export default function PublicLanding() {
+	const { organization, config, serviceTimes, upcomingEvents } =
 		useLoaderData<typeof loader>();
 
 	return (
-		<div className="relative">
-			{permissions.canEdit && (
-				<div className="absolute top-4 right-4">
-					<Link to="config">
-						<Button variant="ghost" size="icon">
-							<Settings className="h-4 w-4" />
-							<span className="sr-only">Edit Landing Page</span>
-						</Button>
-					</Link>
-				</div>
-			)}
-
+		<div className="min-h-screen">
 			<LandingPage
 				organization={organization}
 				config={config}

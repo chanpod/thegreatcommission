@@ -6,6 +6,7 @@ import {
 	Scripts,
 	ScrollRestoration,
 	useLoaderData,
+	useLocation,
 } from "react-router";
 
 import { Toaster } from "~/components/ui/sonner";
@@ -99,6 +100,9 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 
 export function Layout({ children }: { children: React.ReactNode }) {
 	const loaderData = useLoaderData<typeof loader>();
+	const location = useLocation();
+
+	const isLanding = location.pathname.startsWith("/landing/");
 
 	return (
 		<html lang="en">
@@ -109,24 +113,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<Links />
 			</head>
 			<body>
-				<ApplicationProvider env={loaderData?.env}>
-					<UserProvider
-						user={loaderData?.userContext?.user}
-						roles={loaderData?.userContext?.siteRoles}
-						organizationRoles={loaderData?.userContext?.organizationRoles}
-						userToRoles={loaderData?.userContext?.userToSiteRoles}
-					>
-						<div className="flex bg-accent">
-							<Sidenav />
-							<div className="flex-col w-full h-full">
-								<Header />
-								<div className="flex-col h-full text-foreground pt-4 w-full ">
-									<div className="p-0 md:p-3 ">{children}</div>
+				{isLanding ? (
+					children
+				) : (
+					<ApplicationProvider env={loaderData?.env}>
+						<UserProvider
+							user={loaderData?.userContext?.user}
+							roles={loaderData?.userContext?.siteRoles}
+							organizationRoles={loaderData?.userContext?.organizationRoles}
+							userToRoles={loaderData?.userContext?.userToSiteRoles}
+						>
+							<div className="flex bg-accent">
+								<Sidenav />
+								<div className="flex-col w-full h-full">
+									<Header />
+									<div className="flex-col h-full text-foreground pt-4 w-full ">
+										<div className="p-0 md:p-3 ">{children}</div>
+									</div>
 								</div>
 							</div>
-						</div>
-					</UserProvider>
-				</ApplicationProvider>
+						</UserProvider>
+					</ApplicationProvider>
+				)}
 				<ScrollRestoration />
 				<Scripts />
 				<Toaster position="top-center" />

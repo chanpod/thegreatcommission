@@ -2,6 +2,7 @@ import {
 	useLoaderData,
 	useSubmit,
 	useBeforeUnload,
+	Link,
 	useNavigate,
 } from "react-router";
 import { db } from "~/server/dbConnection";
@@ -205,12 +206,17 @@ export default function LandingConfig() {
 		<>
 			<div className="flex justify-between items-center mb-4">
 				<h1 className="text-2xl font-bold">Landing Page Configuration</h1>
-				{hasUnsavedChanges && (
-					<div className="text-yellow-600 flex items-center gap-2">
-						<span className="animate-pulse">●</span>
-						<span>You have unsaved changes</span>
-					</div>
-				)}
+				<div className="flex items-center gap-4">
+					{hasUnsavedChanges && (
+						<div className="text-yellow-600 flex items-center gap-2">
+							<span className="animate-pulse">●</span>
+							<span>You have unsaved changes</span>
+						</div>
+					)}
+					<Link to={`/landing/${organization.id}`} target="_blank">
+						<Button variant="outline">View Public Page</Button>
+					</Link>
+				</div>
 			</div>
 
 			<form onSubmit={handleSubmit} className="space-y-8">
