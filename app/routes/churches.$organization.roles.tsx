@@ -37,44 +37,13 @@ import { Input } from "~/src/components/forms/input/Input";
 import { Checkbox } from "~/components/ui/checkbox";
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
 import { MembersList } from "~/src/components/listItems/components/MembersList";
-
-// Define available permissions
-const PERMISSIONS = {
-	members: {
-		view: "View members",
-		add: "Add members",
-		edit: "Edit members",
-		delete: "Delete members",
-		message: "Send messages to members",
-	},
-	teams: {
-		view: "View teams",
-		manage: "Manage teams",
-	},
-	events: {
-		view: "View events",
-		create: "Create events",
-		edit: "Edit events",
-		delete: "Delete events",
-	},
-	missions: {
-		view: "View missions",
-		create: "Create missions",
-		edit: "Edit missions",
-		delete: "Delete missions",
-	},
-	settings: {
-		view: "View settings",
-		edit: "Edit settings",
-	},
-} as const;
-
-// Get all permissions as a flat array
-const getAllPermissions = () => {
-	return Object.entries(PERMISSIONS).flatMap(([category, perms]) =>
-		Object.keys(perms).map((key) => `${category}.${key}`),
-	);
-};
+import {
+	PERMISSIONS,
+	getAllPermissions,
+	getPermissionLabel,
+} from "~/lib/permissions";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
+import { PermissionsService } from "@/server/services/PermissionsService";
 
 type RoleWithMembers = {
 	role: typeof rolesTable.$inferSelect;
@@ -86,22 +55,34 @@ type RoleWithMembers = {
 	}>;
 };
 
-export const loader = async ({ params }) => {
-	const rolesList = await db
-		.select({
-			role: rolesTable,
-			userId: usersToOrganizationRoles.userId,
-			organizationRoleId: usersToOrganizationRoles.organizationRoleId,
-			churchOrganizationId: usersToOrganizationRoles.churchOrganizationId,
-			user: users,
-		})
-		.from(rolesTable)
-		.where(eq(rolesTable.churchOrganizationId, params.organization))
-		.leftJoin(
-			usersToOrganizationRoles,
-			eq(usersToOrganizationRoles.organizationRoleId, rolesTable.id),
-		)
-		.leftJoin(users, eq(usersToOrganizationRoles.userId, users.id));
+export const loader = async ({ request, params }) => {
+	const user = await authenticator.isAuthenticated(request);
+	if (!user) {
+		throw new Error("Not authenticated");
+	}
+
+	// Initialize services
+	const permissionsService = new PermissionsService();
+
+	// Get permissions and roles data in parallel
+	const [permissions, rolesList] = await Promise.all([
+		permissionsService.getRolePermissions(user.id, params.organization),
+		db
+			.select({
+				role: rolesTable,
+				userId: usersToOrganizationRoles.userId,
+				organizationRoleId: usersToOrganizationRoles.organizationRoleId,
+				churchOrganizationId: usersToOrganizationRoles.churchOrganizationId,
+				user: users,
+			})
+			.from(rolesTable)
+			.where(eq(rolesTable.churchOrganizationId, params.organization))
+			.leftJoin(
+				usersToOrganizationRoles,
+				eq(usersToOrganizationRoles.organizationRoleId, rolesTable.id),
+			)
+			.leftJoin(users, eq(usersToOrganizationRoles.userId, users.id)),
+	]);
 
 	// Check if admin role exists
 	const adminRole = rolesList.find((r) => r.role.name === "Admin");
@@ -118,26 +99,25 @@ export const loader = async ({ params }) => {
 			updatedAt: new Date(),
 		});
 
-		// Refetch the roles list to include the newly created admin role
-		const updatedRolesList = await db
-			.select({
-				role: rolesTable,
-				userId: usersToOrganizationRoles.userId,
-				organizationRoleId: usersToOrganizationRoles.organizationRoleId,
-				churchOrganizationId: usersToOrganizationRoles.churchOrganizationId,
-				user: users,
-			})
-			.from(rolesTable)
-			.where(eq(rolesTable.churchOrganizationId, params.organization))
-			.leftJoin(
-				usersToOrganizationRoles,
-				eq(usersToOrganizationRoles.organizationRoleId, rolesTable.id),
-			)
-			.leftJoin(users, eq(usersToOrganizationRoles.userId, users.id));
-
-		// Use the updated roles list for further processing
-		rolesList.length = 0; // Clear the original array
-		rolesList.push(...updatedRolesList); // Add all items from the updated list
+		// Refetch the roles list
+		rolesList.length = 0;
+		rolesList.push(
+			...(await db
+				.select({
+					role: rolesTable,
+					userId: usersToOrganizationRoles.userId,
+					organizationRoleId: usersToOrganizationRoles.organizationRoleId,
+					churchOrganizationId: usersToOrganizationRoles.churchOrganizationId,
+					user: users,
+				})
+				.from(rolesTable)
+				.where(eq(rolesTable.churchOrganizationId, params.organization))
+				.leftJoin(
+					usersToOrganizationRoles,
+					eq(usersToOrganizationRoles.organizationRoleId, rolesTable.id),
+				)
+				.leftJoin(users, eq(usersToOrganizationRoles.userId, users.id))),
+		);
 	}
 
 	// Group members by role
@@ -170,7 +150,10 @@ export const loader = async ({ params }) => {
 		return acc;
 	}, [] as RoleWithMembers[]);
 
-	return { roles: rolesWithMembers };
+	return {
+		roles: rolesWithMembers,
+		permissions,
+	};
 };
 
 export const action = async ({ request, params }) => {
@@ -284,6 +267,7 @@ export default function RolesList() {
 
 	const handleEdit = (role: typeof rolesTable.$inferSelect) => {
 		setSelectedRole(role);
+		console.log("role", role);
 		setFormData({
 			name: role.name,
 			description: role.description || "",
@@ -348,7 +332,7 @@ export default function RolesList() {
 						<div className="flex flex-wrap gap-1">
 							{(role.role.permissions as string[])?.map((permission) => (
 								<Badge key={permission} variant="outline">
-									{permission}
+									{getPermissionLabel(permission)}
 								</Badge>
 							))}
 						</div>

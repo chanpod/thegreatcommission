@@ -28,6 +28,7 @@ import { Checkbox } from "~/components/ui/checkbox";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import type { Route } from "../+types";
+import { usePermissions } from "~/lib/hooks/usePermissions";
 
 export const loader = async ({ params }: Route.LoaderArgs) => {
 	const { organization, memberId } = params;
@@ -127,6 +128,7 @@ export default function AssignTeamsAndRoles() {
 	const navigate = useNavigate();
 	const params = useParams();
 	const submit = useSubmit();
+	const { hasPermission } = usePermissions();
 	const [selectedTeams, setSelectedTeams] = useState<string[]>(memberTeams);
 	const [selectedRoles, setSelectedRoles] = useState<string[]>(memberRoles);
 	const [isDirty, setIsDirty] = useState(false);

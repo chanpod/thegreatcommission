@@ -17,59 +17,7 @@ import {
 } from "server/db/schema";
 import { db } from "~/server/dbConnection";
 import { eq } from "drizzle-orm";
-
-// Get all permissions as a flat array
-const PERMISSIONS = {
-	members: {
-		view: "View members",
-		create: "Create members",
-		update: "Update members",
-		delete: "Delete members",
-		assign: "Assign members to teams/roles",
-	},
-	teams: {
-		view: "View teams",
-		create: "Create teams",
-		update: "Update teams",
-		delete: "Delete teams",
-	},
-	roles: {
-		view: "View roles",
-		create: "Create roles",
-		update: "Update roles",
-		delete: "Delete roles",
-	},
-	events: {
-		view: "View events",
-		create: "Create events",
-		update: "Update events",
-		delete: "Delete events",
-	},
-	missions: {
-		view: "View missions",
-		create: "Create missions",
-		update: "Update missions",
-		delete: "Delete missions",
-	},
-	organization: {
-		view: "View organization",
-		update: "Update organization",
-		delete: "Delete organization",
-		manageAssociations: "Manage organization associations",
-	},
-} as const;
-
-const getAllPermissions = () => {
-	return Object.entries(PERMISSIONS).flatMap(([category, perms]) =>
-		Object.keys(perms).map((key) => `${category}.${key}`),
-	);
-};
-
-interface ActionData {
-	status?: number;
-	message?: string;
-	formData?: IChurchFormData;
-}
+import { getAllPermissions } from "~/lib/permissions";
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const user = await authenticator.isAuthenticated(request);
@@ -145,25 +93,24 @@ export const action = async ({ request }: Route.ActionArgs) => {
 };
 
 export default function CreateChurch() {
-	const actionData = useActionData<ActionData>();
+	const actionData = useActionData<typeof action>();
 
 	useEffect(() => {
-		if (actionData?.status === 401) {
-			// Handle unauthorized
+		if (actionData?.message) {
+			console.log(actionData.message);
 		}
 	}, [actionData]);
 
 	return (
-		<Card>
-			<CardHeader>
-				<h1 className="text-3xl">Information</h1>
-			</CardHeader>
-			<CardContent>
-				<Form method="post" className="space-y-4">
-					<CreateChurchForm initialValues={actionData?.formData} />
-					<Button type="submit">Create</Button>
-				</Form>
-			</CardContent>
-		</Card>
+		<div className="container mx-auto p-4">
+			<Card>
+				<CardHeader>
+					<h1 className="text-2xl font-bold">Create a New Church</h1>
+				</CardHeader>
+				<CardContent>
+					<CreateChurchForm />
+				</CardContent>
+			</Card>
+		</div>
 	);
 }

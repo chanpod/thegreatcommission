@@ -19,7 +19,12 @@ import { Sidenav } from "./src/components/sidenav/Sidenav";
 import { ApplicationProvider } from "./src/providers/appContextProvider";
 import { UserProvider } from "./src/providers/userProvider";
 import { db } from "./server/dbConnection";
-import { usersToOrganizationRoles, organizationRoles } from "server/db/schema";
+import {
+	usersToOrganizationRoles,
+	organizationRoles,
+	roles,
+	usersToRoles,
+} from "server/db/schema";
 import { eq } from "drizzle-orm";
 
 export const links: Route.LinksFunction = () => [
@@ -43,9 +48,10 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		return {
 			userContext: {
 				user: null,
-				userRoles: null,
+				siteRoles: null,
+				userToSiteRoles: null,
 				organizationRoles: null,
-				userToRoles: null,
+				userToOrgRoles: null,
 			},
 			env: {
 				mapsApi: process.env.GOOGLE_MAPS_KEY,
@@ -53,6 +59,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		};
 	}
 
+	// Get user data with site-wide roles
 	const getUserQuery = await getUser(userSession.email, {
 		roles: true,
 		churches: false,
@@ -62,23 +69,27 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [allOrgRoles, userOrgRoles] = await Promise.all([
 		db.select().from(organizationRoles),
 		db
-			.select({
-				userId: usersToOrganizationRoles.userId,
-				organizationRoleId: usersToOrganizationRoles.organizationRoleId,
-				churchOrganizationId: usersToOrganizationRoles.churchOrganizationId,
-				updatedAt: usersToOrganizationRoles.updatedAt,
-				createdAt: usersToOrganizationRoles.createdAt,
-			})
+			.select()
 			.from(usersToOrganizationRoles)
 			.where(eq(usersToOrganizationRoles.userId, userSession.id)),
+	]);
+
+	// Get all site-wide roles and user-to-role assignments
+	const [allSiteRoles, userSiteRoles] = await Promise.all([
+		db.select().from(roles),
+		db
+			.select()
+			.from(usersToRoles)
+			.where(eq(usersToRoles.userId, userSession.id)),
 	]);
 
 	return {
 		userContext: {
 			user: getUserQuery.users,
-			userRoles: getUserQuery?.roles,
+			siteRoles: allSiteRoles,
+			userToSiteRoles: userSiteRoles,
 			organizationRoles: allOrgRoles,
-			userToRoles: userOrgRoles,
+			userToOrgRoles: userOrgRoles,
 		},
 		env: {
 			mapsApi: process.env.GOOGLE_MAPS_KEY,
@@ -101,9 +112,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<ApplicationProvider env={loaderData?.env}>
 					<UserProvider
 						user={loaderData?.userContext?.user}
-						roles={loaderData?.userContext?.userRoles}
+						roles={loaderData?.userContext?.siteRoles}
 						organizationRoles={loaderData?.userContext?.organizationRoles}
-						userToRoles={loaderData?.userContext?.userToRoles}
+						userToRoles={loaderData?.userContext?.userToSiteRoles}
 					>
 						<div className="flex bg-accent">
 							<Sidenav />

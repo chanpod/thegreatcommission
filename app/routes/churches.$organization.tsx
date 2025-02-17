@@ -406,12 +406,12 @@ export function ErrorBoundary() {
 					Something went wrong while accessing this organization.
 				</p>
 				{import.meta.env.DEV && error instanceof Error && (
-					<pre className="mt-4 p-4 bg-gray-100 rounded-lg overflow-auto text-left">
+					<div className="mt-4 p-4 bg-gray-100 rounded-lg overflow-auto text-left">
 						<code>{error.message}</code>
 						{error.stack && (
 							<code className="block mt-2 text-gray-500">{error.stack}</code>
 						)}
-					</pre>
+					</div>
 				)}
 				<Button onClick={() => navigate("/churches")}>
 					Return to Churches

@@ -36,6 +36,9 @@ export const roles = pgTable("roles", {
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at").notNull(),
 	name: text("name").notNull(),
+	description: text("description"),
+	permissions: text("permissions").array(), // Array of site-wide permission strings
+	isActive: boolean("is_active").default(true).notNull(),
 });
 
 export const usersToRoles = pgTable("users_to_roles", {

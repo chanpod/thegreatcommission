@@ -2,43 +2,83 @@ import type {
 	users,
 	organizationRoles,
 	usersToOrganizationRoles,
+	roles,
+	usersToRoles,
 } from "server/db/schema";
 
 type Permission = `${string}.${string}`;
 
 export class AuthorizationService {
 	private user: typeof users.$inferSelect;
-	private roles: Array<typeof organizationRoles.$inferSelect>;
-	private userToRoles: Array<typeof usersToOrganizationRoles.$inferSelect>;
+	private siteRoles: Array<typeof roles.$inferSelect>;
+	private userToSiteRoles: Array<typeof usersToRoles.$inferSelect>;
+	private organizationRoles: Array<typeof organizationRoles.$inferSelect>;
+	private userToOrgRoles: Array<typeof usersToOrganizationRoles.$inferSelect>;
 
 	constructor(
 		user: typeof users.$inferSelect,
-		roles: Array<typeof organizationRoles.$inferSelect>,
-		userToRoles: Array<typeof usersToOrganizationRoles.$inferSelect>,
+		siteRoles: Array<typeof roles.$inferSelect>,
+		userToSiteRoles: Array<typeof usersToRoles.$inferSelect>,
+		organizationRolesIn: Array<typeof organizationRoles.$inferSelect>,
+		userToOrgRolesIn: Array<typeof usersToOrganizationRoles.$inferSelect>,
 	) {
 		this.user = user;
-		this.roles = roles;
-		this.userToRoles = userToRoles;
+		this.siteRoles = siteRoles ?? [];
+		this.userToSiteRoles = userToSiteRoles ?? [];
+		this.organizationRoles = organizationRolesIn ?? [];
+		this.userToOrgRoles = userToOrgRolesIn ?? [];
 	}
 
-	hasPermission(permission: Permission, organizationId: string): boolean {
+	private hasSitePermission(permission: Permission): boolean {
+		// Get all site-wide roles for the user
+		const userSiteRoles = this.siteRoles.filter((role) =>
+			this.userToSiteRoles.some(
+				(utr) => utr.roleId === role.id && utr.userId === this.user.id,
+			),
+		);
+
+		// Check if any of the user's site roles have the required permission
+		return userSiteRoles.some((role) => role.permissions?.includes(permission));
+	}
+
+	private hasOrganizationPermission(
+		permission: Permission,
+		organizationId: string,
+	): boolean {
 		// Get all roles for the user in this organization
-		const userRolesForOrg = this.userToRoles.filter(
+		const userRolesForOrg = this.userToOrgRoles.filter(
 			(utr) =>
 				utr.churchOrganizationId === organizationId &&
 				utr.userId === this.user.id,
 		);
 
 		// Get the actual role objects
-		const userRoles = this.roles.filter((role) =>
+		const userOrgRoles = this.organizationRoles.filter((role) =>
 			userRolesForOrg.some((utr) => utr.organizationRoleId === role.id),
 		);
 
-		// Check if any of the user's roles have the required permission
-		return userRoles.some((role) => role.permissions?.includes(permission));
+		// Check if any of the user's organization roles have the required permission
+		return userOrgRoles.some((role) => role.permissions?.includes(permission));
 	}
 
-	hasAnyPermission(permissions: Permission[], organizationId: string): boolean {
+	hasPermission(permission: Permission, organizationId?: string): boolean {
+		// First check site-wide permissions
+		if (this.hasSitePermission(permission)) {
+			return true;
+		}
+
+		// If organizationId is provided, check organization-specific permissions
+		if (organizationId) {
+			return this.hasOrganizationPermission(permission, organizationId);
+		}
+
+		return false;
+	}
+
+	hasAnyPermission(
+		permissions: Permission[],
+		organizationId?: string,
+	): boolean {
 		return permissions.some((permission) =>
 			this.hasPermission(permission, organizationId),
 		);
@@ -46,7 +86,7 @@ export class AuthorizationService {
 
 	hasAllPermissions(
 		permissions: Permission[],
-		organizationId: string,
+		organizationId?: string,
 	): boolean {
 		return permissions.every((permission) =>
 			this.hasPermission(permission, organizationId),
@@ -63,7 +103,7 @@ export class AuthorizationService {
 	}
 
 	canEditMembers(organizationId: string): boolean {
-		return this.hasPermission("members.update", organizationId);
+		return this.hasPermission("members.edit", organizationId);
 	}
 
 	canDeleteMembers(organizationId: string): boolean {
@@ -74,51 +114,43 @@ export class AuthorizationService {
 		return this.hasPermission("members.assign", organizationId);
 	}
 
+	canMessageMembers(organizationId: string): boolean {
+		return this.hasPermission("members.message", organizationId);
+	}
+
 	// Helper method to check if user has admin role
-	isAdmin(organizationId: string): boolean {
-		console.log("isAdmin check input:", {
-			organizationId,
-			userId: this.user.id,
-			allUserToRoles: this.userToRoles.map((utr) => ({
-				userId: utr.userId,
-				orgId: utr.churchOrganizationId,
-				roleId: utr.organizationRoleId,
-			})),
-		});
-
-		// Get all roles for the user in this organization
-		const userRolesForOrg = this.userToRoles.filter(
-			(utr) =>
-				utr.churchOrganizationId === organizationId &&
-				utr.userId === this.user.id,
-		);
-		console.log("userRolesForOrg", userRolesForOrg);
-
-		// Get the actual role objects
-		const userRoles = this.roles.filter((role) =>
-			userRolesForOrg.some((utr) => utr.organizationRoleId === role.id),
-		);
-		console.log("userRoles", userRoles);
-
-		// Check if the user has the admin role
-		const isAdmin = userRoles.some(
+	isAdmin(organizationId?: string): boolean {
+		// Check for site-wide admin role first
+		const isSiteAdmin = this.siteRoles.some(
 			(role) =>
-				role.name === "Admin" && role.churchOrganizationId === organizationId,
+				role.name === "Admin" &&
+				this.userToSiteRoles.some(
+					(utr) => utr.roleId === role.id && utr.userId === this.user.id,
+				),
 		);
-		console.log("isAdmin check result:", {
-			organizationId,
-			hasAdminRole: isAdmin,
-			roles: userRoles.map((r) => ({
-				id: r.id,
-				name: r.name,
-				orgId: r.churchOrganizationId,
-			})),
-			allRoles: this.roles.map((r) => ({
-				id: r.id,
-				name: r.name,
-				orgId: r.churchOrganizationId,
-			})),
-		});
-		return isAdmin;
+
+		if (isSiteAdmin) {
+			return true;
+		}
+
+		// If organizationId is provided, check for organization admin
+		if (organizationId) {
+			const userRolesForOrg = this.userToOrgRoles.filter(
+				(utr) =>
+					utr.churchOrganizationId === organizationId &&
+					utr.userId === this.user.id,
+			);
+
+			const userOrgRoles = this.organizationRoles.filter((role) =>
+				userRolesForOrg.some((utr) => utr.organizationRoleId === role.id),
+			);
+
+			return userOrgRoles.some(
+				(role) =>
+					role.name === "Admin" && role.churchOrganizationId === organizationId,
+			);
+		}
+
+		return false;
 	}
 }

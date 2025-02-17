@@ -1,14 +1,13 @@
 import {
-	organizationRoles,
+	churchOrganization,
 	teams as teamsTable,
 	userPreferences,
 	users,
-	usersTochurchOrganization,
-	usersToOrganizationRoles,
 	usersToTeams,
-	churchOrganization,
+	usersTochurchOrganization,
 } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
+import { useContext } from "react";
 import {
 	Outlet,
 	useActionData,
@@ -18,14 +17,12 @@ import {
 	useParams,
 	useSubmit,
 } from "react-router";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { db } from "~/server/dbConnection";
 import { PageLayout } from "~/src/components/layout/PageLayout";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { ChurchService } from "~/services/ChurchService";
-import { AuthorizationService } from "~/services/AuthorizationService";
 import { UserContext } from "~/src/providers/userProvider";
-import { useContext } from "react";
 
+import { PermissionsService } from "@/server/services/PermissionsService";
 import sgMail from "@sendgrid/mail";
 import {
 	flexRender,
@@ -39,9 +36,10 @@ import {
 	TrashIcon,
 	UserPlusIcon,
 } from "lucide-react";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import twilio from "twilio";
+import { MessageComposer } from "~/components/messaging/MessageComposer";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
@@ -74,106 +72,45 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
-import { MessageComposer } from "~/components/messaging/MessageComposer";
+import { TeamsDataService } from "@/server/dataServices/TeamsDataService";
+import { OrganizationRolesDataService } from "@/server/dataServices/OrganizationRolesDataService";
+import { OrganizationDataService } from "@/server/dataServices/OrganizationDataService";
 
 export const loader = async ({ request, params }) => {
 	const user = await authenticator.isAuthenticated(request);
-	let permissions = {
-		canAdd: false,
-		canEdit: false,
-		canDelete: false,
-		canAssign: false,
-	};
-
-	const organization = await db
-		.select()
-		.from(churchOrganization)
-		.where(eq(churchOrganization.id, params.organization))
-		.then((res) => res[0]);
-
-	if (!organization) {
-		throw new Error("Organization not found");
+	if (!user) {
+		throw new Error("Not authenticated");
 	}
 
-	// Only check permissions if user is authenticated
-	if (user) {
-		// Get all roles for the organization
-		const orgRoles = await db
-			.select()
-			.from(organizationRoles)
-			.where(eq(organizationRoles.churchOrganizationId, params.organization));
+	// Initialize services
+	const permissionsService = new PermissionsService();
+	const teamsDataService = new TeamsDataService();
+	const rolesDataService = new OrganizationRolesDataService();
+	const organizationDataService = new OrganizationDataService();
 
-		// Get user's role assignments
-		const userRoleAssignments = await db
-			.select()
-			.from(usersToOrganizationRoles)
-			.where(
-				eq(usersToOrganizationRoles.churchOrganizationId, params.organization),
-			);
+	// Get permissions and member data in parallel
+	const [permissions, members, teams, roles] = await Promise.all([
+		permissionsService.getMemberPermissions(user.id, params.organization),
+		organizationDataService.getOrganizationMembers(params.organization),
+		teamsDataService.getOrganizationTeams(params.organization),
+		rolesDataService.getOrganizationRoles(params.organization),
+	]);
 
-		// Create authorization service
-		const authService = new AuthorizationService(
-			user,
-			orgRoles,
-			userRoleAssignments,
-		);
+	console.log(members);
+	console.log(roles);
 
-		// Set permissions based on user's roles
-		permissions = {
-			canAdd: authService.canAddMembers(params.organization),
-			canEdit: authService.canEditMembers(params.organization),
-			canDelete: authService.canDeleteMembers(params.organization),
-			canAssign: authService.canAssignMembers(params.organization),
-		};
-	}
-
-	const members = await db
-		.select({
-			user: users,
-			isAdmin: usersTochurchOrganization.isAdmin,
-			teams: usersToTeams,
-			roles: usersToOrganizationRoles,
-			preferences: userPreferences,
-		})
-		.from(usersTochurchOrganization)
-		.where(
-			eq(usersTochurchOrganization.churchOrganizationId, params.organization),
-		)
-		.innerJoin(users, eq(users.id, usersTochurchOrganization.userId))
-		.leftJoin(usersToTeams, eq(users.id, usersToTeams.userId))
-		.leftJoin(
-			usersToOrganizationRoles,
-			eq(users.id, usersToOrganizationRoles.userId),
-		)
-		.leftJoin(userPreferences, eq(users.id, userPreferences.userId));
-
-	// Get all teams for the organization
-	const orgTeams = await db
-		.select()
-		.from(teamsTable)
-		.where(eq(teamsTable.churchOrganizationId, params.organization));
-
-	// Get all roles for the organization
-	const orgRoles = await db
-		.select()
-		.from(organizationRoles)
-		.where(eq(organizationRoles.churchOrganizationId, params.organization));
-
-	// Transform the data to ensure teams and roles are arrays
+	// Transform member data
 	const transformedMembers = members.map((member) => ({
 		...member,
 		teams: Array.isArray(member.teams)
 			? member.teams
 			: [member.teams].filter(Boolean),
-		roles: Array.isArray(member.roles)
-			? member.roles
-			: [member.roles].filter(Boolean),
 	}));
 
 	return {
 		members: transformedMembers,
-		teams: orgTeams,
-		roles: orgRoles || [],
+		teams,
+		roles,
 		permissions,
 	};
 };
@@ -318,14 +255,16 @@ export const action = async ({ request, params }) => {
 };
 
 export default function MembersList() {
-	const { members, teams, roles, permissions } = useLoaderData<typeof loader>();
+	const { members, roles, teams, permissions } = useLoaderData<typeof loader>();
 	const { user } = useContext(UserContext);
-	const actionData = useActionData<typeof action>();
+
+	const params = useParams();
+
 	const navigate = useNavigate();
+	const actionData = useActionData<typeof action>();
 	const deleteFetcher = useFetcher();
 	const submit = useSubmit();
 	const fetcher = useFetcher();
-	const params = useParams();
 	const [message, setMessage] = useState("");
 	const [showCommunicationModal, setShowCommunicationModal] = useState(false);
 	const [selectedMemberId, setSelectedMemberId] = useState(null);
@@ -399,7 +338,7 @@ export default function MembersList() {
 	const columns = useMemo(
 		() => [
 			// Only show select column if user is authenticated and can message members
-			...(user
+			...(user && permissions.canMessage
 				? [
 						{
 							accessorKey: "select",
@@ -441,16 +380,16 @@ export default function MembersList() {
 				header: "Teams",
 				cell: ({ row }) => {
 					const memberTeams = teams.filter((team) =>
-						row.original.teams?.some((ut) => ut.teamId === team.id),
+						row.original.teams?.some((ut) => ut.teamId === team.team.id),
 					);
 					return (
 						<div className="flex gap-1 flex-wrap">
 							{memberTeams.map((team) => (
 								<Badge
-									key={team.id}
-									style={{ backgroundColor: team.color || "#666" }}
+									key={team.team.id}
+									style={{ backgroundColor: team.team.color || "#666" }}
 								>
-									{team.name}
+									{team.team.name}
 								</Badge>
 							))}
 						</div>
@@ -461,13 +400,14 @@ export default function MembersList() {
 				accessorKey: "roles",
 				header: "Roles",
 				cell: ({ row }) => {
-					const memberRoles = roles.filter((role) =>
+					console.log(row.original);
+					const memberRoles = roles.organizationRoles.filter((role) =>
 						row.original.roles?.some((ur) => ur.organizationRoleId === role.id),
 					);
 					return (
 						<div className="flex gap-1 flex-wrap">
 							{memberRoles.map((role) => (
-								<Badge key={role.id} variant="outline">
+								<Badge key={role.id} variant="secondary">
 									{role.name}
 								</Badge>
 							))}
@@ -527,7 +467,7 @@ export default function MembersList() {
 					]
 				: []),
 		],
-		[navigate, roles, teams, permissions, user],
+		[navigate, roles, permissions, user],
 	);
 
 	const table = useReactTable({
@@ -560,7 +500,7 @@ export default function MembersList() {
 			title="Members"
 			actions={
 				<div className="flex gap-2">
-					{user && selectedCount > 0 && (
+					{user && permissions.canMessage && selectedCount > 0 && (
 						<Button onClick={() => setShowCommunicationModal(true)}>
 							<MessageSquareIcon className="h-4 w-4 mr-2" />
 							Message Selected ({selectedCount})
@@ -589,8 +529,8 @@ export default function MembersList() {
 							<SelectContent>
 								<SelectItem value="all">All Teams</SelectItem>
 								{teams.map((team) => (
-									<SelectItem key={team.id} value={team.id}>
-										{team.name}
+									<SelectItem key={team.team.id} value={team.team.id}>
+										{team.team.name}
 									</SelectItem>
 								))}
 							</SelectContent>
@@ -607,7 +547,7 @@ export default function MembersList() {
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value="all">All Roles</SelectItem>
-								{roles.map((role) => (
+								{roles.organizationRoles.map((role) => (
 									<SelectItem key={role.id} value={role.id}>
 										{role.name}
 									</SelectItem>
