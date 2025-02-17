@@ -18,7 +18,7 @@ const uploadRouter = {
 			 * @see https://docs.uploadthing.com/file-routes#route-config
 			 */
 			maxFileSize: "4MB",
-			maxFileCount: 1,			
+			maxFileCount: 1,
 		},
 	})
 		// Set permissions and file types for this FileRoute
@@ -45,9 +45,12 @@ const uploadRouter = {
 
 export type UploadRouter = typeof uploadRouter;
 
-export const { action, loader } = createRouteHandler({
+const handlers = createRouteHandler({
 	router: uploadRouter,
 
 	// Apply an (optional) custom config:
 	// config: { ... },
 });
+
+export const loader = handlers.loader;
+export const action = handlers.action;
