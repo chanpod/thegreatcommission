@@ -142,8 +142,6 @@ export const loader = createAuthLoader(
 			return acc;
 		}, [] as RoleWithMembers[]);
 
-		console.log("permissions", permissions);
-
 		return {
 			roles: rolesWithMembers,
 			permissions,

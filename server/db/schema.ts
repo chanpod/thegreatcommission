@@ -98,6 +98,7 @@ export const churchOrganization = pgTable("church_organizations", {
 	description: text("description"),
 	churchBannerUrl: text("church_banner_url"),
 	mainChurchWebsite: text("main_church_website"),
+	liveStreamUrl: text("live_stream_url"),
 	email: text("email"),
 	phone: text("phone"),
 	parentOrganizationId: text("parent_organization_id").references(

@@ -1,6 +1,6 @@
 import { PermissionsService } from "@/server/services/PermissionsService";
 import { and, eq, gte } from "drizzle-orm";
-import { Settings } from "lucide-react";
+import { Settings, Video } from "lucide-react";
 import { Link, useLoaderData } from "react-router";
 import {
 	churchOrganization,
@@ -77,7 +77,7 @@ export default function Landing() {
 	return (
 		<div className="relative">
 			{permissions.canEdit && (
-				<div className="absolute top-4 right-4">
+				<div className="absolute top-0 right-4">
 					<Link to="config">
 						<Button variant="ghost" size="icon">
 							<Settings className="h-4 w-4" />

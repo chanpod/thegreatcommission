@@ -28,6 +28,7 @@ export class ChurchService {
 			zip: formData.get("zip") as string,
 			churchBannerUrl: (formData.get("churchBannerUrl") as string) || null,
 			mainChurchWebsite: (formData.get("mainChurchWebsite") as string) || null,
+			liveStreamUrl: (formData.get("liveStreamUrl") as string) || null,
 		};
 
 		return church;

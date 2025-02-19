@@ -1,0 +1,55 @@
+.fc {
+	--fc-border-color: hsl(var(--border));
+	--fc-button-bg-color: transparent;
+	--fc-button-border-color: hsl(var(--border));
+	--fc-button-text-color: hsl(var(--foreground));
+	--fc-button-hover-bg-color: hsl(var(--accent));
+	--fc-button-hover-border-color: hsl(var(--accent));
+	--fc-button-active-bg-color: hsl(var(--accent));
+	--fc-button-active-border-color: hsl(var(--accent));
+	--fc-event-bg-color: hsl(var(--primary));
+	--fc-event-border-color: hsl(var(--primary));
+	--fc-event-text-color: hsl(var(--primary-foreground));
+	--fc-today-bg-color: hsl(var(--muted) / 0.3);
+	--fc-now-indicator-color: hsl(var(--destructive));
+}
+
+.fc .fc-button {
+	@apply px-4 py-2 text-sm font-medium rounded-md;
+}
+
+.fc .fc-button-primary:not(:disabled):active,
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+	@apply bg-accent text-accent-foreground;
+}
+
+.fc .fc-toolbar-title {
+	@apply text-lg font-semibold;
+}
+
+.fc .fc-daygrid-day.fc-day-today {
+	@apply bg-muted/30;
+}
+
+.fc .fc-daygrid-day-number,
+.fc .fc-col-header-cell-cushion {
+	@apply text-foreground;
+}
+
+.fc .fc-list-day-cushion {
+	@apply bg-muted;
+}
+
+.fc-theme-standard td,
+.fc-theme-standard th,
+.fc-theme-standard .fc-scrollgrid {
+	@apply border-border;
+}
+
+.fc .fc-timegrid-slot-label {
+	@apply text-muted-foreground text-sm;
+}
+
+.fc .fc-timegrid-axis-cushion {
+	@apply text-muted-foreground text-sm;
+}

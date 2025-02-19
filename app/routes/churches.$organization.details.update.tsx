@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import { PermissionsService } from "@/server/services/PermissionsService";
 import { createAuthLoader } from "~/server/auth/authLoader";
+import { Input } from "~/src/components/forms/input/Input";
+import { Video } from "lucide-react";
 
 export const loader = createAuthLoader(
 	async ({ request, auth, params, userContext }) => {
@@ -98,15 +100,20 @@ const Update = () => {
 		}
 	};
 
+	console.log(loaderData);
+
 	return (
 		<Sheet open={isOpen} onOpenChange={handleOpenChange}>
 			<SheetContent>
-				<PageLayout title="Update" className="mt-3">
-					<Form method="put" className="space-y-4">
-						<CreateChurchForm initialValues={loaderData?.organization} />
-						<Button type="submit">Update</Button>
-					</Form>
-				</PageLayout>
+				<div className="overflow-auto">
+					<PageLayout title="Update" className="mt-3">
+						<Form method="put" className="space-y-4">
+							<CreateChurchForm initialValues={loaderData?.organization} />
+
+							<Button type="submit">Update</Button>
+						</Form>
+					</PageLayout>
+				</div>
 			</SheetContent>
 		</Sheet>
 	);

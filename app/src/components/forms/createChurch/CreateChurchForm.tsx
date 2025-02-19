@@ -3,6 +3,7 @@ import { fromAddress } from "react-geocode";
 import { churchOrganization } from "server/db/schema";
 import { Stack } from "../../layout/Stack";
 import { Input } from "../input/Input";
+import { Video } from "lucide-react";
 
 export interface IChurchFormData {
 	name: string;
@@ -12,6 +13,7 @@ export interface IChurchFormData {
 	zip: string;
 	churchBannerUrl: string | null;
 	mainChurchWebsite: string | null;
+	liveStreamUrl: string | null;
 }
 
 interface Props {
@@ -53,11 +55,16 @@ const CreateChurchForm = (props: Props) => {
 	const [churchWebsiteUrl, setChurchWebsiteUrl] = useState(
 		props?.initialValues?.mainChurchWebsite ?? "",
 	);
+	const [liveStreamUrl, setLiveStreamUrl] = useState(
+		props?.initialValues?.liveStreamUrl ?? "",
+	);
 
 	const churchBannerUrlValid =
 		churchBannerUrl.length > 0 ? checkForValidUrl(churchBannerUrl) : true;
 	const churchWebsiteUrlValid =
 		churchWebsiteUrl.length > 0 ? checkForValidUrl(churchWebsiteUrl) : true;
+	const liveStreamUrlValid =
+		liveStreamUrl.length > 0 ? checkForValidUrl(liveStreamUrl) : true;
 
 	return (
 		<Stack>
@@ -98,16 +105,24 @@ const CreateChurchForm = (props: Props) => {
 				defaultValue={props?.initialValues?.zip ?? ""}
 			/>
 
-			<Input
-				className="max-w-lg"
-				disabled={props.readOnly ?? false}
-				name="mainChurchWebsite"
-				label="Main Website"
-				defaultValue={props?.initialValues?.mainChurchWebsite ?? ""}
-				color={churchWebsiteUrlValid ? "" : "failure"}
-				onChange={(e) => setChurchWebsiteUrl(e.target.value)}
-				helperText={churchWebsiteUrlValid ? "" : "Invalid URL"}
-			/>
+			<div className="space-y-4">
+				<h3 className="text-gray-900">Online Presence</h3>
+				<Input
+					className="max-w-lg"
+					disabled={props.readOnly ?? false}
+					name="mainChurchWebsite"
+					label="Main Website"
+					defaultValue={props?.initialValues?.mainChurchWebsite ?? ""}
+					onChange={(e) => setChurchWebsiteUrl(e.target.value)}
+				/>
+				<Input
+					label="Live Stream URL"
+					name="liveStreamUrl"
+					placeholder="https://www.youtube.com/embed/your-stream-id"
+					prefix={<Video className="h-4 w-4" />}
+					onChange={(e) => setLiveStreamUrl(e.target.value)}
+				/>
+			</div>
 		</Stack>
 	);
 };

@@ -3,13 +3,14 @@ import { cn } from "~/lib/utils";
 import { Label } from "~/components/ui/label";
 import { Input as TextInput } from "~/components/ui/input";
 
-export interface InputProps
+export interface InputBaseProps
 	extends React.InputHTMLAttributes<HTMLInputElement> {
 	error?: string;
 	prefix?: React.ReactNode;
 }
 
-const Input = forwardRef<HTMLInputElement, InputProps>(
+// Base input with prefix support
+const InputBase = forwardRef<HTMLInputElement, InputBaseProps>(
 	({ className, error, prefix, ...props }, ref) => {
 		return (
 			<div className="relative">
@@ -33,9 +34,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 		);
 	},
 );
-Input.displayName = "Input";
+InputBase.displayName = "InputBase";
 
-interface Props {
+// Main Input component with label support
+export interface InputProps {
 	label?: string;
 	name: string;
 	type?: string;
@@ -45,42 +47,48 @@ interface Props {
 	id?: string;
 	defaultValue?: string;
 	disabled?: boolean;
+	error?: string;
+	prefix?: React.ReactNode;
 	onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
-	others?: any;
 }
 
-export function InputComponent(props: Props) {
-	const {
-		label,
-		name,
-		id,
-		type,
-		disabled,
-		className,
-		placeholder,
-		value,
-		onChange,
-		defaultValue,
-		...others
-	} = props;
-
+export function Input({
+	label,
+	name,
+	id,
+	type = "text",
+	disabled,
+	className,
+	placeholder,
+	value,
+	onChange,
+	defaultValue,
+	error,
+	prefix,
+	...props
+}: InputProps) {
 	return (
 		<div id={id} className={className}>
-			<div className="mb-2 block">
-				<Label htmlFor="title">{label}</Label>
-			</div>
-			<TextInput
-				disabled={disabled}
-				{...others}
-				defaultValue={defaultValue ?? ""}
-				type={type}
-				value={value}
+			{label && (
+				<div className="mb-2 block">
+					<Label htmlFor={name}>{label}</Label>
+				</div>
+			)}
+			<InputBase
+				id={name}
 				name={name}
+				type={type}
+				disabled={disabled}
+				placeholder={placeholder}
+				value={value}
 				onChange={onChange}
-				id="title"
+				defaultValue={defaultValue}
+				error={error}
+				prefix={prefix}
+				{...props}
 			/>
 		</div>
 	);
 }
 
-export { Input };
+export { InputBase };

@@ -57,8 +57,6 @@ export class AuthorizationService {
 			userRolesForOrg.some((utr) => utr.organizationRoleId === role.id),
 		);
 
-		console.log("permissions", permission);
-
 		// Check if any of the user's organization roles have the required permission
 		return userOrgRoles.some((role) => role.permissions?.includes(permission));
 	}

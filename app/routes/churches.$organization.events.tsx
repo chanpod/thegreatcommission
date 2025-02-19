@@ -1,52 +1,48 @@
-import { useState, useEffect } from "react";
-import {
-	Link,
-	useSearchParams,
-	useSubmit,
-	useLoaderData,
-	useParams,
-	useNavigate,
-	Outlet,
-} from "react-router";
-import { Button } from "~/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
-import { Plus } from "lucide-react";
-import {
-	Calendar as BigCalendar,
-	dateFnsLocalizer,
-	Views,
-} from "react-big-calendar";
-import { format, parse, startOfWeek, getDay, isSameDay } from "date-fns";
+import type { DateSelectArg, EventClickArg } from "@fullcalendar/core";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin from "@fullcalendar/interaction";
+import FullCalendar from "@fullcalendar/react";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import { format, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
-import type { Event } from "react-big-calendar";
-import { db } from "~/server/dbConnection";
-import { events } from "server/db/schema";
 import { eq } from "drizzle-orm";
-import { EventDialog } from "~/components/events/EventDialog";
-import type { Route } from "../+types/root";
-import {
-	Card,
-	CardHeader,
-	CardTitle,
-	CardDescription,
-	CardContent,
-} from "~/components/ui/card";
 import {
 	Calendar,
-	Clock,
-	MapPin,
-	Edit,
-	LayoutGrid,
 	CalendarDays,
+	Clock,
+	Edit,
 	ExternalLink,
+	LayoutGrid,
+	MapPin,
+	Plus,
 } from "lucide-react";
-import { cn } from "~/lib/utils";
-
-// Ensure you have the CSS imported
-import "react-big-calendar/lib/css/react-big-calendar.css";
+import { useEffect, useState } from "react";
 import {
-	PermissionsService,
+	Link,
+	Outlet,
+	useLoaderData,
+	useNavigate,
+	useParams,
+	useSearchParams,
+	useSubmit,
+} from "react-router";
+import { events } from "server/db/schema";
+import { EventDialog } from "~/components/events/EventDialog";
+import { Button } from "~/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { cn } from "~/lib/utils";
+import { db } from "~/server/dbConnection";
+
+import {
 	type PermissionSet,
+	PermissionsService,
 } from "@/server/services/PermissionsService";
 import { createAuthLoader } from "~/server/auth/authLoader";
 
@@ -54,21 +50,13 @@ const locales = {
 	"en-US": enUS,
 };
 
-const localizer = dateFnsLocalizer({
-	format,
-	parse,
-	startOfWeek,
-	getDay,
-	locales,
-});
-
 type DbEvent = typeof events.$inferSelect;
 
-export interface CalendarEvent extends Event {
+export interface CalendarEvent {
 	id: string;
 	title: string;
-	startDate: Date;
-	endDate: Date;
+	start: string; // ISO string
+	end: string; // ISO string
 	allDay?: boolean;
 	description?: string;
 	type?: "local" | "recurring" | "mission";
@@ -98,23 +86,21 @@ export const loader = createAuthLoader(
 		const calendarEvents: CalendarEvent[] = orgEvents.map((event) => ({
 			id: event.id,
 			title: event.title,
-			start: event.startDate,
-			end: event.endDate,
+			start: event.startDate.toISOString(),
+			end: event.endDate.toISOString(),
 			allDay: event.allDay,
 			description: event.description || undefined,
 			type: event.type as "local" | "recurring" | "mission",
 			location: event.location || undefined,
-			startDate: event.startDate,
-			endDate: event.endDate,
 		}));
 
 		// Pre-sort events into upcoming and previous
 		const now = new Date();
 		const upcomingEvents = calendarEvents.filter(
-			(event) => new Date(event.startDate) >= now,
+			(event) => new Date(event.start) >= now,
 		);
 		const previousEvents = calendarEvents.filter(
-			(event) => new Date(event.startDate) < now,
+			(event) => new Date(event.start) < now,
 		);
 
 		return {
@@ -246,9 +232,7 @@ function EventCard({
 							</Button>
 						)}
 						<Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-							<Link
-								to={`/churches/${params.organization}/events/${event.id}/details`}
-							>
+							<Link to={`/events/${event.id}/details`}>
 								<ExternalLink className="h-4 w-4" />
 								<span className="sr-only">View details</span>
 							</Link>
@@ -260,16 +244,16 @@ function EventCard({
 				<div className="flex items-center text-sm text-gray-500">
 					<Calendar className="w-4 h-4 mr-2" />
 					<span>
-						{format(event.startDate, "MMM d, yyyy")}
-						{!isSameDay(event.startDate, event.endDate) &&
-							` - ${format(event.endDate, "MMM d, yyyy")}`}
+						{format(new Date(event.start), "MMM d, yyyy")}
+						{!isSameDay(new Date(event.start), new Date(event.end)) &&
+							` - ${format(new Date(event.end), "MMM d, yyyy")}`}
 					</span>
 				</div>
 				<div className="flex items-center text-sm text-gray-500">
 					<Clock className="w-4 h-4 mr-2" />
 					<span>
-						{format(event.startDate, "h:mm a")} -{" "}
-						{format(event.endDate, "h:mm a")}
+						{format(new Date(event.start), "h:mm a")} -{" "}
+						{format(new Date(event.end), "h:mm a")}
 					</span>
 				</div>
 				{event.location && (
@@ -293,11 +277,9 @@ export default function EventsLayout() {
 	const navigate = useNavigate();
 	const submit = useSubmit();
 
-	console.log(events);
-
 	// Get view from search params, default to calendar
 	const view = searchParams.get("view") || "calendar";
-	const calendarView = searchParams.get("calendarView") || Views.MONTH;
+	const calendarView = searchParams.get("calendarView") || "dayGridMonth";
 	const currentDate = searchParams.get("date")
 		? new Date(searchParams.get("date")!)
 		: new Date();
@@ -325,17 +307,16 @@ export default function EventsLayout() {
 		}
 	}, [searchParams, setSearchParams]);
 
-	const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
-		setIsCreateDialogOpen(true);
-	};
+	const handleEventClick = (clickInfo: EventClickArg) => {
+		const event = events.find((e) => e.id === clickInfo.event.id);
+		if (!event) return;
 
-	const handleSelectEvent = (event: CalendarEvent, e: React.MouseEvent) => {
-		// Show a small popup menu with Edit and Details options
+		// Show the popup menu
 		const menu = document.createElement("div");
 		menu.className =
 			"absolute bg-white shadow-lg rounded-lg p-2 space-y-2 z-50";
-		menu.style.left = `${e.clientX}px`;
-		menu.style.top = `${e.clientY}px`;
+		menu.style.left = `${clickInfo.jsEvent.clientX}px`;
+		menu.style.top = `${clickInfo.jsEvent.clientY}px`;
 
 		const editButton = document.createElement("button");
 		editButton.className =
@@ -375,6 +356,10 @@ export default function EventsLayout() {
 		setTimeout(() => document.addEventListener("click", closeMenu), 0);
 	};
 
+	const handleDateSelect = (selectInfo: DateSelectArg) => {
+		setIsCreateDialogOpen(true);
+	};
+
 	const handleCreateEvent = (event: DbEvent) => {
 		const formData = new FormData();
 		formData.append("action", "create");
@@ -388,51 +373,6 @@ export default function EventsLayout() {
 
 		submit(formData, { method: "post" });
 		setIsCreateDialogOpen(false);
-	};
-
-	const CustomToolbar = (toolbar: any) => {
-		const goToBack = () => {
-			toolbar.onNavigate("PREV");
-		};
-		const goToNext = () => {
-			toolbar.onNavigate("NEXT");
-		};
-		const goToCurrent = () => {
-			toolbar.onNavigate("TODAY");
-		};
-
-		return (
-			<div className="flex justify-between items-center p-4 border-b">
-				<div className="flex items-center gap-2">
-					<Button variant="secondary" size="sm" onClick={goToBack}>
-						Previous
-					</Button>
-					<Button variant="secondary" size="sm" onClick={goToCurrent}>
-						Today
-					</Button>
-					<Button variant="secondary" size="sm" onClick={goToNext}>
-						Next
-					</Button>
-					<span className="text-lg font-semibold ml-4">{toolbar.label}</span>
-				</div>
-				<div className="flex bg-gray-100 rounded-lg p-1">
-					{Object.entries(Views).map(([key, value]) => (
-						<Button
-							key={key}
-							variant="ghost"
-							size="sm"
-							onClick={() => toolbar.onView(value)}
-							className={cn(
-								"rounded-lg",
-								toolbar.view === value && "bg-white shadow-sm",
-							)}
-						>
-							{key.charAt(0) + key.slice(1).toLowerCase()}
-						</Button>
-					))}
-				</div>
-			</div>
-		);
 	};
 
 	return (
@@ -502,87 +442,128 @@ export default function EventsLayout() {
 				)}
 			</div>
 
-			{view === "calendar" ? (
-				<div className="flex-1 min-h-[600px]">
-					<BigCalendar
-						localizer={localizer}
-						events={events}
-						startAccessor="start"
-						endAccessor="end"
-						style={{ height: "100%", minHeight: "600px" }}
-						selectable
-						onSelectSlot={handleSelectSlot}
-						onSelectEvent={(calEvent, e) => handleSelectEvent(calEvent, e)}
-						date={currentDate}
-						view={calendarView}
-						onNavigate={(date) => handleCalendarChange(date, calendarView)}
-						onView={(view) => handleCalendarChange(currentDate, view)}
-						defaultView={Views.MONTH}
-						views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
-						step={30}
-						timeslots={2}
-						components={{
-							toolbar: CustomToolbar,
-						}}
-						popup
-						className="bg-white shadow-lg rounded-lg overflow-hidden"
-					/>
-				</div>
-			) : (
-				<div className="space-y-6">
-					<Tabs
-						value={searchParams.get("listTab") || "upcoming"}
-						onValueChange={(value) => {
-							searchParams.set("listTab", value);
-							setSearchParams(searchParams);
-							setListTab(value);
-						}}
-					>
-						<TabsList>
-							<TabsTrigger value="upcoming">Upcoming Events</TabsTrigger>
-							<TabsTrigger value="previous">Previous Events</TabsTrigger>
-						</TabsList>
+			{/* Wrap calendar in a key-based container to force remount */}
+			<div key={view}>
+				{view === "calendar" ? (
+					<div className="flex-1 min-h-[600px] bg-white shadow-lg rounded-lg overflow-hidden">
+						<FullCalendar
+							plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+							initialView={calendarView}
+							events={events}
+							editable={false}
+							selectable={true}
+							selectMirror={true}
+							dayMaxEvents={true}
+							weekends={true}
+							initialDate={currentDate}
+							headerToolbar={{
+								left: "prev,next today",
+								center: "title",
+								right: "dayGridMonth,timeGridWeek,timeGridDay",
+							}}
+							select={handleDateSelect}
+							eventClick={handleEventClick}
+							eventContent={(eventInfo) => {
+								const event = events.find((e) => e.id === eventInfo.event.id);
+								if (!event) return null;
 
-						<TabsContent value="upcoming" className="space-y-4 mt-4">
-							{upcomingEvents.length === 0 ? (
-								<p className="text-center text-gray-500">No upcoming events</p>
-							) : (
-								upcomingEvents.map((event) => (
-									<EventCard
-										key={event.id}
-										event={event}
-										permissions={permissions}
-										onEdit={() =>
-											navigate(
-												`/churches/${organization}/events/${event.id}/edit?${searchParams.toString()}`,
-											)
-										}
-									/>
-								))
-							)}
-						</TabsContent>
+								return (
+									<div className="p-1">
+										<div className="font-semibold">{event.title}</div>
+										{!event.allDay && (
+											<div className="text-xs text-gray-600">
+												{format(new Date(event.start), "h:mm a")}
+											</div>
+										)}
+										{event.type && (
+											<div
+												className={cn(
+													"text-xs px-1 rounded",
+													event.type === "local" && "bg-blue-100 text-blue-800",
+													event.type === "recurring" &&
+														"bg-green-100 text-green-800",
+													event.type === "mission" &&
+														"bg-purple-100 text-purple-800",
+												)}
+											>
+												{event.type}
+											</div>
+										)}
+									</div>
+								);
+							}}
+							eventClassNames={(arg) => {
+								const event = events.find((e) => e.id === arg.event.id);
+								if (!event) return "";
+								return cn(
+									"cursor-pointer hover:opacity-90",
+									event.type === "local" && "border-blue-500",
+									event.type === "recurring" && "border-green-500",
+									event.type === "mission" && "border-purple-500",
+								);
+							}}
+						/>
+					</div>
+				) : (
+					<div className="space-y-6">
+						<Tabs
+							value={searchParams.get("listTab") || "upcoming"}
+							onValueChange={(value) => {
+								searchParams.set("listTab", value);
+								setSearchParams(searchParams);
+								setListTab(value);
+							}}
+						>
+							<TabsList>
+								<TabsTrigger value="upcoming">Upcoming Events</TabsTrigger>
+								<TabsTrigger value="previous">Previous Events</TabsTrigger>
+							</TabsList>
 
-						<TabsContent value="previous" className="space-y-4 mt-4">
-							{previousEvents.length === 0 ? (
-								<p className="text-center text-gray-500">No previous events</p>
-							) : (
-								previousEvents.map((event) => (
-									<EventCard
-										key={event.id}
-										event={event}
-										permissions={permissions}
-										onEdit={() =>
-											navigate(
-												`/churches/${organization}/events/${event.id}/edit?${searchParams.toString()}`,
-											)
-										}
-									/>
-								))
-							)}
-						</TabsContent>
-					</Tabs>
-				</div>
-			)}
+							<TabsContent value="upcoming" className="space-y-4 mt-4">
+								{upcomingEvents.length === 0 ? (
+									<p className="text-center text-gray-500">
+										No upcoming events
+									</p>
+								) : (
+									upcomingEvents.map((event) => (
+										<EventCard
+											key={event.id}
+											event={event}
+											permissions={permissions}
+											onEdit={() =>
+												navigate(
+													`/churches/${organization}/events/${event.id}/edit?${searchParams.toString()}`,
+												)
+											}
+										/>
+									))
+								)}
+							</TabsContent>
+
+							<TabsContent value="previous" className="space-y-4 mt-4">
+								{previousEvents.length === 0 ? (
+									<p className="text-center text-gray-500">
+										No previous events
+									</p>
+								) : (
+									previousEvents.map((event) => (
+										<EventCard
+											key={event.id}
+											event={event}
+											permissions={permissions}
+											onEdit={() =>
+												navigate(
+													`/churches/${organization}/events/${event.id}/edit?${searchParams.toString()}`,
+												)
+											}
+										/>
+									))
+								)}
+							</TabsContent>
+						</Tabs>
+					</div>
+				)}
+			</div>
 			<EventDialog
 				open={isCreateDialogOpen}
 				onOpenChange={setIsCreateDialogOpen}
