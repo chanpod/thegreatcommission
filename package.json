@@ -11,6 +11,8 @@
 		"db:push": "drizzle-kit push"
 	},
 	"dependencies": {
+		"@clerk/react-router": "^1.1.0",
+		"@clerk/remix": "^4.5.0",
 		"@paralleldrive/cuid2": "^2.2.2",
 		"@radix-ui/react-alert-dialog": "^1.1.6",
 		"@radix-ui/react-avatar": "^1.1.2",
@@ -77,6 +79,7 @@
 		"react-geocode": "1.0.0-alpha.1",
 		"react-router": "*",
 		"remix-auth": "^3.7.0",
+		"remix-auth-clerk": "^1.0.1",
 		"remix-auth-google": "^2.0.0",
 		"remix-utils": "^8.0.0",
 		"sonner": "^1.7.2",

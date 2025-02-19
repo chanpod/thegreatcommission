@@ -17,6 +17,10 @@ import { UserAvatar } from "../avatar/UserAvatar";
 import LoginModal from "./LoginModal";
 import SearchBar from "./SearchBar";
 import { Sidenav } from "~/src/components/sidenav/Sidenav";
+import { UserButton } from "@clerk/react-router";
+import { SignInButton } from "@clerk/react-router";
+import { SignedOut } from "@clerk/react-router";
+import { SignedIn } from "@clerk/react-router";
 
 export const navigation = [
 	{ name: "Churches", href: "/churches", current: true, icon: ChurchIcon },
@@ -91,7 +95,13 @@ export default function Header() {
 						/>
 					</div>
 					<div>
-						<DropdownMenu>
+						<SignedOut>
+							<SignInButton />
+						</SignedOut>
+						<SignedIn>
+							<UserButton showName />
+						</SignedIn>
+						{/* <DropdownMenu>
 							<DropdownMenuTrigger>
 								<div className="flex flex-row items-center">
 									<UserAvatar user={user} />
@@ -120,7 +130,7 @@ export default function Header() {
 									</DropdownMenuItem>
 								)}
 							</DropdownMenuContent>
-						</DropdownMenu>
+						</DropdownMenu> */}
 					</div>
 				</div>
 				<LoginModal showDialog={showLoginModal} onClose={handleClose} />
