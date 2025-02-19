@@ -209,7 +209,7 @@ export default function LandingConfig() {
 
 	return (
 		<>
-			<div className="flex justify-between items-center mb-4">
+			<div className="flex justify-between items-center mb-4 p-3">
 				<h1 className="text-2xl font-bold">Landing Page Configuration</h1>
 				<div className="flex items-center gap-4">
 					{hasUnsavedChanges && (
@@ -219,7 +219,7 @@ export default function LandingConfig() {
 						</div>
 					)}
 					<Link to={`/landing/${organization.id}`} target="_blank">
-						<Button variant="outline">View Public Page</Button>
+						<Button variant="secondary">View Public Page</Button>
 					</Link>
 				</div>
 			</div>
@@ -393,7 +393,7 @@ export default function LandingConfig() {
 					</CardContent>
 				</Card>
 
-				<div className="flex justify-end gap-4">
+				<div className="flex justify-end gap-4 p-3">
 					<Button
 						type="button"
 						variant="ghost"
