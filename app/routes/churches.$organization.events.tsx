@@ -48,7 +48,7 @@ import {
 	PermissionsService,
 	type PermissionSet,
 } from "@/server/services/PermissionsService";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
+import { createAuthLoader } from "~/server/auth/authLoader";
 
 const locales = {
 	"en-US": enUS,
@@ -75,63 +75,62 @@ export interface CalendarEvent extends Event {
 	location?: string;
 }
 
-export const loader = async ({ request, params }: Route.LoaderArgs) => {
-	const organizationId = params.organization;
-	if (!organizationId) {
-		throw new Error("Organization ID is required");
-	}
+export const loader = createAuthLoader(
+	async ({ request, params, userContext }) => {
+		const user = userContext.user;
+		const organizationId = params.organization;
+		if (!organizationId) {
+			throw new Error("Organization ID is required");
+		}
 
-	const user = await authenticator.isAuthenticated(request);
-	if (!user) {
-		throw new Error("User is not authenticated");
-	}
+		const orgEvents = await db
+			.select()
+			.from(events)
+			.where(eq(events.churchOrganizationId, organizationId));
 
-	const orgEvents = await db
-		.select()
-		.from(events)
-		.where(eq(events.churchOrganizationId, organizationId));
+		const permissionsService = new PermissionsService();
+		const permissions = await permissionsService.getEventPermissions(
+			user.id,
+			organizationId,
+		);
 
-	const permissionsService = new PermissionsService();
-	const permissions = await permissionsService.getEventPermissions(
-		user.id,
-		organizationId,
-	);
+		// Transform the database events into calendar events
+		const calendarEvents: CalendarEvent[] = orgEvents.map((event) => ({
+			id: event.id,
+			title: event.title,
+			start: event.startDate,
+			end: event.endDate,
+			allDay: event.allDay,
+			description: event.description || undefined,
+			type: event.type as "local" | "recurring" | "mission",
+			location: event.location || undefined,
+			startDate: event.startDate,
+			endDate: event.endDate,
+		}));
 
-	// Transform the database events into calendar events
-	const calendarEvents: CalendarEvent[] = orgEvents.map((event) => ({
-		id: event.id,
-		title: event.title,
-		start: event.startDate,
-		end: event.endDate,
-		allDay: event.allDay,
-		description: event.description || undefined,
-		type: event.type as "local" | "recurring" | "mission",
-		location: event.location || undefined,
-		startDate: event.startDate,
-		endDate: event.endDate,
-	}));
+		// Pre-sort events into upcoming and previous
+		const now = new Date();
+		const upcomingEvents = calendarEvents.filter(
+			(event) => new Date(event.startDate) >= now,
+		);
+		const previousEvents = calendarEvents.filter(
+			(event) => new Date(event.startDate) < now,
+		);
 
-	// Pre-sort events into upcoming and previous
-	const now = new Date();
-	const upcomingEvents = calendarEvents.filter(
-		(event) => new Date(event.startDate) >= now,
-	);
-	const previousEvents = calendarEvents.filter(
-		(event) => new Date(event.startDate) < now,
-	);
+		return {
+			events: calendarEvents,
+			upcomingEvents,
+			previousEvents,
+			permissions,
+		};
+	},
+	true,
+);
 
-	return {
-		events: calendarEvents,
-		upcomingEvents,
-		previousEvents,
-		permissions,
-	};
-};
-
-export const action = async ({ request, params }: Route.ActionArgs) => {
+export const action = createAuthLoader(async ({ request, params }) => {
 	const formData = await request.formData();
 	const action = formData.get("action");
-	const user = await authenticator.isAuthenticated(request);
+
 	if (!user) {
 		throw new Error("User is not authenticated");
 	}
@@ -209,7 +208,7 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
 	}
 
 	throw new Error("Invalid action");
-};
+}, true);
 
 function EventCard({
 	event,
@@ -293,6 +292,8 @@ export default function EventsLayout() {
 	const organization = useParams().organization;
 	const navigate = useNavigate();
 	const submit = useSubmit();
+
+	console.log(events);
 
 	// Get view from search params, default to calendar
 	const view = searchParams.get("view") || "calendar";

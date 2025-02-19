@@ -1,26 +1,19 @@
-import {
-	data,
-	Form,
-	useActionData,
-	useLoaderData,
-	useNavigate,
-} from "react-router";
-import { Button } from "~/components/ui/button";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { db } from "~/server/dbConnection";
+import { getUser, updateUser } from "@/server/dataServices/UserDataService";
+import { eq } from "drizzle-orm";
+import { useEffect, useState } from "react";
+import { Form, useActionData, useLoaderData, useNavigate } from "react-router";
 import {
 	churchOrganization,
 	users,
 	usersTochurchOrganization,
 } from "server/db/schema";
-import { eq } from "drizzle-orm";
-import { Sheet, SheetContent } from "~/components/ui/sheet";
-import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { PageLayout } from "~/src/components/layout/PageLayout";
-import UsersForm from "~/src/components/forms/users/UsersForm";
-import { getUser, updateUser } from "@/server/dataServices/UserDataService";
+import { Button } from "~/components/ui/button";
+import { Sheet, SheetContent } from "~/components/ui/sheet";
 import { createAuthLoader } from "~/server/auth/authLoader";
+import { db } from "~/server/dbConnection";
+import UsersForm from "~/src/components/forms/users/UsersForm";
+import { PageLayout } from "~/src/components/layout/PageLayout";
 
 export const loader = createAuthLoader(
 	async ({ request, params, userContext }) => {
@@ -38,102 +31,93 @@ export const loader = createAuthLoader(
 	true,
 );
 
-export const action = async ({ request, params }) => {
-	if (request.method === "POST") {
-		const authUser = await authenticator.isAuthenticated(request);
-		if (!authUser)
-			return data({ message: "Not Authenticated" }, { status: 401 });
+export const action = createAuthLoader(
+	async ({ request, auth, params, userContext }) => {
+		if (request.method === "POST") {
+			const formData = await request.formData();
+			const user = {
+				firstName: formData.get("firstName"),
+				lastName: formData.get("lastName"),
+				middleName: formData.get("middleName"),
+				email: formData.get("email"),
+				phone: formData.get("phone"),
+				address: formData.get("address"),
+				city: formData.get("city"),
+				state: formData.get("state"),
+				zip: formData.get("zip"),
+			};
 
-		const formData = await request.formData();
-		const user = {
-			firstName: formData.get("firstName"),
-			lastName: formData.get("lastName"),
-			middleName: formData.get("middleName"),
-			email: formData.get("email"),
-			phone: formData.get("phone"),
-			address: formData.get("address"),
-			city: formData.get("city"),
-			state: formData.get("state"),
-			zip: formData.get("zip"),
-		};
+			const existingUser = await getUser(user.email);
 
-		const existingUser = await getUser(user.email);
+			if (existingUser.users) {
+				const response = await db
+					.insert(usersTochurchOrganization)
+					.values({
+						churchOrganizationId: params.organization,
+						userId: existingUser.users.id,
+						isAdmin: false,
+					})
+					.returning();
 
-		if (existingUser.users) {
+				return {
+					success: true,
+					message: "User added to organization",
+				};
+			}
+
+			const newUser = await db
+				.insert(users)
+				.values({
+					...user,
+				})
+				.returning();
+
 			const response = await db
 				.insert(usersTochurchOrganization)
 				.values({
 					churchOrganizationId: params.organization,
-					userId: existingUser.users.id,
-					isAdmin: false,
+					userId: newUser[0].id,
 				})
 				.returning();
 
 			return {
+				member: response[0],
 				success: true,
-				message: "User added to organization",
 			};
 		}
 
-		const newUser = await db
-			.insert(users)
-			.values({
-				...user,
-			})
-			.returning();
+		if (request.method === "DELETE") {
+			const response = await db
+				.delete(usersTochurchOrganization)
+				.where(eq(usersTochurchOrganization.userId, params.userId));
+			return {
+				success: true,
+			};
+		}
 
-		const response = await db
-			.insert(usersTochurchOrganization)
-			.values({
-				churchOrganizationId: params.organization,
-				userId: newUser[0].id,
-			})
-			.returning();
+		if (request.method === "PUT") {
+			const formData = await request.formData();
+			const user = {
+				firstName: formData.get("firstName"),
+				lastName: formData.get("lastName"),
+				middleName: formData.get("middleName"),
+				email: formData.get("email"),
+				phone: formData.get("phone"),
+				address: formData.get("address"),
+				city: formData.get("city"),
+				state: formData.get("state"),
+				zip: formData.get("zip"),
+			} as typeof users;
 
-		return {
-			member: response[0],
-			success: true,
-		};
-	}
+			const response = await updateUser(params.userId, user);
 
-	if (request.method === "DELETE") {
-		const authUser = await authenticator.isAuthenticated(request);
-		if (!authUser)
-			return data({ message: "Not Authenticated" }, { status: 401 });
-
-		const response = await db
-			.delete(usersTochurchOrganization)
-			.where(eq(usersTochurchOrganization.userId, params.userId));
-		return {
-			success: true,
-		};
-	}
-
-	if (request.method === "PUT") {
-		const authUser = await authenticator.isAuthenticated(request);
-		if (!authUser)
-			return data({ message: "Not Authenticated" }, { status: 401 });
-
-		const formData = await request.formData();
-		const user = {
-			firstName: formData.get("firstName"),
-			lastName: formData.get("lastName"),
-			middleName: formData.get("middleName"),
-			email: formData.get("email"),
-			phone: formData.get("phone"),
-			address: formData.get("address"),
-			city: formData.get("city"),
-			state: formData.get("state"),
-			zip: formData.get("zip"),
-		} as typeof users;
-
-		const response = await updateUser(params.userId, user);
-
-		return {
-			success: true,
-		};
-	}
-};
+			return {
+				success: true,
+			};
+		}
+	},
+	true,
+);
 
 const AddMember = () => {
 	const loaderData = useLoaderData();
@@ -142,6 +126,7 @@ const AddMember = () => {
 	const [isOpen, setIsOpen] = useState(true);
 
 	useEffect(() => {
+		console.log(actionData);
 		if (actionData?.success) {
 			toast.success("Member Added", {
 				description: "The member has been added successfully",

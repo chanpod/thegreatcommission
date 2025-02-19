@@ -24,6 +24,8 @@ import { createAuthLoader } from "~/server/auth/authLoader";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { PermissionsService } from "@/server/services/PermissionsService";
 import { format } from "date-fns";
+import { GuidedMessageComposer } from "~/components/messaging/GuidedMessageComposer";
+import { useState } from "react";
 
 export const links: Route.LinksFunction = () => [
 	{ rel: "stylesheet", href: stylesheet },
@@ -112,6 +114,7 @@ export default function OrganizationLayout() {
 		useLoaderData<typeof loader>();
 	const location = useLocation();
 	const currentPath = location.pathname.split("/").pop() || "";
+	const [showMessageComposer, setShowMessageComposer] = useState(false);
 
 	return (
 		<div className="min-h-screen bg-gray-100">
@@ -140,6 +143,11 @@ export default function OrganizationLayout() {
 							>
 								<Settings className="h-5 w-5 text-gray-600" />
 							</Link>
+						)}
+						{permissions.canMessage && (
+							<Button onClick={() => setShowMessageComposer(true)}>
+								Message
+							</Button>
 						)}
 					</div>
 				</div>
@@ -195,6 +203,12 @@ export default function OrganizationLayout() {
 					<Outlet />
 				</div>
 			</main>
+
+			<GuidedMessageComposer
+				open={showMessageComposer}
+				onOpenChange={setShowMessageComposer}
+				organizationId={organization.id}
+			/>
 		</div>
 	);
 }

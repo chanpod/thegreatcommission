@@ -32,7 +32,7 @@ import {
 	getPermissionLabel,
 } from "~/lib/permissions";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
+
 import { db } from "~/server/dbConnection";
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
 import { Input } from "~/src/components/forms/input/Input";

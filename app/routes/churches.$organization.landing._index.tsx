@@ -1,21 +1,16 @@
-import { useLoaderData, Link } from "react-router";
-import LandingPage from "~/src/components/churchLandingPage/LandingPage";
-import { db } from "~/server/dbConnection";
+import { PermissionsService } from "@/server/services/PermissionsService";
+import { and, eq, gte } from "drizzle-orm";
+import { Settings } from "lucide-react";
+import { Link, useLoaderData } from "react-router";
 import {
 	churchOrganization,
 	events,
 	landingPageConfig,
-	users,
-	usersToRoles,
 } from "server/db/schema";
-import { and, eq, gte } from "drizzle-orm";
-import type { Route } from "../+types/root";
 import { Button } from "~/components/ui/button";
-import { Settings } from "lucide-react";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { ChurchService } from "~/services/ChurchService";
-import { PermissionsService } from "@/server/services/PermissionsService";
 import { createAuthLoader } from "~/server/auth/authLoader";
+import { db } from "~/server/dbConnection";
+import LandingPage from "~/src/components/churchLandingPage/LandingPage";
 
 export const loader = createAuthLoader(
 	async ({ params, request, userContext }) => {

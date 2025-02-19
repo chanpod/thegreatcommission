@@ -1,12 +1,11 @@
 import {
-	usersTochurchOrganization,
 	organizationRoles,
 	usersToOrganizationRoles,
+	usersTochurchOrganization,
 } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { data } from "react-router";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { db } from "~/server/dbConnection";
 import { AuthorizationService } from "~/services/AuthorizationService";
 

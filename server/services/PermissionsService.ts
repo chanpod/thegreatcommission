@@ -47,6 +47,7 @@ export class PermissionsService {
 				"organization.assign",
 				organizationId,
 			),
+			canMessage: authService.hasPermission("members.message", organizationId),
 		};
 	}
 
