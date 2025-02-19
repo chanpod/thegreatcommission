@@ -31,6 +31,7 @@ import {
 	getAllPermissions,
 	getPermissionLabel,
 } from "~/lib/permissions";
+import { createAuthLoader } from "~/server/auth/authLoader";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { db } from "~/server/dbConnection";
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
@@ -48,54 +49,17 @@ type RoleWithMembers = {
 	}>;
 };
 
-export const loader = async ({ request, params }) => {
-	const user = await authenticator.isAuthenticated(request);
-	if (!user) {
-		throw new Error("Not authenticated");
-	}
+export const loader = createAuthLoader(
+	async ({ request, params, userContext }) => {
+		const user = userContext?.user;
 
-	// Initialize services
-	const permissionsService = new PermissionsService();
+		// Initialize services
+		const permissionsService = new PermissionsService();
 
-	// Get permissions and roles data in parallel
-	const [permissions, rolesList] = await Promise.all([
-		permissionsService.getRolePermissions(user.id, params.organization),
-		db
-			.select({
-				role: rolesTable,
-				userId: usersToOrganizationRoles.userId,
-				organizationRoleId: usersToOrganizationRoles.organizationRoleId,
-				churchOrganizationId: usersToOrganizationRoles.churchOrganizationId,
-				user: users,
-			})
-			.from(rolesTable)
-			.where(eq(rolesTable.churchOrganizationId, params.organization))
-			.leftJoin(
-				usersToOrganizationRoles,
-				eq(usersToOrganizationRoles.organizationRoleId, rolesTable.id),
-			)
-			.leftJoin(users, eq(usersToOrganizationRoles.userId, users.id)),
-	]);
-
-	// Check if admin role exists
-	const adminRole = rolesList.find((r) => r.role.name === "Admin");
-
-	// If admin role doesn't exist, create it and refetch the roles list
-	if (!adminRole) {
-		await db.insert(rolesTable).values({
-			name: "Admin",
-			description: "Full administrative control",
-			permissions: getAllPermissions(),
-			isDefault: false,
-			isActive: true,
-			churchOrganizationId: params.organization,
-			updatedAt: new Date(),
-		});
-
-		// Refetch the roles list
-		rolesList.length = 0;
-		rolesList.push(
-			...(await db
+		// Get permissions and roles data in parallel
+		const [permissions, rolesList] = await Promise.all([
+			permissionsService.getRolePermissions(user.id, params.organization),
+			db
 				.select({
 					role: rolesTable,
 					userId: usersToOrganizationRoles.userId,
@@ -109,47 +73,84 @@ export const loader = async ({ request, params }) => {
 					usersToOrganizationRoles,
 					eq(usersToOrganizationRoles.organizationRoleId, rolesTable.id),
 				)
-				.leftJoin(users, eq(usersToOrganizationRoles.userId, users.id))),
-		);
-	}
+				.leftJoin(users, eq(usersToOrganizationRoles.userId, users.id)),
+		]);
 
-	// Group members by role
-	const rolesWithMembers = rolesList.reduce((acc, curr) => {
-		const existingRole = acc.find((r) => r.role.id === curr.role.id);
-		if (existingRole) {
-			if (curr.user) {
-				existingRole.members.push({
-					userId: curr.userId,
-					organizationRoleId: curr.organizationRoleId,
-					churchOrganizationId: curr.churchOrganizationId,
-					user: curr.user,
-				});
-			}
-			return acc;
+		// Check if admin role exists
+		const adminRole = rolesList.find((r) => r.role.name === "Admin");
+
+		// If admin role doesn't exist, create it and refetch the roles list
+		if (!adminRole) {
+			await db.insert(rolesTable).values({
+				name: "Admin",
+				description: "Full administrative control",
+				permissions: getAllPermissions(),
+				isDefault: false,
+				isActive: true,
+				churchOrganizationId: params.organization,
+				updatedAt: new Date(),
+			});
+
+			// Refetch the roles list
+			rolesList.length = 0;
+			rolesList.push(
+				...(await db
+					.select({
+						role: rolesTable,
+						userId: usersToOrganizationRoles.userId,
+						organizationRoleId: usersToOrganizationRoles.organizationRoleId,
+						churchOrganizationId: usersToOrganizationRoles.churchOrganizationId,
+						user: users,
+					})
+					.from(rolesTable)
+					.where(eq(rolesTable.churchOrganizationId, params.organization))
+					.leftJoin(
+						usersToOrganizationRoles,
+						eq(usersToOrganizationRoles.organizationRoleId, rolesTable.id),
+					)
+					.leftJoin(users, eq(usersToOrganizationRoles.userId, users.id))),
+			);
 		}
-		acc.push({
-			role: curr.role,
-			members: curr.user
-				? [
-						{
-							userId: curr.userId,
-							organizationRoleId: curr.organizationRoleId,
-							churchOrganizationId: curr.churchOrganizationId,
-							user: curr.user,
-						},
-					]
-				: [],
-		});
-		return acc;
-	}, [] as RoleWithMembers[]);
 
-	console.log("permissions", permissions);
+		// Group members by role
+		const rolesWithMembers = rolesList.reduce((acc, curr) => {
+			const existingRole = acc.find((r) => r.role.id === curr.role.id);
+			if (existingRole) {
+				if (curr.user) {
+					existingRole.members.push({
+						userId: curr.userId,
+						organizationRoleId: curr.organizationRoleId,
+						churchOrganizationId: curr.churchOrganizationId,
+						user: curr.user,
+					});
+				}
+				return acc;
+			}
+			acc.push({
+				role: curr.role,
+				members: curr.user
+					? [
+							{
+								userId: curr.userId,
+								organizationRoleId: curr.organizationRoleId,
+								churchOrganizationId: curr.churchOrganizationId,
+								user: curr.user,
+							},
+						]
+					: [],
+			});
+			return acc;
+		}, [] as RoleWithMembers[]);
 
-	return {
-		roles: rolesWithMembers,
-		permissions,
-	};
-};
+		console.log("permissions", permissions);
+
+		return {
+			roles: rolesWithMembers,
+			permissions,
+		};
+	},
+	true,
+);
 
 export const action = async ({ request, params }) => {
 	const formData = await request.formData();

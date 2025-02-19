@@ -17,7 +17,7 @@ import {
 	useParams,
 	useSubmit,
 } from "react-router";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
+
 import { db } from "~/server/dbConnection";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import { UserContext } from "~/src/providers/userProvider";
@@ -75,45 +75,42 @@ import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
 import { TeamsDataService } from "@/server/dataServices/TeamsDataService";
 import { OrganizationRolesDataService } from "@/server/dataServices/OrganizationRolesDataService";
 import { OrganizationDataService } from "@/server/dataServices/OrganizationDataService";
+import { createAuthLoader } from "~/server/auth/authLoader";
 
-export const loader = async ({ request, params }) => {
-	const user = await authenticator.isAuthenticated(request);
-	if (!user) {
-		throw new Error("Not authenticated");
-	}
+export const loader = createAuthLoader(
+	async ({ request, auth, params, userContext }) => {
+		const user = userContext?.user;
+		// Initialize services
+		const permissionsService = new PermissionsService();
+		const teamsDataService = new TeamsDataService();
+		const rolesDataService = new OrganizationRolesDataService();
+		const organizationDataService = new OrganizationDataService();
 
-	// Initialize services
-	const permissionsService = new PermissionsService();
-	const teamsDataService = new TeamsDataService();
-	const rolesDataService = new OrganizationRolesDataService();
-	const organizationDataService = new OrganizationDataService();
+		// Get permissions and member data in parallel
+		const [permissions, members, teams, roles] = await Promise.all([
+			permissionsService.getMemberPermissions(user.id, params.organization),
+			organizationDataService.getOrganizationMembers(params.organization),
+			teamsDataService.getOrganizationTeams(params.organization),
+			rolesDataService.getOrganizationRoles(params.organization),
+		]);
 
-	// Get permissions and member data in parallel
-	const [permissions, members, teams, roles] = await Promise.all([
-		permissionsService.getMemberPermissions(user.id, params.organization),
-		organizationDataService.getOrganizationMembers(params.organization),
-		teamsDataService.getOrganizationTeams(params.organization),
-		rolesDataService.getOrganizationRoles(params.organization),
-	]);
+		// Transform member data
+		const transformedMembers = members.map((member) => ({
+			...member,
+			teams: Array.isArray(member.teams)
+				? member.teams
+				: [member.teams].filter(Boolean),
+		}));
 
-	console.log(members);
-	console.log(roles);
-
-	// Transform member data
-	const transformedMembers = members.map((member) => ({
-		...member,
-		teams: Array.isArray(member.teams)
-			? member.teams
-			: [member.teams].filter(Boolean),
-	}));
-
-	return {
-		members: transformedMembers,
-		teams,
-		roles,
-		permissions,
-	};
-};
+		return {
+			members: transformedMembers,
+			teams,
+			roles,
+			permissions,
+		};
+	},
+	true,
+);
 
 const formatPhoneNumber = (phone: string) => {
 	// Remove any non-digit characters

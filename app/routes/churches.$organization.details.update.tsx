@@ -18,33 +18,36 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import { PermissionsService } from "@/server/services/PermissionsService";
+import { createAuthLoader } from "~/server/auth/authLoader";
 
-export const loader = async ({ request, params }: Route.LoaderArgs) => {
-	const user = await authenticator.isAuthenticated(request);
-	if (!user) return data({ message: "Not Authenticated" }, { status: 401 });
+export const loader = createAuthLoader(
+	async ({ request, auth, params, userContext }) => {
+		const user = userContext?.user;
 
-	const permissionsService = new PermissionsService();
-	const permissions = await permissionsService.getOrganizationPermissions(
-		user.id,
-		params.organization,
-	);
+		const permissionsService = new PermissionsService();
+		const permissions = await permissionsService.getOrganizationPermissions(
+			user.id,
+			params.organization,
+		);
 
-	if (!permissions.canEdit) {
-		throw new Error("You are not authorized to edit this organization");
-	}
+		if (!permissions.canEdit) {
+			throw new Error("You are not authorized to edit this organization");
+		}
 
-	const organization = await db
-		.select()
-		.from(churchOrganization)
-		.where(eq(churchOrganization.id, params.organization))
-		.then((data) => {
-			return data[0];
-		});
+		const organization = await db
+			.select()
+			.from(churchOrganization)
+			.where(eq(churchOrganization.id, params.organization))
+			.then((data) => {
+				return data[0];
+			});
 
-	return {
-		organization,
-	};
-};
+		return {
+			organization,
+		};
+	},
+	true,
+);
 
 export const action = async ({ request, params }: Route.ActionArgs) => {
 	if (request.method === "PUT") {

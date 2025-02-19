@@ -27,22 +27,27 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
+import { createAuthLoader } from "~/server/auth/authLoader";
 
-export const loader = async ({ params }: Route.LoaderArgs) => {
-	const config = await db
-		.select()
-		.from(landingPageConfig)
-		.where(eq(landingPageConfig.churchOrganizationId, params.organization))
-		.then((res) => res[0]);
+export const loader = createAuthLoader(
+	async ({ request, params, userContext }) => {
+		const user = userContext?.user;
+		const config = await db
+			.select()
+			.from(landingPageConfig)
+			.where(eq(landingPageConfig.churchOrganizationId, params.organization))
+			.then((res) => res[0]);
 
-	const organization = await db
-		.select()
-		.from(churchOrganization)
-		.where(eq(churchOrganization.id, params.organization))
-		.then((res) => res[0]);
+		const organization = await db
+			.select()
+			.from(churchOrganization)
+			.where(eq(churchOrganization.id, params.organization))
+			.then((res) => res[0]);
 
-	return { config, organization };
-};
+		return { config, organization };
+	},
+	true,
+);
 
 export const action = async ({ request, params }: Route.ActionArgs) => {
 	const formData = await request.formData();

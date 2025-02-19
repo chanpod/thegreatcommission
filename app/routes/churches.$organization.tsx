@@ -10,54 +10,51 @@ import {
 	useRouteError,
 } from "react-router";
 
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { ChurchService } from "~/services/ChurchService";
-
 import { eq } from "drizzle-orm";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import type { ActionFunctionArgs } from "react-router";
 import { churchOrganization } from "server/db/schema";
 import { Button } from "~/components/ui/button";
 import { db } from "~/server/dbConnection";
 import type { Route } from "./+types";
-
-import { PermissionsService } from "@/server/services/PermissionsService";
-import { format } from "date-fns";
 import { Bell, Settings } from "lucide-react";
 import stylesheet from "~/components/messaging/styles.css?url";
 import { cn } from "~/lib/utils";
+import { createAuthLoader } from "~/server/auth/authLoader";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
+import { PermissionsService } from "@/server/services/PermissionsService";
+import { format } from "date-fns";
 
 export const links: Route.LinksFunction = () => [
 	{ rel: "stylesheet", href: stylesheet },
 ];
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const user = await authenticator.isAuthenticated(request);
-	if (!user) {
-		throw new Error("Not authenticated");
-	}
+export const loader = createAuthLoader(
+	async ({ request, auth, params, userContext }) => {
+		const organization = await db
+			.select()
+			.from(churchOrganization)
+			.where(eq(churchOrganization.id, params.organization))
+			.then((rows) => rows[0]);
 
-	const organization = await db
-		.select()
-		.from(churchOrganization)
-		.where(eq(churchOrganization.id, params.organization))
-		.then((rows) => rows[0]);
+		if (!organization) {
+			throw new Error("Organization not found");
+		}
 
-	if (!organization) {
-		throw new Error("Organization not found");
-	}
+		const permissionsService = new PermissionsService();
+		const permissions = await permissionsService.getOrganizationPermissions(
+			userContext.user.id,
+			params.organization,
+		);
 
-	const permissionsService = new PermissionsService();
-	const permissions = await permissionsService.getOrganizationPermissions(
-		user.id,
-		params.organization,
-	);
-
-	return {
-		organization,
-		permissions,
-		lastUpdated: organization.updatedAt,
-	};
-};
+		return {
+			organization,
+			permissions,
+			lastUpdated: organization.updatedAt,
+		};
+	},
+	true,
+);
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
 	if (!params.organization) {

@@ -15,64 +15,65 @@ import { Settings } from "lucide-react";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { ChurchService } from "~/services/ChurchService";
 import { PermissionsService } from "@/server/services/PermissionsService";
+import { createAuthLoader } from "~/server/auth/authLoader";
 
-export const loader = async ({ params, request }: Route.LoaderArgs) => {
-	const user = await authenticator.isAuthenticated(request);
-	if (!user) {
-		throw new Error("Not authenticated");
-	}
+export const loader = createAuthLoader(
+	async ({ params, request, userContext }) => {
+		const user = userContext?.user;
 
-	const permissionsService = new PermissionsService();
-	const permissions = await permissionsService.getOrganizationPermissions(
-		user.id,
-		params.organization,
-	);
-
-	const organization = await db
-		.select()
-		.from(churchOrganization)
-		.where(eq(churchOrganization.id, params.organization))
-		.then((res) => res[0]);
-
-	const config = await db
-		.select()
-		.from(landingPageConfig)
-		.where(eq(landingPageConfig.churchOrganizationId, params.organization))
-		.then((res) => res[0]);
-
-	// Get recurring service times
-	const serviceTimes = await db
-		.select()
-		.from(events)
-		.where(
-			and(
-				eq(events.churchOrganizationId, params.organization),
-				eq(events.type, "recurring"),
-			),
+		const permissionsService = new PermissionsService();
+		const permissions = await permissionsService.getOrganizationPermissions(
+			user.id,
+			params.organization,
 		);
 
-	const now = new Date();
-	// Get upcoming local events (non-recurring, non-mission)
-	const upcomingEvents = await db
-		.select()
-		.from(events)
-		.where(
-			and(
-				eq(events.churchOrganizationId, params.organization),
-				eq(events.type, "local"),
-				gte(events.startDate, now),
-			),
-		)
-		.limit(3);
+		const organization = await db
+			.select()
+			.from(churchOrganization)
+			.where(eq(churchOrganization.id, params.organization))
+			.then((res) => res[0]);
 
-	return {
-		organization,
-		config,
-		serviceTimes,
-		upcomingEvents,
-		permissions,
-	};
-};
+		const config = await db
+			.select()
+			.from(landingPageConfig)
+			.where(eq(landingPageConfig.churchOrganizationId, params.organization))
+			.then((res) => res[0]);
+
+		// Get recurring service times
+		const serviceTimes = await db
+			.select()
+			.from(events)
+			.where(
+				and(
+					eq(events.churchOrganizationId, params.organization),
+					eq(events.type, "recurring"),
+				),
+			);
+
+		const now = new Date();
+		// Get upcoming local events (non-recurring, non-mission)
+		const upcomingEvents = await db
+			.select()
+			.from(events)
+			.where(
+				and(
+					eq(events.churchOrganizationId, params.organization),
+					eq(events.type, "local"),
+					gte(events.startDate, now),
+				),
+			)
+			.limit(3);
+
+		return {
+			organization,
+			config,
+			serviceTimes,
+			upcomingEvents,
+			permissions,
+		};
+	},
+	true,
+);
 
 export default function Landing() {
 	const { organization, config, serviceTimes, upcomingEvents, permissions } =

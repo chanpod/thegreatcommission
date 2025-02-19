@@ -36,6 +36,7 @@ import { MembersList } from "~/src/components/listItems/components/MembersList";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { PermissionsService } from "@/server/services/PermissionsService";
 import { TeamsDataService } from "@/server/dataServices/TeamsDataService";
+import { createAuthLoader } from "~/server/auth/authLoader";
 
 type TeamWithMembers = {
 	team: typeof teamsTable.$inferSelect;
@@ -45,29 +46,29 @@ type TeamWithMembers = {
 	}>;
 };
 
-export const loader = async ({ request, params }) => {
-	const user = await authenticator.isAuthenticated(request);
-	if (!user) {
-		throw new Error("Not authenticated");
-	}
+export const loader = createAuthLoader(
+	async ({ request, params, userContext }) => {
+		const user = userContext?.user;
 
-	// Initialize services
-	const permissionsService = new PermissionsService();
-	const teamsService = new TeamsDataService();
+		// Initialize services
+		const permissionsService = new PermissionsService();
+		const teamsService = new TeamsDataService();
 
-	// Get permissions and team data in parallel
-	const [permissions, teams] = await Promise.all([
-		permissionsService.getTeamPermissions(user.id, params.organization),
-		teamsService.getOrganizationTeams(params.organization),
-	]);
+		// Get permissions and team data in parallel
+		const [permissions, teams] = await Promise.all([
+			permissionsService.getTeamPermissions(user.id, params.organization),
+			teamsService.getOrganizationTeams(params.organization),
+		]);
 
-	console.log(teams);
+		console.log(teams);
 
-	return {
-		teams,
-		permissions,
-	};
-};
+		return {
+			teams,
+			permissions,
+		};
+	},
+	true,
+);
 
 export const action = async ({ request, params }) => {
 	const formData = await request.formData();

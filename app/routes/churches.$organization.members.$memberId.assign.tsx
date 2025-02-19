@@ -29,53 +29,58 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import type { Route } from "../+types";
 import { usePermissions } from "~/lib/hooks/usePermissions";
+import { createAuthLoader } from "~/server/auth/authLoader";
 
-export const loader = async ({ params }: Route.LoaderArgs) => {
-	const { organization, memberId } = params;
-	if (!organization || !memberId)
-		throw new Error("Missing required parameters");
+export const loader = createAuthLoader(
+	async ({ request, params, userContext }) => {
+		const user = userContext?.user;
+		const { organization, memberId } = params;
+		if (!organization || !memberId)
+			throw new Error("Missing required parameters");
 
-	// Get member details
-	const member = await db
-		.select()
-		.from(users)
-		.where(eq(users.id, memberId))
-		.then((rows) => rows[0]);
+		// Get member details
+		const member = await db
+			.select()
+			.from(users)
+			.where(eq(users.id, memberId))
+			.then((rows) => rows[0]);
 
-	if (!member) throw new Error("Member not found");
+		if (!member) throw new Error("Member not found");
 
-	// Get all teams for the organization
-	const orgTeams = await db
-		.select()
-		.from(teams)
-		.where(eq(teams.churchOrganizationId, organization));
+		// Get all teams for the organization
+		const orgTeams = await db
+			.select()
+			.from(teams)
+			.where(eq(teams.churchOrganizationId, organization));
 
-	// Get member's current team assignments
-	const memberTeams = await db
-		.select()
-		.from(usersToTeams)
-		.where(eq(usersToTeams.userId, memberId));
+		// Get member's current team assignments
+		const memberTeams = await db
+			.select()
+			.from(usersToTeams)
+			.where(eq(usersToTeams.userId, memberId));
 
-	// Get all roles for the organization
-	const orgRoles = await db
-		.select()
-		.from(organizationRoles)
-		.where(eq(organizationRoles.churchOrganizationId, organization));
+		// Get all roles for the organization
+		const orgRoles = await db
+			.select()
+			.from(organizationRoles)
+			.where(eq(organizationRoles.churchOrganizationId, organization));
 
-	// Get member's current role assignments
-	const memberRoles = await db
-		.select()
-		.from(usersToOrganizationRoles)
-		.where(eq(usersToOrganizationRoles.userId, memberId));
+		// Get member's current role assignments
+		const memberRoles = await db
+			.select()
+			.from(usersToOrganizationRoles)
+			.where(eq(usersToOrganizationRoles.userId, memberId));
 
-	return {
-		member,
-		teams: orgTeams,
-		memberTeams: memberTeams.map((mt) => mt.teamId),
-		roles: orgRoles,
-		memberRoles: memberRoles.map((mr) => mr.organizationRoleId),
-	};
-};
+		return {
+			member,
+			teams: orgTeams,
+			memberTeams: memberTeams.map((mt) => mt.teamId),
+			roles: orgRoles,
+			memberRoles: memberRoles.map((mr) => mr.organizationRoleId),
+		};
+	},
+	true,
+);
 
 export const action = async ({ request, params }: Route.ActionArgs) => {
 	const { organization, memberId } = params;
