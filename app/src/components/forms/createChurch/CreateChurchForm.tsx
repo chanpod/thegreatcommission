@@ -118,6 +118,7 @@ const CreateChurchForm = (props: Props) => {
 				<Input
 					label="Live Stream URL"
 					name="liveStreamUrl"
+					defaultValue={props?.initialValues?.liveStreamUrl ?? ""}
 					placeholder="https://www.youtube.com/embed/your-stream-id"
 					prefix={<Video className="h-4 w-4" />}
 					onChange={(e) => setLiveStreamUrl(e.target.value)}

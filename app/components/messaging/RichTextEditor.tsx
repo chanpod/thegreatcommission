@@ -47,17 +47,20 @@ import {
 } from "~/components/ui/popover";
 import { UploadButton } from "~/utils/uploadthing";
 import { toast } from "sonner";
+import { Editor } from "@tinymce/tinymce-react";
 
-export type EmailTemplate = {
+export interface EmailTemplate {
 	id: string;
 	name: string;
 	subject: string;
 	content: string;
-};
+}
 
-interface RichTextEditorProps {
-	content: string;
-	onContentChange: (content: string) => void;
+export interface RichTextEditorProps {
+	content?: string;
+	onContentChange?: (content: string) => void;
+	name?: string;
+	defaultValue?: string;
 	showSubject?: boolean;
 	subject?: string;
 	onSubjectChange?: (subject: string) => void;
@@ -97,10 +100,12 @@ const TEXT_COLORS = [
 
 export function RichTextEditor({
 	content,
-	subject,
 	onContentChange,
-	onSubjectChange,
+	name,
+	defaultValue,
 	showSubject = false,
+	subject,
+	onSubjectChange,
 	templates,
 	onSaveDraft,
 	selectedTemplateId,
@@ -113,6 +118,9 @@ export function RichTextEditor({
 	const [linkUrl, setLinkUrl] = useState("");
 	const [imageUrl, setImageUrl] = useState("");
 	const [imageAlt, setImageAlt] = useState("");
+	const [editorContent, setEditorContent] = useState(
+		defaultValue || content || "",
+	);
 
 	const editor = useEditor({
 		extensions: [
@@ -141,25 +149,24 @@ export function RichTextEditor({
 			Image,
 			FontSize,
 		],
-		content,
+		content: editorContent,
 		onUpdate: ({ editor }) => {
-			onContentChange(editor.getHTML());
+			setEditorContent(editor.getHTML());
+			onContentChange?.(editor.getHTML());
 		},
 	});
 
-	// Update editor content when content prop changes
 	useEffect(() => {
-		if (editor && content !== editor.getHTML()) {
-			editor.commands.setContent(content);
+		if (content !== undefined) {
+			setEditorContent(content);
 		}
-	}, [editor, content]);
+	}, [content]);
 
-	// Handle template selection
 	useEffect(() => {
 		if (selectedTemplateId && templates) {
 			const template = templates.find((t) => t.id === selectedTemplateId);
 			if (template) {
-				onContentChange(template.content);
+				onContentChange?.(template.content);
 				if (editor) {
 					editor.commands.setContent(template.content);
 				}
@@ -550,6 +557,8 @@ export function RichTextEditor({
 					</div>
 				</DialogContent>
 			</Dialog>
+
+			{name && <input type="hidden" name={name} value={editorContent} />}
 		</div>
 	);
 }

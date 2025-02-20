@@ -37,7 +37,7 @@ import {
 	CardTitle,
 } from "~/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { cn } from "~/lib/utils";
+import { cn, stripHtml } from "~/lib/utils";
 import { db } from "~/server/dbConnection";
 
 import {
@@ -214,7 +214,7 @@ function EventCard({
 				<div className="flex justify-between items-start">
 					<div>
 						<CardTitle>{event.title}</CardTitle>
-						<CardDescription>{event.description}</CardDescription>
+						<CardDescription>{stripHtml(event.description)}</CardDescription>
 					</div>
 					<div className="flex items-center gap-2">
 						<span className={typeColors[event.type as keyof typeof typeColors]}>

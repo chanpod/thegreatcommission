@@ -4,6 +4,7 @@ import {
 	useBeforeUnload,
 	Link,
 	useNavigate,
+	Form,
 } from "react-router";
 import { db } from "~/server/dbConnection";
 import { churchOrganization, landingPageConfig } from "server/db/schema";
@@ -28,6 +29,8 @@ import {
 	AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
 import { createAuthLoader } from "~/server/auth/authLoader";
+import { RichTextEditor } from "~/components/messaging/RichTextEditor";
+import { ClientOnly } from "remix-utils/client-only";
 
 export const loader = createAuthLoader(
 	async ({ request, params, userContext }) => {
@@ -49,45 +52,32 @@ export const loader = createAuthLoader(
 	true,
 );
 
-export const action = async ({ request, params }: Route.ActionArgs) => {
+export const action = createAuthLoader(async ({ request, params }) => {
 	const formData = await request.formData();
 	const now = new Date();
 
+	// Get all form data
 	const configData = {
 		heroImage: formData.get("heroImage") as string,
 		heroHeadline: formData.get("heroHeadline") as string,
 		heroSubheadline: formData.get("heroSubheadline") as string,
 		aboutTitle: formData.get("aboutTitle") as string,
-		aboutContent: formData.get("aboutContent") as string,
+		aboutContent: formData.get("aboutContent") as string, // This will contain the rich text HTML
 		footerContent: formData.get("footerContent") as string,
 		socialLinks: formData.get("socialLinks") as string,
 		contactEmail: formData.get("contactEmail") as string,
 		contactPhone: formData.get("contactPhone") as string,
 		contactAddress: formData.get("contactAddress") as string,
 		updatedAt: now,
-		churchOrganizationId: params.organization,
 	};
 
-	const existingConfig = await db
-		.select()
-		.from(landingPageConfig)
-		.where(eq(landingPageConfig.churchOrganizationId, params.organization))
-		.then((res) => res[0]);
-
-	if (existingConfig) {
-		await db
-			.update(landingPageConfig)
-			.set(configData)
-			.where(eq(landingPageConfig.churchOrganizationId, params.organization));
-	} else {
-		await db.insert(landingPageConfig).values({
-			...configData,
-			// createdAt will be set by defaultNow()
-		});
-	}
+	await db
+		.update(landingPageConfig)
+		.set(configData)
+		.where(eq(landingPageConfig.churchOrganizationId, params.organization));
 
 	return { success: true };
-};
+}, true);
 
 export default function LandingConfig() {
 	const { config, organization } = useLoaderData<typeof loader>();
@@ -224,7 +214,7 @@ export default function LandingConfig() {
 				</div>
 			</div>
 
-			<form onSubmit={handleSubmit} className="space-y-8">
+			<Form onSubmit={handleSubmit} className="space-y-8">
 				<Card>
 					<CardHeader>
 						<CardTitle>Hero Section</CardTitle>
@@ -301,14 +291,20 @@ export default function LandingConfig() {
 						</div>
 						<div>
 							<Label htmlFor="aboutContent">Content</Label>
-							<Textarea
-								id="aboutContent"
-								name="aboutContent"
-								value={formData.aboutContent}
-								onChange={handleFieldChange}
-								placeholder={organization.description}
-								rows={5}
-							/>
+							<ClientOnly>
+								{() => (
+									<RichTextEditor
+										name="aboutContent"
+										defaultValue={formData.aboutContent}
+										onContentChange={(content) => {
+											setFormData((prev) => ({
+												...prev,
+												aboutContent: content,
+											}));
+										}}
+									/>
+								)}
+							</ClientOnly>
 						</div>
 					</CardContent>
 				</Card>
@@ -405,7 +401,7 @@ export default function LandingConfig() {
 						Save Changes
 					</Button>
 				</div>
-			</form>
+			</Form>
 
 			<AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
 				<AlertDialogContent>

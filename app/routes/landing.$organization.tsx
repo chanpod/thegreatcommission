@@ -8,6 +8,7 @@ import {
 } from "server/db/schema";
 import { and, eq, gte } from "drizzle-orm";
 import type { Route } from "./+types";
+import { LiveStreamService } from "~/services/LiveStreamService";
 
 export const loader = async ({ params }: Route.LoaderArgs) => {
 	const organization = await db
@@ -51,16 +52,26 @@ export const loader = async ({ params }: Route.LoaderArgs) => {
 		)
 		.limit(3);
 
+	let isLive = false;
+	if (organization.liveStreamUrl) {
+		console.log("organization.liveStreamUrl", organization.liveStreamUrl);
+		const liveStreamService = new LiveStreamService(
+			process.env.YOUTUBE_API_KEY,
+		);
+		isLive = await liveStreamService.isStreamLive(organization.liveStreamUrl);
+	}
+
 	return {
 		organization,
 		config,
 		serviceTimes,
 		upcomingEvents,
+		isLive,
 	};
 };
 
 export default function PublicLanding() {
-	const { organization, config, serviceTimes, upcomingEvents } =
+	const { organization, config, serviceTimes, upcomingEvents, isLive } =
 		useLoaderData<typeof loader>();
 
 	return (
@@ -70,6 +81,7 @@ export default function PublicLanding() {
 				config={config}
 				serviceTimes={serviceTimes}
 				upcomingEvents={upcomingEvents}
+				isLive={isLive}
 			/>
 		</div>
 	);

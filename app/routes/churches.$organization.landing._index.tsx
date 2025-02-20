@@ -11,6 +11,7 @@ import { Button } from "~/components/ui/button";
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { db } from "~/server/dbConnection";
 import LandingPage from "~/src/components/churchLandingPage/LandingPage";
+import { LiveStreamService } from "~/services/LiveStreamService";
 
 export const loader = createAuthLoader(
 	async ({ params, request, userContext }) => {
@@ -59,20 +60,36 @@ export const loader = createAuthLoader(
 			)
 			.limit(3);
 
+		let isLive = false;
+		if (organization.liveStreamUrl) {
+			console.log("organization.liveStreamUrl", organization.liveStreamUrl);
+			const liveStreamService = new LiveStreamService(
+				process.env.YOUTUBE_API_KEY,
+			);
+			isLive = await liveStreamService.isStreamLive(organization.liveStreamUrl);
+		}
+
 		return {
 			organization,
 			config,
 			serviceTimes,
 			upcomingEvents,
 			permissions,
+			isLive,
 		};
 	},
 	true,
 );
 
 export default function Landing() {
-	const { organization, config, serviceTimes, upcomingEvents, permissions } =
-		useLoaderData<typeof loader>();
+	const {
+		organization,
+		config,
+		serviceTimes,
+		upcomingEvents,
+		permissions,
+		isLive,
+	} = useLoaderData<typeof loader>();
 
 	return (
 		<div className="relative">
@@ -92,6 +109,7 @@ export default function Landing() {
 				config={config}
 				serviceTimes={serviceTimes}
 				upcomingEvents={upcomingEvents}
+				isLive={isLive}
 			/>
 		</div>
 	);
