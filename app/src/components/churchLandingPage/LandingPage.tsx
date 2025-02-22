@@ -57,6 +57,34 @@ function LiveStream({ url }: { url: string }) {
 	);
 }
 
+function ThemeProvider({
+	organization,
+	children,
+}: {
+	organization: typeof churchOrganization.$inferSelect;
+	children: React.ReactNode;
+}) {
+	const themeColors = JSON.parse(
+		organization.themeColors ||
+			'{"primary":"#3b82f6","secondary":"#1e293b","accent":"#8b5cf6"}',
+	);
+
+	return (
+		<div
+			className="landing-page"
+			style={
+				{
+					"--theme-primary": themeColors.primary,
+					"--theme-secondary": themeColors.secondary,
+					"--theme-accent": themeColors.accent,
+				} as React.CSSProperties
+			}
+		>
+			{children}
+		</div>
+	);
+}
+
 const LandingPage = ({
 	organization,
 	config,
@@ -65,42 +93,44 @@ const LandingPage = ({
 	isLive,
 }: LandingPageProps) => {
 	return (
-		<div className="min-h-screen flex flex-col">
-			<Header churchName={organization.name} />
-			<Hero
-				imageUrl={config?.heroImage || organization.churchBannerUrl}
-				headline={config?.heroHeadline || `Welcome to ${organization.name}`}
-				subheadline={
-					config?.heroSubheadline ||
-					"A place of worship, fellowship, and growth"
-				}
-			/>
-			<ServiceTimes
-				services={serviceTimes}
-				liveStreamUrl={organization.liveStreamUrl}
-				isLive={isLive}
-			/>
-			<Events events={upcomingEvents} />
-			<About
-				title={config?.aboutTitle || "About Us"}
-				content={config?.aboutContent || organization.description}
-			/>
+		<ThemeProvider organization={organization}>
+			<div className="min-h-screen flex flex-col">
+				<Header churchName={organization.name} />
+				<Hero
+					imageUrl={config?.heroImage || organization.churchBannerUrl}
+					headline={config?.heroHeadline || `Welcome to ${organization.name}`}
+					subheadline={
+						config?.heroSubheadline ||
+						"A place of worship, fellowship, and growth"
+					}
+				/>
+				<ServiceTimes
+					services={serviceTimes}
+					liveStreamUrl={organization.liveStreamUrl}
+					isLive={isLive}
+				/>
+				<Events events={upcomingEvents} />
+				<About
+					title={config?.aboutTitle || "About Us"}
+					content={config?.aboutContent || organization.description}
+				/>
 
-			<Footer
-				organization={organization}
-				contactInfo={{
-					email: config?.contactEmail || organization.email,
-					phone: config?.contactPhone || organization.phone,
-					address:
-						config?.contactAddress ||
-						`${organization.street}, ${organization.city}, ${organization.state} ${organization.zip}`,
-				}}
-				content={config?.footerContent}
-				socialLinks={
-					config?.socialLinks ? JSON.parse(config.socialLinks) : null
-				}
-			/>
-		</div>
+				<Footer
+					organization={organization}
+					contactInfo={{
+						email: config?.contactEmail || organization.email,
+						phone: config?.contactPhone || organization.phone,
+						address:
+							config?.contactAddress ||
+							`${organization.street}, ${organization.city}, ${organization.state} ${organization.zip}`,
+					}}
+					content={config?.footerContent}
+					socialLinks={
+						config?.socialLinks ? JSON.parse(config.socialLinks) : null
+					}
+				/>
+			</div>
+		</ThemeProvider>
 	);
 };
 

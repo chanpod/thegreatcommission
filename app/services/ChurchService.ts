@@ -29,6 +29,7 @@ export class ChurchService {
 			churchBannerUrl: (formData.get("churchBannerUrl") as string) || null,
 			mainChurchWebsite: (formData.get("mainChurchWebsite") as string) || null,
 			liveStreamUrl: (formData.get("liveStreamUrl") as string) || null,
+			themeColors: JSON.parse(formData.get("themeColors") as string),
 		};
 
 		return church;

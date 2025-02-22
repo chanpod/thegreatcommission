@@ -4,6 +4,7 @@ import { churchOrganization } from "server/db/schema";
 import { Stack } from "../../layout/Stack";
 import { Input } from "../input/Input";
 import { Video } from "lucide-react";
+import { ColorPicker } from "~/components/forms/ColorPicker";
 
 export interface IChurchFormData {
 	name: string;
@@ -14,6 +15,7 @@ export interface IChurchFormData {
 	churchBannerUrl: string | null;
 	mainChurchWebsite: string | null;
 	liveStreamUrl: string | null;
+	themeColors?: string;
 }
 
 interface Props {
@@ -31,21 +33,13 @@ function checkForValidUrl(value: string) {
 export async function convertAddressToLocation(
 	address: string,
 ): Promise<Location | undefined> {
-	// Get latitude & longitude from address.
-	return fromAddress(address).then(
-		(response) => {
-			if (response && response.results && response.results.length > 0) {
-				const location = response.results[0].geometry.location;
-				console.log(location);
-				return location;
-			} else {
-				console.error(response);
-			}
-		},
-		(error) => {
-			console.error(error);
-		},
-	);
+	try {
+		const response = await fromAddress(address);
+		return response?.results?.[0]?.geometry?.location;
+	} catch (error) {
+		console.error("Error converting address:", error);
+		return undefined;
+	}
 }
 
 const CreateChurchForm = (props: Props) => {
@@ -58,6 +52,21 @@ const CreateChurchForm = (props: Props) => {
 	const [liveStreamUrl, setLiveStreamUrl] = useState(
 		props?.initialValues?.liveStreamUrl ?? "",
 	);
+	const [themeColors, setThemeColors] = useState<Record<string, string>>(() => {
+		try {
+			return JSON.parse(
+				props?.initialValues?.themeColors ||
+					'{"primary":"#3b82f6","secondary":"#1e293b","accent":"#8b5cf6"}',
+			);
+		} catch (e) {
+			console.error("Error parsing theme colors:", e);
+			return {
+				primary: "#3b82f6",
+				secondary: "#1e293b",
+				accent: "#8b5cf6",
+			};
+		}
+	});
 
 	const churchBannerUrlValid =
 		churchBannerUrl.length > 0 ? checkForValidUrl(churchBannerUrl) : true;
@@ -122,6 +131,70 @@ const CreateChurchForm = (props: Props) => {
 					placeholder="https://www.youtube.com/embed/your-stream-id"
 					prefix={<Video className="h-4 w-4" />}
 					onChange={(e) => setLiveStreamUrl(e.target.value)}
+				/>
+			</div>
+
+			<div className="space-y-4">
+				<h3 className="text-lg font-medium">Theme Colors</h3>
+				<p className="text-sm text-muted-foreground">
+					Choose colors that reflect your church's identity.
+				</p>
+				<div className="space-y-3">
+					<ColorPicker
+						label="Primary Color"
+						value={themeColors.primary}
+						onChange={(value) =>
+							setThemeColors((prev) => ({ ...prev, primary: value }))
+						}
+					/>
+					<ColorPicker
+						label="Secondary Color"
+						value={themeColors.secondary}
+						onChange={(value) =>
+							setThemeColors((prev) => ({ ...prev, secondary: value }))
+						}
+					/>
+					<ColorPicker
+						label="Accent Color"
+						value={themeColors.accent}
+						onChange={(value) =>
+							setThemeColors((prev) => ({ ...prev, accent: value }))
+						}
+					/>
+				</div>
+				<div className="mt-4 p-3 rounded-lg border bg-muted/30">
+					<h4 className="text-sm font-medium mb-2">Preview</h4>
+					<div className="grid grid-cols-3 gap-2">
+						<div className="space-y-1 text-center">
+							<div
+								className="h-8 rounded-md shadow-sm"
+								style={{ backgroundColor: themeColors.primary }}
+								title="Primary Color"
+							/>
+							<span className="text-xs text-muted-foreground">Primary</span>
+						</div>
+						<div className="space-y-1 text-center">
+							<div
+								className="h-8 rounded-md shadow-sm"
+								style={{ backgroundColor: themeColors.secondary }}
+								title="Secondary Color"
+							/>
+							<span className="text-xs text-muted-foreground">Secondary</span>
+						</div>
+						<div className="space-y-1 text-center">
+							<div
+								className="h-8 rounded-md shadow-sm"
+								style={{ backgroundColor: themeColors.accent }}
+								title="Accent Color"
+							/>
+							<span className="text-xs text-muted-foreground">Accent</span>
+						</div>
+					</div>
+				</div>
+				<input
+					type="hidden"
+					name="themeColors"
+					value={JSON.stringify(themeColors)}
 				/>
 			</div>
 		</Stack>

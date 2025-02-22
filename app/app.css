@@ -24,6 +24,21 @@
 		--input: 217 32% 25%;
 		--ring: 217 91% 60%;
 		--radius: 0.5rem;
+
+		/* Theme color classes */
+		--theme-primary: var(--primary);
+		--theme-secondary: var(--secondary);
+		--theme-accent: var(--accent);
+
+		/* Update ghost variant colors */
+		--ghost: 210 40% 98%;
+		--ghost-foreground: 222 47% 11%;
+
+		/* Button colors */
+		--btn-background: 222 47% 11%;
+		--btn-foreground: 214 32% 91%;
+		--btn-ghost: 210 40% 98%;
+		--btn-ghost-foreground: 222 47% 11%;
 	}
 }
 
@@ -34,4 +49,33 @@
 	body {
 		@apply bg-background text-foreground;
 	}
+}
+
+/* Theme color utility classes */
+.primary-bg {
+	background-color: var(--theme-primary);
+}
+
+.secondary-bg {
+	background-color: var(--theme-secondary);
+}
+
+.accent-bg {
+	background-color: var(--theme-accent);
+}
+
+.text-primary {
+	color: var(--theme-primary);
+}
+
+.text-secondary {
+	color: var(--theme-secondary);
+}
+
+.text-accent {
+	color: var(--theme-accent);
+}
+
+.accent-border {
+	border-color: var(--theme-accent);
 }

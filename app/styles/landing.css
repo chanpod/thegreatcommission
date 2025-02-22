@@ -1,0 +1,50 @@
+:root {
+  --theme-primary: #3b82f6;
+  --theme-secondary: #1e293b;
+  --theme-accent: #8b5cf6;
+}
+
+.hero-section {
+  background-color: var(--theme-secondary);
+  color: white;
+}
+
+.service-times {
+  background-color: var(--theme-primary);
+  color: white;
+}
+
+.events-section h2,
+.about-section h2 {
+  color: var(--theme-secondary);
+}
+
+.event-card {
+  border-color: var(--theme-accent);
+}
+
+.footer {
+  background-color: var(--theme-secondary);
+  color: white;
+}
+
+/* Add subtle accents */
+.accent-border {
+  border-color: var(--theme-accent);
+}
+
+.accent-text {
+  color: var(--theme-accent);
+}
+
+.primary-bg {
+  background-color: var(--theme-primary);
+}
+
+.secondary-bg {
+  background-color: var(--theme-secondary);
+}
+
+.accent-bg {
+  background-color: var(--theme-accent);
+} 

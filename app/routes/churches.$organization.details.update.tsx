@@ -1,26 +1,16 @@
-import {
-	data,
-	Form,
-	useActionData,
-	useLoaderData,
-	useNavigate,
-} from "react-router";
+import { PermissionsService } from "@/server/services/PermissionsService";
+import { eq } from "drizzle-orm";
+import { useEffect, useState } from "react";
+import { Form, useActionData, useLoaderData, useNavigate } from "react-router";
+import { churchOrganization } from "server/db/schema";
+import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
+import { Sheet, SheetContent } from "~/components/ui/sheet";
+import { createAuthLoader } from "~/server/auth/authLoader";
 import { db } from "~/server/dbConnection";
 import { ChurchService } from "~/services/ChurchService";
 import CreateChurchForm from "~/src/components/forms/createChurch/CreateChurchForm";
-import { churchOrganization, missions } from "server/db/schema";
-import { eq } from "drizzle-orm";
-import type { Route } from "./+types";
-import { Sheet, SheetContent } from "~/components/ui/sheet";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { PageLayout } from "~/src/components/layout/PageLayout";
-import { PermissionsService } from "@/server/services/PermissionsService";
-import { createAuthLoader } from "~/server/auth/authLoader";
-import { Input } from "~/src/components/forms/input/Input";
-import { Video } from "lucide-react";
 
 export const loader = createAuthLoader(
 	async ({ request, auth, params, userContext }) => {
@@ -51,53 +41,58 @@ export const loader = createAuthLoader(
 	true,
 );
 
-export const action = async ({ request, params }: Route.ActionArgs) => {
-	if (request.method === "PUT") {
-		const user = await authenticator.isAuthenticated(request);
-		if (!user) return data({ message: "Not Authenticated" }, { status: 401 });
+export const action = createAuthLoader(
+	async ({ request, auth, params, userContext }) => {
+		if (request.method === "PUT") {
+			const churchService = new ChurchService();
+			const newChurch =
+				await churchService.getChurchFormDataFromRequest(request);
 
-		const churchService = new ChurchService();
-		const newChurch = await churchService.getChurchFormDataFromRequest(request);
+			const response = await db
+				.update(churchOrganization)
+				.set(newChurch)
+				.where(eq(churchOrganization.id, params.organization))
+				.returning();
 
-		const response = await db
-			.update(churchOrganization)
-			.set(newChurch)
-			.where(eq(churchOrganization.id, params.organization))
-			.returning();
-
-		return {
-			organization: response[0],
-			success: true,
-		};
-	}
-};
+			return {
+				organization: response[0],
+				success: true,
+			};
+		}
+	},
+	true,
+);
 
 const Update = () => {
-	const loaderData = useLoaderData();
+	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const actionData = useActionData();
 	const [isOpen, setIsOpen] = useState(true);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	useEffect(() => {
-		if (actionData?.success) {
+		if (actionData?.success && isSubmitting) {
 			toast.success("Church Updated", {
 				description: "The church has been updated successfully",
 			});
 			setIsOpen(false);
-			toast("The church has been updated successfully");
 			setTimeout(() => {
-				navigate("/churches/" + loaderData?.organization?.id);
+				navigate(`/churches/${loaderData?.organization?.id}`);
 			}, 300); // Match sheet close animation duration
 		}
-	}, [actionData]);
+	}, [actionData, isSubmitting, navigate, loaderData?.organization?.id]);
 
 	const handleOpenChange = (open: boolean) => {
 		setIsOpen(open);
 		if (!open) {
 			setTimeout(() => {
-				navigate("/churches/" + loaderData?.organization?.id);
+				navigate(`/churches/${loaderData?.organization?.id}`);
 			}, 300); // Match sheet close animation duration
 		}
+	};
+
+	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+		setIsSubmitting(true);
 	};
 
 	console.log(loaderData);
@@ -107,7 +102,7 @@ const Update = () => {
 			<SheetContent>
 				<div className="overflow-auto">
 					<PageLayout title="Update" className="mt-3">
-						<Form method="put" className="space-y-4">
+						<Form method="put" className="space-y-4" onSubmit={handleSubmit}>
 							<CreateChurchForm initialValues={loaderData?.organization} />
 
 							<Button type="submit">Update</Button>

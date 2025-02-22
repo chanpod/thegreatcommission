@@ -1,6 +1,14 @@
 import { PermissionsService } from "@/server/services/PermissionsService";
 import { and, eq, gte } from "drizzle-orm";
-import { Settings, Video } from "lucide-react";
+import {
+	Settings,
+	Video,
+	Eye,
+	Share2,
+	Copy,
+	ArrowLeft,
+	Globe,
+} from "lucide-react";
 import { Link, useLoaderData } from "react-router";
 import {
 	churchOrganization,
@@ -12,6 +20,7 @@ import { createAuthLoader } from "~/server/auth/authLoader";
 import { db } from "~/server/dbConnection";
 import LandingPage from "~/src/components/churchLandingPage/LandingPage";
 import { LiveStreamService } from "~/services/LiveStreamService";
+import { toast } from "sonner";
 
 export const loader = createAuthLoader(
 	async ({ params, request, userContext }) => {
@@ -81,6 +90,96 @@ export const loader = createAuthLoader(
 	true,
 );
 
+function LandingToolbar({
+	organization,
+	permissions,
+	isLive,
+}: {
+	organization: typeof churchOrganization.$inferSelect;
+	permissions: PermissionSet;
+	isLive: boolean;
+}) {
+	const copyUrl = () => {
+		const url = `${window.location.origin}/landing/${organization.id}`;
+		navigator.clipboard.writeText(url);
+		toast.success("URL copied to clipboard");
+	};
+
+	return (
+		<div className="bg-background border-b">
+			<div className="container mx-auto px-4 py-2">
+				<div className="flex items-center justify-between">
+					<div className="flex items-center gap-2">
+						<Button variant="secondary" size="sm" asChild>
+							<Link to={`/churches/${organization.id}`}>
+								<ArrowLeft className="h-4 w-4 mr-2" />
+								Back to Dashboard
+							</Link>
+						</Button>
+					</div>
+
+					<div className="flex items-center gap-2">
+						{organization.mainChurchWebsite && (
+							<Button variant="secondary" size="sm" asChild>
+								<a
+									href={organization.mainChurchWebsite}
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									<Globe className="h-4 w-4 mr-2" />
+									Main Website
+								</a>
+							</Button>
+						)}
+
+						{organization.liveStreamUrl && (
+							<Button
+								variant={isLive ? "destructive" : "secondary"}
+								size="sm"
+								asChild
+							>
+								<a
+									href={organization.liveStreamUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									<Video className="h-4 w-4 mr-2" />
+									{isLive ? "Watch Live" : "Live Stream"}
+								</a>
+							</Button>
+						)}
+
+						<Button variant="secondary" size="sm" onClick={copyUrl}>
+							<Copy className="h-4 w-4 mr-2" />
+							Copy URL
+						</Button>
+
+						<Button variant="secondary" size="sm" asChild>
+							<a
+								href={`/landing/${organization.id}`}
+								target="_blank"
+								rel="noopener noreferrer"
+							>
+								<Eye className="h-4 w-4 mr-2" />
+								Preview
+							</a>
+						</Button>
+
+						{permissions.canEdit && (
+							<Button variant="secondary" size="sm" asChild>
+								<Link to="config">
+									<Settings className="h-4 w-4 mr-2" />
+									Configure
+								</Link>
+							</Button>
+						)}
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 export default function Landing() {
 	const {
 		organization,
@@ -92,18 +191,12 @@ export default function Landing() {
 	} = useLoaderData<typeof loader>();
 
 	return (
-		<div className="relative">
-			{permissions.canEdit && (
-				<div className="absolute top-0 right-4">
-					<Link to="config">
-						<Button variant="ghost" size="icon">
-							<Settings className="h-4 w-4" />
-							<span className="sr-only">Edit Landing Page</span>
-						</Button>
-					</Link>
-				</div>
-			)}
-
+		<div className="min-h-screen flex flex-col">
+			<LandingToolbar
+				organization={organization}
+				permissions={permissions}
+				isLive={isLive}
+			/>
 			<LandingPage
 				organization={organization}
 				config={config}

@@ -105,6 +105,11 @@ export const churchOrganization = pgTable("church_organizations", {
 		(): AnyPgColumn => churchOrganization.id,
 	),
 	avatarUrl: text("avatar_url"),
+	themeColors: text("theme_colors").default(JSON.stringify({
+		primary: "#3b82f6",    // Blue
+		secondary: "#1e293b",  // Slate
+		accent: "#8b5cf6",     // Purple
+	})), // Stores JSON of color config
 });
 
 export const usersTochurchOrganization = pgTable(

@@ -15,48 +15,51 @@ export default function ServiceTimes({
 	isLive = false,
 }: ServiceTimesProps) {
 	return (
-		<section id="services" className="py-12 bg-gray-100">
+		<section id="services" className="py-12 secondary-bg">
 			<div className="container mx-auto px-4">
-				<div className=" flex justify-center items-center gap-2 mb-6">
-					<div className="flex relative items-center gap-2">
-						<Clock className="h-5 w-5 text-gray-900" />
-						<h2 className="text-2xl font-bold text-gray-900">Service Times</h2>
-						{liveStreamUrl && isLive && (
-							<a
-								href={liveStreamUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="absolute  -top-3 -translate-y-1/2 flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700"
-							>
-								<span className="relative flex h-3 w-3">
-									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-									<span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
-								</span>
-								<Radio className="h-4 w-4" />
-								<span>LIVE</span>
-							</a>
-						)}
-					</div>
+				<div className="flex justify-center items-center gap-2 mb-6 relative">
+					<Clock className="h-5 w-5 text-white" />
+					<h2 className="text-2xl font-bold text-white">Service Times</h2>
+					{liveStreamUrl && isLive && (
+						<a
+							href={liveStreamUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="absolute -top-3 -translate-y-1/2 flex items-center gap-2 text-sm font-medium text-red-400 hover:text-red-300"
+						>
+							<span className="relative flex h-3 w-3">
+								<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+								<span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+							</span>
+							<Radio className="h-4 w-4" />
+							<span>LIVE</span>
+						</a>
+					)}
 				</div>
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 					{services.map((service) => (
-						<div key={service.id} className="bg-white p-6 rounded-lg shadow-md">
-							<h3 className="text-xl font-semibold mb-2 text-gray-900">
+						<div
+							key={service.id}
+							className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border-l-4 accent-border"
+						>
+							<h3 className="text-xl font-semibold mb-2 text-primary">
 								{service.title}
 							</h3>
-							<div className="flex items-center space-x-2 text-sm text-gray-500">
-								<Clock className="h-4 w-4" />
-								<span>
-									{format(service.startDate, "h:mm a")} -{" "}
-									{format(service.endDate, "h:mm a")}
-								</span>
-							</div>
-							{service.location && (
-								<div className="flex items-center space-x-2 text-sm text-gray-500 mt-2">
-									<MapPin className="h-4 w-4" />
-									<span>{service.location}</span>
+							<div className="space-y-2">
+								<div className="flex items-center text-sm">
+									<Clock className="h-4 w-4 mr-2 text-accent" />
+									<span className="text-gray-600">
+										{format(service.startDate, "h:mm a")} -{" "}
+										{format(service.endDate, "h:mm a")}
+									</span>
 								</div>
-							)}
+								{service.location && (
+									<div className="flex items-center text-sm">
+										<MapPin className="h-4 w-4 mr-2 text-accent" />
+										<span className="text-gray-600">{service.location}</span>
+									</div>
+								)}
+							</div>
 							{service.description && (
 								<p className="text-gray-600 mt-2">
 									{formatDescription(service.description)}

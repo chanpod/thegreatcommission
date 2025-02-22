@@ -411,22 +411,22 @@ export default function EventsLayout() {
 					<h1 className="text-2xl font-bold">Events</h1>
 					<div className="flex bg-gray-100 rounded-lg p-1">
 						<Button
-							variant="ghost"
+							variant="secondary"
 							size="sm"
 							className={cn(
 								"rounded-lg",
-								view === "calendar" && "bg-white shadow-sm",
+								view !== "calendar" && "bg-white shadow-sm",
 							)}
 							onClick={() => handleViewChange("calendar")}
 						>
 							<CalendarDays className="h-4 w-4" />
 						</Button>
 						<Button
-							variant="ghost"
+							variant="secondary"
 							size="sm"
 							className={cn(
 								"rounded-lg",
-								view === "list" && "bg-white shadow-sm",
+								view !== "list" && "bg-white shadow-sm",
 							)}
 							onClick={() => handleViewChange("list")}
 						>
