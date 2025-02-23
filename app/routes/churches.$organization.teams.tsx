@@ -1,29 +1,27 @@
-import { teams as teamsTable, usersToTeams, users } from "@/server/db/schema";
+import { TeamsDataService } from "@/server/dataServices/TeamsDataService";
+import { teams as teamsTable, users } from "@/server/db/schema";
+import { PermissionsService } from "@/server/services/PermissionsService";
 import { eq } from "drizzle-orm";
+import { PencilIcon, PlusIcon, TrashIcon, UsersIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
 	useActionData,
-	useFetcher,
 	useLoaderData,
 	useNavigate,
 	useSubmit,
 } from "react-router";
-import { db } from "~/server/dbConnection";
-import { PageLayout } from "~/src/components/layout/PageLayout";
-import { Button } from "~/components/ui/button";
-import { PlusIcon, UsersIcon, PencilIcon, TrashIcon } from "lucide-react";
-import { Card } from "~/components/ui/card";
-import { Badge } from "~/components/ui/badge";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import { Card } from "~/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogFooter,
 } from "~/components/ui/dialog";
 import { Label } from "~/components/ui/label";
-import { Input } from "~/src/components/forms/input/Input";
 import {
 	Select,
 	SelectContent,
@@ -31,12 +29,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
-import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
-import { MembersList } from "~/src/components/listItems/components/MembersList";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { PermissionsService } from "@/server/services/PermissionsService";
-import { TeamsDataService } from "@/server/dataServices/TeamsDataService";
 import { createAuthLoader } from "~/server/auth/authLoader";
+import { authenticator } from "~/server/auth/strategies/authenticaiton";
+import { db } from "~/server/dbConnection";
+import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
+import { Input } from "~/src/components/forms/input/Input";
+import { PageLayout } from "~/src/components/layout/PageLayout";
+import { MembersList } from "~/src/components/listItems/components/MembersList";
 
 type TeamWithMembers = {
 	team: typeof teamsTable.$inferSelect;
@@ -140,6 +139,71 @@ const TEAM_TYPES = [
 	"other",
 ];
 
+interface TeamCardProps {
+	team: TeamWithMembers;
+	permissions: {
+		canEdit: boolean;
+	};
+	onEdit: (team: typeof teamsTable.$inferSelect) => void;
+	onDelete: (team: typeof teamsTable.$inferSelect) => void;
+	onMembersClick: (teamId: string) => void;
+}
+
+function TeamCard({
+	team,
+	permissions,
+	onEdit,
+	onDelete,
+	onMembersClick,
+}: TeamCardProps) {
+	return (
+		<Card className="p-4 space-y-4">
+			<div className="flex items-start justify-between">
+				<div>
+					<h3 className="text-lg font-semibold text-foreground">
+						{team.team.name}
+					</h3>
+					<Badge
+						style={{ backgroundColor: team.team.color || "#666" }}
+						className="mt-1"
+					>
+						{team.team.type}
+					</Badge>
+				</div>
+				{permissions.canEdit && (
+					<div className="flex gap-2">
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={() => onEdit(team.team)}
+						>
+							<PencilIcon className="h-4 w-4" />
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={() => onDelete(team.team)}
+						>
+							<TrashIcon className="h-4 w-4" />
+						</Button>
+					</div>
+				)}
+			</div>
+			{team.team.description && (
+				<p className="text-foreground/90">{team.team.description}</p>
+			)}
+			<Button
+				variant="ghost"
+				className="flex items-center text-foreground/90 hover:text-foreground"
+				onClick={() => onMembersClick(team.team.id)}
+			>
+				<UsersIcon className="h-4 w-4 mr-1" />
+				{team.members.length} members
+			</Button>
+		</Card>
+	);
+}
+
 export default function TeamsList() {
 	const { teams, permissions } = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
@@ -200,51 +264,17 @@ export default function TeamsList() {
 		>
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				{teams.map((team) => (
-					<Card key={team.team.id} className="p-4 space-y-4">
-						<div className="flex items-start justify-between">
-							<div>
-								<h3 className="text-lg font-semibold">{team.team.name}</h3>
-								<Badge
-									style={{ backgroundColor: team.team.color || "#666" }}
-									className="mt-1"
-								>
-									{team.team.type}
-								</Badge>
-							</div>
-							{permissions.canEdit && (
-								<div className="flex gap-2">
-									<Button
-										variant="ghost"
-										size="icon"
-										onClick={() => handleEdit(team.team)}
-									>
-										<PencilIcon className="h-4 w-4" />
-									</Button>
-									<Button
-										variant="ghost"
-										size="icon"
-										onClick={() => {
-											setEditingTeam(team.team);
-											setShowDeleteConfirm(true);
-										}}
-									>
-										<TrashIcon className="h-4 w-4" />
-									</Button>
-								</div>
-							)}
-						</div>
-						{team.team.description && (
-							<p className="text-sm text-gray-600">{team.team.description}</p>
-						)}
-						<Button
-							variant="ghost"
-							className="flex items-center text-sm text-gray-500 hover:text-gray-700"
-							onClick={() => setSelectedTeamId(team.team.id)}
-						>
-							<UsersIcon className="h-4 w-4 mr-1" />
-							{team.members.length} members
-						</Button>
-					</Card>
+					<TeamCard
+						key={team.team.id}
+						team={team}
+						permissions={permissions}
+						onEdit={handleEdit}
+						onDelete={(team) => {
+							setEditingTeam(team);
+							setShowDeleteConfirm(true);
+						}}
+						onMembersClick={setSelectedTeamId}
+					/>
 				))}
 			</div>
 

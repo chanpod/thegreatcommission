@@ -63,7 +63,7 @@ export function GuidedMessageComposer({
 	organizationId,
 }: GuidedMessageComposerProps) {
 	const usersFetcher = useFetcher();
-	const submit = useSubmit();
+	const messageFetcher = useFetcher();
 	const [step, setStep] = useState(1);
 	const [messageType, setMessageType] = useState<MessageData["type"]>();
 	const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(
@@ -190,7 +190,7 @@ export function GuidedMessageComposer({
 			formData.append("recipientIds[]", `${recipient.type}:${recipient.id}`);
 		}
 
-		await submit(formData, {
+		await messageFetcher.submit(formData, {
 			method: "post",
 			action: `/churches/${organizationId}/message`,
 		});

@@ -7,15 +7,22 @@ import { db } from "~/server/dbConnection";
 
 export const action = createAuthLoader(
 	async ({ request, auth, params, userContext }) => {
+		console.log("message action");
 		const formData = await request.formData();
 		const message = formData.get("message") as string;
 		const messageType = formData.get("type") as string;
 		const subject = formData.get("subject") as string;
 		const templateId = formData.get("templateId") as string;
-		const userIds = formData.getAll("userIds[]") as string[];
 		const format = formData.get("format")
 			? JSON.parse(formData.get("format") as string)
 			: undefined;
+
+		// Get all recipientIds entries and extract just the IDs
+		const recipientIds = formData.getAll("recipientIds[]").map((id) => {
+			// Extract just the ID portion after "user:" or "team:"
+			const [type, actualId] = (id as string).split(":");
+			return actualId;
+		});
 
 		// Initialize clients
 		const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -32,14 +39,17 @@ export const action = createAuthLoader(
 
 		const messagesSent = [];
 
-		for (const userId of userIds) {
+		for (const userId of recipientIds) {
 			const user = await db
 				.select()
 				.from(users)
 				.where(eq(users.id, userId))
 				.then((res) => res[0]);
 
+			if (!user) continue;
+
 			if (messageType === "email") {
+				console.log("sending email to", user.firstName);
 				let personalizedSubject = subject;
 				let personalizedMessage = message;
 
@@ -73,6 +83,7 @@ export const action = createAuthLoader(
 				await sgMail.send(email);
 				messagesSent.push(`email to ${user.firstName}`);
 			} else if (messageType === "sms") {
+				console.log("sending sms to", user.firstName);
 				const formattedPhone = user.phone?.startsWith("+")
 					? user.phone
 					: `+1${user.phone}`;
@@ -83,6 +94,7 @@ export const action = createAuthLoader(
 				});
 				messagesSent.push(`text to ${user.firstName}`);
 			} else if (messageType === "phone") {
+				console.log("sending phone to", user.firstName);
 				const formattedPhone = user.phone?.startsWith("+")
 					? user.phone
 					: `+1${user.phone}`;
