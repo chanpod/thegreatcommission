@@ -1,5 +1,3 @@
-
-
 import { isNull, map } from "lodash-es";
 import { useLoaderData } from "react-router";
 
@@ -11,59 +9,68 @@ import { ne } from "drizzle-orm";
 import { ClientOnly } from "remix-utils/client-only";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
-    const missionMarkers = await db.select().from(missions).where(ne(missions.lat, null));
+	const missionMarkers = await db
+		.select()
+		.from(missions)
+		.where(ne(missions.lat, null));
 
-    return { missionMarkers, googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY };
+	return { missionMarkers, googleMapsApiKey: process.env.GOOGLE_MAPS_KEY };
 };
 
 const quoteContainerStyle = {
-    position: "absolute",
-    top: "2%",
-    left: "1%",
-    zIndex: 1,
-    textAlign: "center",
-    maxWidth: "800px",
+	position: "absolute",
+	top: "2%",
+	left: "1%",
+	zIndex: 1,
+	textAlign: "center",
+	maxWidth: "800px",
 };
 
 const quoteStyle = {
-    fontSize: "2rem",
-    fontWeight: "bold",
-    color: "#fff",
-    textShadow: "0px 0px 5px rgba(0, 0, 0, 0.8)",
+	fontSize: "2rem",
+	fontWeight: "bold",
+	color: "#fff",
+	textShadow: "0px 0px 5px rgba(0, 0, 0, 0.8)",
 };
 
 const containerStyle = {
-    background: "rgba(44, 39, 39, 0.35)",
-    borderRadius: "16px",
-    boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
-    backdropFilter: "blur(5px)",
-    WebkitBackdropFilter: "blur(5px)",
-    border: "1px solid rgba(34, 29, 29, 0.24)",
+	background: "rgba(44, 39, 39, 0.35)",
+	borderRadius: "16px",
+	boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
+	backdropFilter: "blur(5px)",
+	WebkitBackdropFilter: "blur(5px)",
+	border: "1px solid rgba(34, 29, 29, 0.24)",
 };
 
-
 export default function Index() {
-    const loaderData = useLoaderData<typeof loader>();
-    return (
-        <div className="relative">
-            
-            <div className="absolute backdrop-blur-sm left-1 top-1 z-10 rounded-md border-solid border-[#221d1d3d] bg-[#2c272759] p-2 m-2 max-w-5xl">
-                <blockquote className="bold text-xl lg:text-4xl italic">
-                    "Therefore go and make disciples of all nations, baptizing them in the name of the Father and of the
-                    Son and of the Holy Spirit, 20 and teaching them to obey everything I have commanded you. And surely
-                    I am with you always, to the very end of the age." - Matthew 28:19-20
-                </blockquote>
-            </div>
-            
-            <div>
-                <ClientOnly>
-                    {() => <WorldMap
-                        googleMapsApiKey={loaderData.googleMapsApiKey}
-                        pins={map(loaderData.missionMarkers, (missionMarker: Partial<typeof missions>) => [missionMarker.lat, missionMarker.lng])}
-                    />
-                    }
-                </ClientOnly>
-            </div>
-        </div>
-    );
+	const loaderData = useLoaderData<typeof loader>();
+	return (
+		<div className="relative">
+			<div className="absolute backdrop-blur-sm left-1 top-1 z-10 rounded-md border-solid border-[#221d1d3d] bg-[#2c272759] p-2 m-2 max-w-5xl">
+				<blockquote className="bold text-xl lg:text-4xl italic">
+					"Therefore go and make disciples of all nations, baptizing them in the
+					name of the Father and of the Son and of the Holy Spirit, 20 and
+					teaching them to obey everything I have commanded you. And surely I am
+					with you always, to the very end of the age." - Matthew 28:19-20
+				</blockquote>
+			</div>
+
+			<div>
+				<ClientOnly>
+					{() => (
+						<WorldMap
+							googleMapsApiKey={loaderData.googleMapsApiKey}
+							pins={map(
+								loaderData.missionMarkers,
+								(missionMarker: Partial<typeof missions>) => [
+									missionMarker.lat,
+									missionMarker.lng,
+								],
+							)}
+						/>
+					)}
+				</ClientOnly>
+			</div>
+		</div>
+	);
 }
