@@ -80,6 +80,13 @@ export const loader = async (request: Route.LoaderArgs) => {
 		// Get user context
 		const userContext = await AuthService.getAuthenticatedUser(request.auth);
 
+		// If authenticated and on auth step, redirect to church-info step
+		const url = new URL(request.url);
+		const currentStep = url.searchParams.get("step");
+		if (userContext && (!currentStep || currentStep === "auth")) {
+			return redirect("/getting-started?step=church-info");
+		}
+
 		return {
 			isAuthenticated: !!userContext,
 		};
