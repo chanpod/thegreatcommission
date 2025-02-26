@@ -113,18 +113,18 @@ export default function Index() {
 								what matters most - making disciples.
 							</p>
 							<div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-								<button
-									type="button"
-									className="bg-white text-blue-800 hover:bg-gray-100 font-semibold py-3 px-6 rounded-lg transition-colors"
+								<a
+									href="/getting-started"
+									className="bg-white text-blue-800 hover:bg-gray-100 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center justify-center"
 								>
 									Get Started Free
-								</button>
-								<button
+								</a>
+								{/* <button
 									type="button"
 									className="bg-transparent border-2 border-white hover:bg-white/10 font-semibold py-3 px-6 rounded-lg transition-colors"
 								>
 									Learn More
-								</button>
+								</button> */}
 							</div>
 						</div>
 						<div className="md:w-1/2 flex justify-center">
@@ -359,18 +359,18 @@ export default function Index() {
 						ministry and reach more people.
 					</p>
 					<div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-						<button
-							type="button"
-							className="bg-white text-blue-800 hover:bg-gray-100 font-semibold py-3 px-8 rounded-lg transition-colors"
+						<a
+							href="/getting-started"
+							className="bg-white text-blue-800 hover:bg-gray-100 font-semibold py-3 px-8 rounded-lg transition-colors inline-flex items-center justify-center"
 						>
 							Get Started Now
-						</button>
-						<button
+						</a>
+						{/* <button
 							type="button"
 							className="bg-transparent border-2 border-white hover:bg-white/10 font-semibold py-3 px-8 rounded-lg transition-colors"
 						>
 							Learn More
-						</button>
+						</button> */}
 					</div>
 				</div>
 			</section>
