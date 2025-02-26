@@ -193,6 +193,7 @@ export const action = async (request: Route.ActionArgs) => {
 					heroImage: (formData.get("heroImage") as string) || null,
 					heroHeadline: (formData.get("heroHeadline") as string) || "",
 					heroSubheadline: (formData.get("heroSubheadline") as string) || "",
+					logoUrl: (formData.get("logoUrl") as string) || null,
 					aboutTitle:
 						(formData.get("aboutTitle") as string) || "About Our Church",
 					aboutContent: (formData.get("aboutContent") as string) || "",
@@ -242,6 +243,7 @@ export default function GettingStarted() {
 		}),
 	});
 	const [heroImageUrl, setHeroImageUrl] = useState("");
+	const [logoUrl, setLogoUrl] = useState("");
 	const [themeColors, setThemeColors] = useState<Record<string, string>>({
 		primary: "#3b82f6",
 		secondary: "#1e293b",
@@ -263,6 +265,10 @@ export default function GettingStarted() {
 			// Update special fields
 			if (actionData.data.heroImage) {
 				setHeroImageUrl(actionData.data.heroImage);
+			}
+
+			if (actionData.data.logoUrl) {
+				setLogoUrl(actionData.data.logoUrl);
 			}
 
 			if (actionData.data.themeColors) {
@@ -316,6 +322,7 @@ export default function GettingStarted() {
 			completedStep: STEPS[currentStep].id,
 			themeColors: JSON.stringify(themeColors),
 			heroImage: heroImageUrl,
+			logoUrl: logoUrl,
 		};
 
 		submit(updatedFormData, { method: "post" });
@@ -335,6 +342,7 @@ export default function GettingStarted() {
 			completedStep: STEPS[currentStep].id,
 			themeColors: JSON.stringify(themeColors),
 			heroImage: heroImageUrl,
+			logoUrl: logoUrl,
 		};
 
 		submit(finalFormData, { method: "post" });
@@ -530,6 +538,37 @@ export default function GettingStarted() {
 								{/* Step 3: Branding */}
 								{currentStep === 3 && (
 									<div className="space-y-6">
+										<div className="space-y-4">
+											<h3 className="text-lg font-medium">Church Logo</h3>
+											<p className="text-sm text-muted-foreground">
+												Upload your church logo to display on your landing page.
+											</p>
+
+											{logoUrl && (
+												<div className="relative w-40 h-40 rounded-lg overflow-hidden mb-2 bg-gray-100 flex items-center justify-center p-2">
+													<img
+														src={logoUrl}
+														alt="Church Logo"
+														className="max-w-full max-h-full object-contain"
+													/>
+												</div>
+											)}
+
+											<UploadButton
+												endpoint="imageUploader"
+												onClientUploadComplete={(res) => {
+													if (res?.[0]) {
+														setLogoUrl(res[0].url);
+														toast.success("Logo uploaded successfully");
+													}
+												}}
+												onUploadError={(error: Error) => {
+													toast.error(`Upload failed: ${error.message}`);
+												}}
+											/>
+											<input type="hidden" name="logoUrl" value={logoUrl} />
+										</div>
+
 										<div className="space-y-4">
 											<h3 className="text-lg font-medium">Theme Colors</h3>
 											<p className="text-sm text-muted-foreground">

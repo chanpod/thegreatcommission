@@ -68,6 +68,7 @@ export const action = createAuthLoader(async ({ request, params }) => {
 		contactEmail: formData.get("contactEmail") as string,
 		contactPhone: formData.get("contactPhone") as string,
 		contactAddress: formData.get("contactAddress") as string,
+		logoUrl: formData.get("logoUrl") as string,
 		updatedAt: now,
 	};
 
@@ -94,6 +95,7 @@ export default function LandingConfig() {
 	const [heroImageUrl, setHeroImageUrl] = useState<string>(
 		config?.heroImage || "",
 	);
+	const [logoUrl, setLogoUrl] = useState<string>(config?.logoUrl || "");
 	const [formData, setFormData] = useState({
 		heroHeadline: config?.heroHeadline || "",
 		heroSubheadline: config?.heroSubheadline || "",
@@ -109,6 +111,7 @@ export default function LandingConfig() {
 	useEffect(() => {
 		const hasChanges =
 			heroImageUrl !== (config?.heroImage || "") ||
+			logoUrl !== (config?.logoUrl || "") ||
 			JSON.stringify(socialLinks) !== (config?.socialLinks || "{}") ||
 			formData.heroHeadline !== (config?.heroHeadline || "") ||
 			formData.heroSubheadline !== (config?.heroSubheadline || "") ||
@@ -120,7 +123,7 @@ export default function LandingConfig() {
 			formData.contactAddress !== (config?.contactAddress || "");
 
 		setHasUnsavedChanges(hasChanges);
-	}, [heroImageUrl, socialLinks, formData, config]);
+	}, [heroImageUrl, logoUrl, socialLinks, formData, config]);
 
 	// Handle navigation attempts
 	useBeforeUnload((event) => {
@@ -161,6 +164,7 @@ export default function LandingConfig() {
 		// Add social links and hero image
 		submitData.set("socialLinks", JSON.stringify(socialLinks));
 		submitData.set("heroImage", heroImageUrl);
+		submitData.set("logoUrl", logoUrl);
 
 		submit(submitData, { method: "post" });
 		setHasUnsavedChanges(false);
@@ -215,6 +219,45 @@ export default function LandingConfig() {
 			</div>
 
 			<Form onSubmit={handleSubmit} className="space-y-8">
+				<Card>
+					<CardHeader>
+						<CardTitle>Church Logo</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<div className="space-y-2">
+							<Label htmlFor="logoUrl">Logo</Label>
+							{logoUrl && (
+								<div className="relative w-48 h-16 rounded-lg overflow-hidden mb-2 bg-gray-100 flex items-center justify-center">
+									<img
+										src={logoUrl}
+										alt="Church Logo"
+										className="max-w-full max-h-full object-contain"
+									/>
+								</div>
+							)}
+							<UploadButton
+								endpoint="imageUploader"
+								onClientUploadComplete={(res) => {
+									if (res?.[0]) {
+										setLogoUrl(res[0].url);
+										toast.success(
+											"Logo uploaded successfully. Please save changes to keep this logo.",
+										);
+									}
+								}}
+								onUploadError={(error: Error) => {
+									toast.error(`Upload failed: ${error.message}`);
+								}}
+							/>
+							{logoUrl !== (config?.logoUrl || "") && (
+								<p className="text-sm text-yellow-600">
+									* Remember to save changes to keep this uploaded logo
+								</p>
+							)}
+						</div>
+					</CardContent>
+				</Card>
+
 				<Card>
 					<CardHeader>
 						<CardTitle>Hero Section</CardTitle>

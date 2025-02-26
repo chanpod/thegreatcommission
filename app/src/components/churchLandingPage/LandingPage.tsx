@@ -95,7 +95,7 @@ const LandingPage = ({
 	return (
 		<ThemeProvider organization={organization}>
 			<div className="min-h-screen flex flex-col">
-				<Header churchName={organization.name} />
+				<Header churchName={organization.name} logoUrl={config?.logoUrl} />
 				<Hero
 					imageUrl={config?.heroImage || organization.churchBannerUrl}
 					headline={config?.heroHeadline || `Welcome to ${organization.name}`}

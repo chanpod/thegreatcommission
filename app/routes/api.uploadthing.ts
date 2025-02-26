@@ -1,3 +1,5 @@
+import { useAuth } from "@clerk/react-router";
+import { rootAuthLoader } from "@clerk/react-router/ssr.server";
 import {
 	createRouteHandler,
 	createUploadthing,
@@ -5,6 +7,7 @@ import {
 } from "uploadthing/remix";
 import { UploadThingError } from "uploadthing/server";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
+import { AuthService } from "~/services/AuthService";
 
 const f = createUploadthing();
 
@@ -23,14 +26,19 @@ const uploadRouter = {
 	})
 		// Set permissions and file types for this FileRoute
 		.middleware(async ({ event, req }) => {
+			console.log("req", event);
 			// This code runs on your server before upload
-			const user = await authenticator.isAuthenticated(event.request);
+			return rootAuthLoader(event, async ({ request, params, context }) => {
+				const userContext = await AuthService.getAuthenticatedUser(
+					request.auth,
+				);
+				console.log("userId", userContext.user.id);
+				// If you throw, the user will not be able to upload
+				if (!userContext.user.id) throw new UploadThingError("Unauthorized");
 
-			// If you throw, the user will not be able to upload
-			if (!user) throw new UploadThingError("Unauthorized");
-
-			// Whatever is returned here is accessible in onUploadComplete as `metadata`
-			return { userId: user.id };
+				// Whatever is returned here is accessible in onUploadComplete as `metadata`
+				return { userId: userContext.user.id };
+			});
 		})
 		.onUploadComplete(async ({ metadata, file }) => {
 			// This code RUNS ON YOUR SERVER after upload
