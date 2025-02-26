@@ -8,7 +8,18 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
+	DialogClose,
 } from "~/components/ui/dialog";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
@@ -45,6 +56,9 @@ interface EventDialogProps {
 	onSubmit: (event: Event) => void;
 	onDelete?: () => void;
 	mode: "create" | "edit";
+	isSubmitting?: boolean;
+	showDeleteConfirm?: boolean;
+	setShowDeleteConfirm?: (show: boolean) => void;
 }
 
 export function EventDialog({
@@ -54,6 +68,9 @@ export function EventDialog({
 	onSubmit,
 	onDelete,
 	mode,
+	isSubmitting = false,
+	showDeleteConfirm = false,
+	setShowDeleteConfirm,
 }: EventDialogProps) {
 	const [event, setEvent] = useState<Event>(() => {
 		if (initialEvent) {
@@ -77,6 +94,16 @@ export function EventDialog({
 			updatedAt: new Date(),
 		} as Event;
 	});
+
+	// Use local state if no external state is provided
+	const [localShowDeleteConfirm, setLocalShowDeleteConfirm] = useState(false);
+
+	// Use either the provided state or local state
+	const deleteConfirmOpen = setShowDeleteConfirm
+		? showDeleteConfirm
+		: localShowDeleteConfirm;
+	const setDeleteConfirmOpen =
+		setShowDeleteConfirm || setLocalShowDeleteConfirm;
 
 	useEffect(() => {
 		if (initialEvent) {
@@ -150,278 +177,338 @@ export function EventDialog({
 
 	const handleImageUploadComplete = (res: { url: string }[]) => {
 		if (res?.[0]) {
-			setEvent((prev) => ({ ...prev, heroImageUrl: res[0].ufsUrl }));
+			setEvent((prev) => ({ ...prev, heroImageUrl: res[0].url }));
 			toast.success("Hero image uploaded successfully");
 		}
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-				<DialogHeader className="sticky top-0 bg-background z-10 pb-4 mb-4 border-b">
-					<DialogTitle>
-						{mode === "create" ? "Create New Event" : "Edit Event"}
-					</DialogTitle>
-					<DialogDescription>
-						{mode === "create"
-							? "Add a new event to your calendar"
-							: "Modify your event details"}
-					</DialogDescription>
-				</DialogHeader>
-				<form onSubmit={handleSubmit} className="space-y-6">
-					<div>
-						<Label>Title</Label>
-						<Input
-							value={event.title}
-							onChange={(e) =>
-								setEvent({
-									...event,
-									title: e.target.value,
-								})
-							}
-							placeholder="Enter event title..."
-						/>
-					</div>
-					<div className="grid gap-2">
-						<Label htmlFor="type">Event Type</Label>
-						<Select
-							value={event.type}
-							onValueChange={(value) =>
-								setEvent({
-									...event,
-									type: value as Event["type"],
-								})
-							}
-						>
-							<SelectTrigger>
-								<SelectValue placeholder="Select event type" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="local">Local Event</SelectItem>
-								<SelectItem value="recurring">Recurring Service</SelectItem>
-								<SelectItem value="mission">Mission Trip</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
-					<div>
-						<Label>Hero Image</Label>
-						<div className="space-y-4">
-							<UploadButton
-								endpoint="imageUploader"
-								onClientUploadComplete={handleImageUploadComplete}
-								onUploadError={(error: Error) => {
-									toast.error(`Upload failed: ${error.message}`);
-								}}
+		<>
+			<Dialog open={open}>
+				<DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+					<DialogHeader className="sticky top-0 bg-background z-10 pb-4 mb-4 border-b">
+						<DialogTitle>
+							{mode === "create" ? "Create New Event" : "Edit Event"}
+						</DialogTitle>
+						<DialogDescription>
+							{mode === "create"
+								? "Add a new event to your calendar"
+								: "Modify your event details"}
+						</DialogDescription>
+					</DialogHeader>
+					<form onSubmit={handleSubmit} className="space-y-6">
+						<div>
+							<Label>Title</Label>
+							<Input
+								value={event.title}
+								onChange={(e) =>
+									setEvent({
+										...event,
+										title: e.target.value,
+									})
+								}
+								placeholder="Enter event title..."
 							/>
-							{event.heroImageUrl && (
-								<div className="relative">
-									<img
-										src={event.heroImageUrl}
-										alt="Event hero"
-										className="w-full h-48 object-cover rounded-md"
-									/>
-									<Button
-										type="button"
-										variant="destructive"
-										size="sm"
-										className="absolute top-2 right-2"
-										onClick={() =>
-											setEvent((prev) => ({ ...prev, heroImageUrl: "" }))
-										}
-									>
-										Remove Image
-									</Button>
-								</div>
-							)}
 						</div>
-					</div>
-					<div>
-						<Label>Description</Label>
-						<RichTextEditor
-							content={event.description}
-							onContentChange={(content) =>
-								setEvent({
-									...event,
-									description: content,
-								})
-							}
-							placeholder="Enter event description..."
-						/>
-					</div>
-					<div className="grid gap-2">
-						<Label htmlFor="location">Location</Label>
-						<Input
-							id="location"
-							value={event.location || ""}
-							onChange={(e) =>
-								setEvent({
-									...event,
-									location: e.target.value,
-								})
-							}
-						/>
-					</div>
-					<div className="flex items-center space-x-2">
-						<Checkbox
-							id="allDay"
-							checked={event.allDay}
-							onCheckedChange={(checked) =>
-								setEvent({
-									...event,
-									allDay: !!checked,
-								})
-							}
-						/>
-						<Label htmlFor="allDay">All day event</Label>
-					</div>
-					<div className="grid gap-2">
-						<Label>Start Date</Label>
-						<div className="flex gap-4">
-							<div className="relative flex-1">
-								<Popover>
-									<PopoverTrigger asChild>
-										<Button
-											variant={"outline"}
-											className="w-full top-0 h-full px-3 py-2"
-										>
-											{event.startDate ? (
-												format(event.startDate, "PPP")
-											) : (
-												<span>Pick a date</span>
-											)}
-											<CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-										</Button>
-									</PopoverTrigger>
-									<PopoverContent className="w-auto p-0" align="start">
-										<Calendar
-											mode="single"
-											selected={event.startDate}
-											onSelect={(date) => handleDateChange(date, true)}
-											disabled={(date) => date < new Date()}
-											initialFocus
-										/>
-									</PopoverContent>
-								</Popover>
-							</div>
-							{!event.allDay && (
-								<TimeField
-									value={format(event.startDate, "HH:mm")}
-									onChange={(value) => handleTimeChange(value, true)}
+						<div className="grid gap-2">
+							<Label htmlFor="type">Event Type</Label>
+							<Select
+								value={event.type}
+								onValueChange={(value) =>
+									setEvent({
+										...event,
+										type: value as Event["type"],
+									})
+								}
+							>
+								<SelectTrigger>
+									<SelectValue placeholder="Select event type" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="local">Local Event</SelectItem>
+									<SelectItem value="recurring">Recurring Service</SelectItem>
+									<SelectItem value="mission">Mission Trip</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						<div>
+							<Label>Hero Image</Label>
+							<div className="space-y-4">
+								<UploadButton
+									endpoint="imageUploader"
+									onClientUploadComplete={handleImageUploadComplete}
+									onUploadError={(error: Error) => {
+										toast.error(`Upload failed: ${error.message}`);
+									}}
 								/>
-							)}
-						</div>
-					</div>
-					<div className="grid gap-2">
-						<Label>End Date</Label>
-						<div className="flex gap-4">
-							<div className="relative flex-1">
-								<Popover>
-									<PopoverTrigger asChild>
+								{event.heroImageUrl && (
+									<div className="relative">
+										<img
+											src={event.heroImageUrl}
+											alt="Event hero"
+											className="w-full h-48 object-cover rounded-md"
+										/>
 										<Button
-											variant={"outline"}
-											className="w-full top-0 h-full px-3 py-2"
-										>
-											{event.endDate ? (
-												format(event.endDate, "PPP")
-											) : (
-												<span>Pick a date</span>
-											)}
-											<CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-										</Button>
-									</PopoverTrigger>
-									<PopoverContent className="w-auto p-0" align="start">
-										<Calendar
-											mode="single"
-											selected={event.endDate}
-											onSelect={(date) => handleDateChange(date, false)}
-											disabled={(date) =>
-												date < new Date() || date < event.startDate
+											type="button"
+											variant="destructive"
+											size="sm"
+											className="absolute top-2 right-2"
+											onClick={() =>
+												setEvent((prev) => ({ ...prev, heroImageUrl: "" }))
 											}
-											initialFocus
-										/>
-									</PopoverContent>
-								</Popover>
+										>
+											Remove Image
+										</Button>
+									</div>
+								)}
 							</div>
-							{!event.allDay && (
-								<TimeField
-									value={format(event.endDate, "HH:mm")}
-									onChange={(value) => handleTimeChange(value, false)}
-								/>
-							)}
 						</div>
-					</div>
-					{event.type === "mission" && (
-						<>
-							<div className="grid gap-2">
-								<Label htmlFor="volunteersNeeded">Volunteers Needed</Label>
-								<Input
-									id="volunteersNeeded"
-									type="number"
-									value={event.volunteersNeeded || ""}
-									onChange={(e) =>
-										setEvent({
-											...event,
-											volunteersNeeded: Number.parseInt(e.target.value) || 0,
-										})
-									}
-								/>
+						<div>
+							<Label>Description</Label>
+							<RichTextEditor
+								content={event.description}
+								onContentChange={(content) =>
+									setEvent({
+										...event,
+										description: content,
+									})
+								}
+								placeholder="Enter event description..."
+							/>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="location">Location</Label>
+							<Input
+								id="location"
+								value={event.location || ""}
+								onChange={(e) =>
+									setEvent({
+										...event,
+										location: e.target.value,
+									})
+								}
+							/>
+						</div>
+						<div className="flex items-center space-x-2">
+							<Checkbox
+								id="allDay"
+								checked={event.allDay}
+								onCheckedChange={(checked) =>
+									setEvent({
+										...event,
+										allDay: !!checked,
+									})
+								}
+							/>
+							<Label htmlFor="allDay">All day event</Label>
+						</div>
+						<div className="grid gap-2">
+							<Label>Start Date</Label>
+							<div className="flex gap-4">
+								<div className="relative flex-1">
+									<Popover>
+										<PopoverTrigger asChild>
+											<Button
+												variant={"outline"}
+												className="w-full top-0 h-full px-3 py-2"
+											>
+												{event.startDate ? (
+													format(event.startDate, "PPP")
+												) : (
+													<span>Pick a date</span>
+												)}
+												<CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+											</Button>
+										</PopoverTrigger>
+										<PopoverContent className="w-auto p-0" align="start">
+											<Calendar
+												mode="single"
+												selected={event.startDate}
+												onSelect={(date) => handleDateChange(date, true)}
+												disabled={(date) => date < new Date()}
+												initialFocus
+											/>
+										</PopoverContent>
+									</Popover>
+								</div>
+								{!event.allDay && (
+									<TimeField
+										value={format(event.startDate, "HH:mm")}
+										onChange={(value) => handleTimeChange(value, true)}
+									/>
+								)}
 							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="investment">Investment Goal</Label>
-								<Input
-									id="investment"
-									type="number"
-									value={event.investment || ""}
-									onChange={(e) =>
-										setEvent({
-											...event,
-											investment: Number.parseInt(e.target.value) || 0,
-										})
-									}
-								/>
+						</div>
+						<div className="grid gap-2">
+							<Label>End Date</Label>
+							<div className="flex gap-4">
+								<div className="relative flex-1">
+									<Popover>
+										<PopoverTrigger asChild>
+											<Button
+												variant={"outline"}
+												className="w-full top-0 h-full px-3 py-2"
+											>
+												{event.endDate ? (
+													format(event.endDate, "PPP")
+												) : (
+													<span>Pick a date</span>
+												)}
+												<CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+											</Button>
+										</PopoverTrigger>
+										<PopoverContent className="w-auto p-0" align="start">
+											<Calendar
+												mode="single"
+												selected={event.endDate}
+												onSelect={(date) => handleDateChange(date, false)}
+												disabled={(date) =>
+													date < new Date() || date < event.startDate
+												}
+												initialFocus
+											/>
+										</PopoverContent>
+									</Popover>
+								</div>
+								{!event.allDay && (
+									<TimeField
+										value={format(event.endDate, "HH:mm")}
+										onChange={(value) => handleTimeChange(value, false)}
+									/>
+								)}
 							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="fundingRaised">Funding Raised</Label>
-								<Input
-									id="fundingRaised"
-									type="number"
-									value={event.fundingRaised || ""}
-									onChange={(e) =>
-										setEvent({
-											...event,
-											fundingRaised: Number.parseInt(e.target.value) || 0,
-										})
-									}
-								/>
-							</div>
-						</>
-					)}
-					<DialogFooter className="sticky bottom-0 bg-background pt-4 mt-4 border-t gap-2 sm:gap-0">
-						{mode === "edit" && onDelete && (
-							<Button
-								type="button"
-								variant="destructive"
-								onClick={onDelete}
-								className="mr-auto"
-							>
-								Delete
-							</Button>
+						</div>
+						{event.type === "mission" && (
+							<>
+								<div className="grid gap-2">
+									<Label htmlFor="volunteersNeeded">Volunteers Needed</Label>
+									<Input
+										id="volunteersNeeded"
+										type="number"
+										value={event.volunteersNeeded || ""}
+										onChange={(e) =>
+											setEvent({
+												...event,
+												volunteersNeeded: Number.parseInt(e.target.value) || 0,
+											})
+										}
+									/>
+								</div>
+								<div className="grid gap-2">
+									<Label htmlFor="investment">Investment Goal</Label>
+									<Input
+										id="investment"
+										type="number"
+										value={event.investment || ""}
+										onChange={(e) =>
+											setEvent({
+												...event,
+												investment: Number.parseInt(e.target.value) || 0,
+											})
+										}
+									/>
+								</div>
+								<div className="grid gap-2">
+									<Label htmlFor="fundingRaised">Funding Raised</Label>
+									<Input
+										id="fundingRaised"
+										type="number"
+										value={event.fundingRaised || ""}
+										onChange={(e) =>
+											setEvent({
+												...event,
+												fundingRaised: Number.parseInt(e.target.value) || 0,
+											})
+										}
+									/>
+								</div>
+							</>
 						)}
-						<div className="flex gap-2">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => onOpenChange(false)}
-							>
-								Cancel
-							</Button>
-							<Button type="submit">
-								{mode === "create" ? "Create Event" : "Update Event"}
-							</Button>
-						</div>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+						<DialogFooter className="sticky bottom-0 bg-background pt-4 mt-4 border-t gap-2 sm:gap-0">
+							{mode === "edit" && onDelete && (
+								<Button
+									type="button"
+									variant="destructive"
+									onClick={() => setDeleteConfirmOpen(true)}
+									className="mr-auto"
+								>
+									Delete
+								</Button>
+							)}
+							<div className="flex gap-2">
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => {
+										// Only allow closing if not submitting
+										if (!isSubmitting) {
+											onOpenChange(false);
+										}
+									}}
+									disabled={isSubmitting}
+								>
+									Cancel
+								</Button>
+								<Button type="submit" disabled={isSubmitting}>
+									{isSubmitting ? (
+										<>
+											<span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-foreground" />
+											{mode === "create" ? "Creating..." : "Updating..."}
+										</>
+									) : mode === "create" ? (
+										"Create Event"
+									) : (
+										"Update Event"
+									)}
+								</Button>
+							</div>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
+
+			<AlertDialog open={deleteConfirmOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							Are you sure you want to delete this event?
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							This action cannot be undone. This will permanently delete the
+							event
+							<strong> {event.title}</strong> and remove it from our servers.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={isSubmitting}>
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={(e) => {
+								// Prevent the dialog from closing automatically
+								e.preventDefault();
+								e.stopPropagation();
+
+								// Set isSubmitting to true immediately
+								if (onDelete) {
+									onDelete();
+								}
+							}}
+							disabled={isSubmitting}
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+						>
+							{isSubmitting ? (
+								<>
+									<span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-foreground" />
+									Deleting...
+								</>
+							) : (
+								"Delete"
+							)}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
 	);
 }

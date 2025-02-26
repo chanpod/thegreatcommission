@@ -1,9 +1,5 @@
-import type { DateSelectArg, EventClickArg } from "@fullcalendar/core";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
-import FullCalendar from "@fullcalendar/react";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import { format, isSameDay } from "date-fns";
+import type { DateSelectArg } from "@fullcalendar/core";
+import { format, isSameDay, parseISO, addHours } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { eq } from "drizzle-orm";
 import {
@@ -25,9 +21,11 @@ import {
 	useParams,
 	useSearchParams,
 	useSubmit,
+	useActionData,
 } from "react-router";
 import { events } from "server/db/schema";
 import { EventDialog } from "~/components/events/EventDialog";
+import EventCalendar from "~/components/events/EventCalendar";
 import { Button } from "~/components/ui/button";
 import {
 	Card,
@@ -45,6 +43,7 @@ import {
 	PermissionsService,
 } from "@/server/services/PermissionsService";
 import { createAuthLoader } from "~/server/auth/authLoader";
+import { toast } from "sonner";
 
 const locales = {
 	"en-US": enUS,
@@ -113,88 +112,110 @@ export const loader = createAuthLoader(
 	true,
 );
 
-export const action = createAuthLoader(async ({ request, params }) => {
-	const formData = await request.formData();
-	const action = formData.get("action");
+export const action = createAuthLoader(
+	async ({ request, params, userContext }) => {
+		try {
+			const formData = await request.formData();
+			const action = formData.get("action");
+			const user = userContext.user;
 
-	if (!user) {
-		throw new Error("User is not authenticated");
-	}
+			if (!user) {
+				return { success: false, error: "User is not authenticated" };
+			}
 
-	const permissionsService = new PermissionsService();
-	const permissions = await permissionsService.getEventPermissions(
-		user.id,
-		params.organization,
-	);
+			const permissionsService = new PermissionsService();
+			const permissions = await permissionsService.getEventPermissions(
+				user.id,
+				params.organization,
+			);
 
-	if (action === "create") {
-		if (!permissions.canAdd) {
-			throw new Error("You are not authorized to create events");
+			if (action === "create") {
+				if (!permissions.canAdd) {
+					return {
+						success: false,
+						error: "You are not authorized to create events",
+					};
+				}
+
+				const eventData = {
+					title: formData.get("title") as string,
+					description: formData.get("description") as string,
+					startDate: new Date(formData.get("startDate") as string),
+					endDate: new Date(formData.get("endDate") as string),
+					allDay: formData.get("allDay") === "true",
+					type: formData.get("type") as string,
+					location: formData.get("location") as string,
+					heroImageUrl: (formData.get("heroImageUrl") as string) || null,
+					volunteersNeeded: Number(formData.get("volunteersNeeded")) || null,
+					investment: Number(formData.get("investment")) || null,
+					fundingRaised: Number(formData.get("fundingRaised")) || null,
+					churchOrganizationId: params.organization || "",
+					createdAt: new Date(),
+					updatedAt: new Date(),
+				};
+
+				const newEvent = await db.insert(events).values(eventData).returning();
+				return { success: true, event: newEvent[0] };
+			}
+
+			if (action === "update") {
+				if (!permissions.canEdit) {
+					return {
+						success: false,
+						error: "You are not authorized to edit events",
+					};
+				}
+
+				const eventId = formData.get("eventId") as string;
+				const eventData = {
+					title: formData.get("title") as string,
+					description: formData.get("description") as string,
+					startDate: new Date(formData.get("startDate") as string),
+					endDate: new Date(formData.get("endDate") as string),
+					allDay: formData.get("allDay") === "true",
+					type: formData.get("type") as string,
+					location: formData.get("location") as string,
+					heroImageUrl: (formData.get("heroImageUrl") as string) || null,
+					volunteersNeeded: Number(formData.get("volunteersNeeded")) || null,
+					investment: Number(formData.get("investment")) || null,
+					fundingRaised: Number(formData.get("fundingRaised")) || null,
+					updatedAt: new Date(),
+				};
+
+				const updatedEvent = await db
+					.update(events)
+					.set(eventData)
+					.where(eq(events.id, eventId))
+					.returning();
+
+				return { success: true, event: updatedEvent[0] };
+			}
+
+			if (action === "delete") {
+				if (!permissions.canDelete) {
+					return {
+						success: false,
+						error: "You are not authorized to delete events",
+					};
+				}
+
+				const eventId = formData.get("eventId") as string;
+				await db.delete(events).where(eq(events.id, eventId));
+				return { success: true };
+			}
+
+			return { success: false, error: "Invalid action" };
+		} catch (error) {
+			console.error("Error in event action:", error);
+			return {
+				success: false,
+				error:
+					error instanceof Error ? error.message : "An unknown error occurred",
+			};
 		}
-
-		const eventData = {
-			title: formData.get("title") as string,
-			description: formData.get("description") as string,
-			startDate: new Date(formData.get("startDate") as string),
-			endDate: new Date(formData.get("endDate") as string),
-			allDay: formData.get("allDay") === "true",
-			type: formData.get("type") as string,
-			location: formData.get("location") as string,
-			heroImageUrl: (formData.get("heroImageUrl") as string) || null,
-			volunteersNeeded: Number(formData.get("volunteersNeeded")) || null,
-			investment: Number(formData.get("investment")) || null,
-			fundingRaised: Number(formData.get("fundingRaised")) || null,
-			churchOrganizationId: params.organization,
-			createdAt: new Date(),
-			updatedAt: new Date(),
-		};
-
-		const newEvent = await db.insert(events).values(eventData).returning();
-		return { success: true, event: newEvent[0] };
-	}
-
-	if (action === "update") {
-		if (!permissions.canEdit) {
-			throw new Error("You are not authorized to edit events");
-		}
-
-		const eventId = formData.get("eventId") as string;
-		const eventData = {
-			title: formData.get("title") as string,
-			description: formData.get("description") as string,
-			startDate: new Date(formData.get("startDate") as string),
-			endDate: new Date(formData.get("endDate") as string),
-			allDay: formData.get("allDay") === "true",
-			type: formData.get("type") as string,
-			location: formData.get("location") as string,
-			heroImageUrl: (formData.get("heroImageUrl") as string) || null,
-			volunteersNeeded: Number(formData.get("volunteersNeeded")) || null,
-			investment: Number(formData.get("investment")) || null,
-			fundingRaised: Number(formData.get("fundingRaised")) || null,
-			updatedAt: new Date(),
-		};
-
-		const updatedEvent = await db
-			.update(events)
-			.set(eventData)
-			.where(eq(events.id, eventId))
-			.returning();
-
-		return { success: true, event: updatedEvent[0] };
-	}
-
-	if (action === "delete") {
-		if (!permissions.canDelete) {
-			throw new Error("You are not authorized to delete events");
-		}
-
-		const eventId = formData.get("eventId") as string;
-		await db.delete(events).where(eq(events.id, eventId));
-		return { success: true };
-	}
-
-	throw new Error("Invalid action");
-}, true);
+	},
+	true,
+);
 
 function EventCard({
 	event,
@@ -270,31 +291,72 @@ function EventCard({
 export default function EventsLayout() {
 	const { events, upcomingEvents, previousEvents, permissions } =
 		useLoaderData<typeof loader>();
+	const actionData = useActionData<typeof action>();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [listTab, setListTab] = useState("upcoming");
+	const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
+		null,
+	);
 	const organization = useParams().organization;
 	const navigate = useNavigate();
 	const submit = useSubmit();
 
 	// Get view from search params, default to calendar
 	const view = searchParams.get("view") || "calendar";
-	const calendarView = searchParams.get("calendarView") || "dayGridMonth";
-	const currentDate = searchParams.get("date")
+	const calendarView = searchParams.get("calendarView") || "month";
+	const initialDate = searchParams.get("date")
 		? new Date(searchParams.get("date")!)
 		: new Date();
 
 	// Update search params when view changes
 	const handleViewChange = (newView: string) => {
 		searchParams.set("view", newView);
-		setSearchParams(searchParams);
+		setSearchParams(searchParams, { preventScrollReset: true });
 	};
 
-	// Handle calendar navigation and view changes
-	const handleCalendarChange = (date: Date, view: string) => {
+	// Handle calendar view change (month/week)
+	const handleCalendarViewChange = (newCalendarView: "month" | "week") => {
+		searchParams.set("calendarView", newCalendarView);
+		setSearchParams(searchParams, { preventScrollReset: true });
+	};
+
+	// Handle calendar date selection
+	const handleDateClick = (date: Date) => {
 		searchParams.set("date", date.toISOString());
-		searchParams.set("calendarView", view);
-		setSearchParams(searchParams);
+		setSearchParams(searchParams, { preventScrollReset: true });
+	};
+
+	// Handle event click
+	const handleEventClick = (event: CalendarEvent) => {
+		setSelectedEvent(event);
+		if (permissions.canEdit) {
+			navigate(
+				`/churches/${organization}/events/${event.id}/edit?${searchParams.toString()}`,
+			);
+		} else {
+			navigate(`/events/${event.id}/details?${searchParams.toString()}`);
+		}
+	};
+
+	// Add new handlers for edit and view events
+	const handleEditEvent = (event: CalendarEvent) => {
+		navigate(
+			`/churches/${organization}/events/${event.id}/edit?${searchParams.toString()}`,
+		);
+	};
+
+	const handleViewEvent = (event: CalendarEvent) => {
+		navigate(`/events/${event.id}/details?${searchParams.toString()}`);
+	};
+
+	// Handle add event click
+	const handleAddEvent = (date: Date) => {
+		// Store the selected date to use when creating a new event
+		searchParams.set("newEventDate", date.toISOString());
+		setSearchParams(searchParams, { preventScrollReset: true });
+		setIsCreateDialogOpen(true);
 	};
 
 	// Handle create action from URL
@@ -303,64 +365,39 @@ export default function EventsLayout() {
 			setIsCreateDialogOpen(true);
 			// Remove the action param after opening dialog
 			searchParams.delete("action");
-			setSearchParams(searchParams);
+			setSearchParams(searchParams, { preventScrollReset: true });
 		}
 	}, [searchParams, setSearchParams]);
-
-	const handleEventClick = (clickInfo: EventClickArg) => {
-		const event = events.find((e) => e.id === clickInfo.event.id);
-		if (!event) return;
-
-		// Show the popup menu
-		const menu = document.createElement("div");
-		menu.className =
-			"absolute bg-white shadow-lg rounded-lg p-2 space-y-2 z-50";
-		menu.style.left = `${clickInfo.jsEvent.clientX}px`;
-		menu.style.top = `${clickInfo.jsEvent.clientY}px`;
-
-		const editButton = document.createElement("button");
-		editButton.className =
-			"flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md";
-		editButton.innerHTML =
-			'<svg class="w-4 h-4"><use href="#edit-icon"/></svg> Edit Event';
-		editButton.onclick = () => {
-			navigate(
-				`/churches/${organization}/events/${event.id}/edit?${searchParams.toString()}`,
-			);
-			document.body.removeChild(menu);
-		};
-
-		const detailsButton = document.createElement("button");
-		detailsButton.className =
-			"flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md";
-		detailsButton.innerHTML =
-			'<svg class="w-4 h-4"><use href="#external-link-icon"/></svg> View Details';
-		detailsButton.onclick = () => {
-			navigate(`/events/${event.id}/details?${searchParams.toString()}`);
-			document.body.removeChild(menu);
-		};
-
-		if (permissions.canEdit) {
-			menu.appendChild(editButton);
-		}
-		menu.appendChild(detailsButton);
-		document.body.appendChild(menu);
-
-		// Close menu when clicking outside
-		const closeMenu = (e: MouseEvent) => {
-			if (!menu.contains(e.target as Node)) {
-				document.body.removeChild(menu);
-				document.removeEventListener("click", closeMenu);
-			}
-		};
-		setTimeout(() => document.addEventListener("click", closeMenu), 0);
-	};
 
 	const handleDateSelect = (selectInfo: DateSelectArg) => {
 		setIsCreateDialogOpen(true);
 	};
 
+	// Handle successful event creation
+	useEffect(() => {
+		if (actionData) {
+			setIsSubmitting(false);
+
+			if (actionData.success) {
+				setIsCreateDialogOpen(false);
+
+				// Clean up the newEventDate parameter
+				if (searchParams.has("newEventDate")) {
+					searchParams.delete("newEventDate");
+					setSearchParams(searchParams, { preventScrollReset: true });
+				}
+
+				// Show success message
+				toast.success("Event created successfully");
+			} else if (actionData.error) {
+				// Show error message
+				toast.error(`Failed to create event: ${actionData.error}`);
+			}
+		}
+	}, [actionData, searchParams, setSearchParams]);
+
 	const handleCreateEvent = (event: DbEvent) => {
+		setIsSubmitting(true);
 		const formData = new FormData();
 		formData.append("action", "create");
 		formData.append("title", event.title);
@@ -370,9 +407,19 @@ export default function EventsLayout() {
 		formData.append("allDay", String(event.allDay));
 		formData.append("type", event.type);
 		formData.append("location", event.location || "");
+		formData.append("churchOrganizationId", organization || "");
+
+		// Add other fields if they exist
+		if (event.heroImageUrl) formData.append("heroImageUrl", event.heroImageUrl);
+		if (event.volunteersNeeded)
+			formData.append("volunteersNeeded", String(event.volunteersNeeded));
+		if (event.investment)
+			formData.append("investment", String(event.investment));
+		if (event.fundingRaised)
+			formData.append("fundingRaised", String(event.fundingRaised));
 
 		submit(formData, { method: "post" });
-		setIsCreateDialogOpen(false);
+		// Dialog will be closed in the useEffect after successful submission
 	};
 
 	return (
@@ -409,24 +456,28 @@ export default function EventsLayout() {
 			<div className="flex justify-between items-center">
 				<div className="flex items-center gap-4">
 					<h1 className="text-2xl font-bold">Events</h1>
-					<div className="flex bg-gray-100 rounded-lg p-1">
+					<div className="flex bg-gray-200 rounded-lg p-1">
 						<Button
-							variant="secondary"
+							variant="ghost"
 							size="sm"
 							className={cn(
 								"rounded-lg",
-								view !== "calendar" && "bg-white shadow-sm",
+								view === "calendar"
+									? "bg-white shadow-sm text-primary-600 font-medium"
+									: "text-gray-700 hover:text-gray-300",
 							)}
 							onClick={() => handleViewChange("calendar")}
 						>
 							<CalendarDays className="h-4 w-4" />
 						</Button>
 						<Button
-							variant="secondary"
+							variant="ghost"
 							size="sm"
 							className={cn(
 								"rounded-lg",
-								view !== "list" && "bg-white shadow-sm",
+								view === "list"
+									? "bg-white shadow-sm text-primary-600 font-medium"
+									: "text-gray-700 hover:text-gray-300",
 							)}
 							onClick={() => handleViewChange("list")}
 						>
@@ -446,61 +497,22 @@ export default function EventsLayout() {
 			<div key={view}>
 				{view === "calendar" ? (
 					<div className="flex-1 min-h-[600px] bg-white shadow-lg rounded-lg overflow-hidden">
-						<FullCalendar
-							plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-							initialView={calendarView}
+						<EventCalendar
 							events={events}
-							editable={false}
-							selectable={true}
-							selectMirror={true}
-							dayMaxEvents={true}
-							weekends={true}
-							initialDate={currentDate}
-							headerToolbar={{
-								left: "prev,next today",
-								center: "title",
-								right: "dayGridMonth,timeGridWeek,timeGridDay",
-							}}
-							select={handleDateSelect}
-							eventClick={handleEventClick}
-							eventContent={(eventInfo) => {
-								const event = events.find((e) => e.id === eventInfo.event.id);
-								if (!event) return null;
-
-								return (
-									<div className="p-1">
-										<div className="font-semibold">{event.title}</div>
-										{!event.allDay && (
-											<div className="text-xs text-gray-600">
-												{format(new Date(event.start), "h:mm a")}
-											</div>
-										)}
-										{event.type && (
-											<div
-												className={cn(
-													"text-xs px-1 rounded",
-													event.type === "local" && "bg-blue-100 text-blue-800",
-													event.type === "recurring" &&
-														"bg-green-100 text-green-800",
-													event.type === "mission" &&
-														"bg-purple-100 text-purple-800",
-												)}
-											>
-												{event.type}
-											</div>
-										)}
-									</div>
-								);
-							}}
-							eventClassNames={(arg) => {
-								const event = events.find((e) => e.id === arg.event.id);
-								if (!event) return "";
-								return cn(
-									"cursor-pointer hover:opacity-90",
-									event.type === "local" && "border-blue-500",
-									event.type === "recurring" && "border-green-500",
-									event.type === "mission" && "border-purple-500",
-								);
+							onDateClick={handleDateClick}
+							onEventClick={handleEventClick}
+							onEditEvent={handleEditEvent}
+							onViewEvent={handleViewEvent}
+							onAddEvent={handleAddEvent}
+							permissions={permissions}
+							initialDate={initialDate}
+							initialView={calendarView as "month" | "week"}
+							calendarView={calendarView as "month" | "week"}
+							onCalendarViewChange={handleCalendarViewChange}
+							themeColors={{
+								primary: "#3b82f6", // blue
+								secondary: "#1e293b", // slate-900
+								accent: "#8b5cf6", // purple
 							}}
 						/>
 					</div>
@@ -510,7 +522,7 @@ export default function EventsLayout() {
 							value={searchParams.get("listTab") || "upcoming"}
 							onValueChange={(value) => {
 								searchParams.set("listTab", value);
-								setSearchParams(searchParams);
+								setSearchParams(searchParams, { preventScrollReset: true });
 								setListTab(value);
 							}}
 						>
@@ -566,9 +578,48 @@ export default function EventsLayout() {
 			</div>
 			<EventDialog
 				open={isCreateDialogOpen}
-				onOpenChange={setIsCreateDialogOpen}
+				onOpenChange={(open) => {
+					if (!isSubmitting) {
+						setIsCreateDialogOpen(open);
+						// Clean up the newEventDate parameter when dialog is closed
+						if (!open && searchParams.has("newEventDate")) {
+							searchParams.delete("newEventDate");
+							setSearchParams(searchParams, { preventScrollReset: true });
+						}
+					}
+				}}
 				onSubmit={handleCreateEvent}
 				mode="create"
+				isSubmitting={isSubmitting}
+				event={
+					searchParams.get("newEventDate")
+						? {
+								id: "", // Add empty ID for type compatibility
+								title: "",
+								description: "",
+								type: "local",
+								location: "",
+								allDay: false,
+								startDate: new Date(searchParams.get("newEventDate")!),
+								endDate: addHours(
+									new Date(searchParams.get("newEventDate")!),
+									1,
+								),
+								churchOrganizationId: organization || "",
+								createdAt: new Date(),
+								updatedAt: new Date(),
+								// Add missing required fields with default values
+								heroImageUrl: null,
+								recurrence: null,
+								lat: null,
+								lng: null,
+								volunteersNeeded: null,
+								investment: null,
+								fundingRaised: null,
+								parentEventId: null,
+							}
+						: undefined
+				}
 			/>
 			<Outlet />
 		</div>

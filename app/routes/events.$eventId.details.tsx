@@ -1,6 +1,6 @@
-import { useLoaderData } from "react-router";
+import { useLoaderData, useSubmit } from "react-router";
 import { db } from "~/server/dbConnection";
-import { events } from "server/db/schema";
+import { events, eventPhotos } from "server/db/schema";
 import { eq } from "drizzle-orm";
 import type { Route } from "../+types/root";
 import { Card, CardHeader, CardTitle, CardContent } from "~/components/ui/card";
@@ -12,11 +12,23 @@ import {
 	DollarSign,
 	ArrowLeft,
 	Edit,
+	Camera,
 } from "lucide-react";
-import { format, isSameDay } from "date-fns";
+import { format, isSameDay, isPast } from "date-fns";
 import { Button } from "~/components/ui/button";
 import { Link } from "react-router";
 import { usePermissions } from "~/lib/hooks/usePermissions";
+import { EventPhotoCarousel } from "~/components/events/EventPhotoCarousel";
+import { EventPhotoUploader } from "~/components/events/EventPhotoUploader";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
+import {
+	Carousel,
+	CarouselContent,
+	CarouselItem,
+	CarouselNext,
+	CarouselPrevious,
+} from "~/components/ui/carousel";
 
 export const loader = async ({ params }: Route.LoaderArgs) => {
 	const event = await db
@@ -29,11 +41,59 @@ export const loader = async ({ params }: Route.LoaderArgs) => {
 		throw new Error("Event not found");
 	}
 
-	return { event };
+	// Load event photos
+	const photos = await db
+		.select()
+		.from(eventPhotos)
+		.where(eq(eventPhotos.eventId, params.eventId));
+
+	return { event, photos };
+};
+
+export const action = async ({ request, params }: Route.ActionArgs) => {
+	try {
+		const formData = await request.formData();
+		const action = formData.get("action");
+
+		switch (action) {
+			case "savePhotos": {
+				const photosData = JSON.parse(formData.get("photos") as string);
+
+				// Delete existing photos first
+				await db
+					.delete(eventPhotos)
+					.where(eq(eventPhotos.eventId, params.eventId));
+
+				// Insert new photos
+				if (photosData.length > 0) {
+					const photosToInsert = photosData.map((photo: any) => ({
+						eventId: params.eventId,
+						photoUrl: photo.photoUrl,
+						caption: photo.caption || null,
+						createdAt: new Date(),
+						updatedAt: new Date(),
+					}));
+
+					await db.insert(eventPhotos).values(photosToInsert);
+				}
+
+				return { success: true };
+			}
+			default:
+				return { success: false, error: "Invalid action" };
+		}
+	} catch (error) {
+		console.error("Error in event photos action:", error);
+		return {
+			success: false,
+			error:
+				error instanceof Error ? error.message : "An unknown error occurred",
+		};
+	}
 };
 
 export default function EventDetails() {
-	const { event } = useLoaderData<typeof loader>();
+	const { event, photos } = useLoaderData<typeof loader>();
 	const { hasPermission } = usePermissions();
 	const canEditEvents = hasPermission(
 		"events.edit",
@@ -41,11 +101,27 @@ export default function EventDetails() {
 	);
 	const startDate = new Date(event.startDate);
 	const endDate = new Date(event.endDate);
+	const isEventPast = isPast(endDate);
+
+	const [showPhotoUploader, setShowPhotoUploader] = useState(false);
+	const [eventPhotos, setEventPhotos] = useState(photos);
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const submit = useSubmit();
 
 	const typeColors = {
 		local: "bg-blue-100 text-blue-800",
 		recurring: "bg-green-100 text-green-800",
 		mission: "bg-purple-100 text-purple-800",
+	};
+
+	const handleSavePhotos = async (updatedPhotos: any[]) => {
+		setIsSubmitting(true);
+
+		const formData = new FormData();
+		formData.append("action", "savePhotos");
+		formData.append("photos", JSON.stringify(updatedPhotos));
+
+		submit(formData, { method: "post" });
 	};
 
 	return (
@@ -74,19 +150,34 @@ export default function EventDetails() {
 									</span>
 								</div>
 								{canEditEvents && (
-									<Button
-										variant="secondary"
-										size="sm"
-										asChild
-										className="gap-2"
-									>
-										<Link
-											to={`/churches/${event.churchOrganizationId}/events/${event.id}/edit`}
+									<div className="flex gap-2">
+										{isEventPast && (
+											<Button
+												variant="secondary"
+												size="sm"
+												className="gap-2"
+												onClick={() => setShowPhotoUploader(!showPhotoUploader)}
+											>
+												<Camera className="h-4 w-4" />
+												{showPhotoUploader
+													? "Hide Photo Manager"
+													: "Manage Photos"}
+											</Button>
+										)}
+										<Button
+											variant="secondary"
+											size="sm"
+											asChild
+											className="gap-2"
 										>
-											<Edit className="h-4 w-4" />
-											Edit Event
-										</Link>
-									</Button>
+											<Link
+												to={`/churches/${event.churchOrganizationId}/events/${event.id}/edit`}
+											>
+												<Edit className="h-4 w-4" />
+												Edit Event
+											</Link>
+										</Button>
+									</div>
 								)}
 							</div>
 						</div>
@@ -108,14 +199,34 @@ export default function EventDetails() {
 								</span>
 							</div>
 							{canEditEvents && (
-								<Button variant="secondary" size="sm" asChild className="gap-2">
-									<Link
-										to={`/churches/${event.churchOrganizationId}/events/${event.id}/edit`}
+								<div className="flex gap-2">
+									{isEventPast && (
+										<Button
+											variant="secondary"
+											size="sm"
+											className="gap-2"
+											onClick={() => setShowPhotoUploader(!showPhotoUploader)}
+										>
+											<Camera className="h-4 w-4" />
+											{showPhotoUploader
+												? "Hide Photo Manager"
+												: "Manage Photos"}
+										</Button>
+									)}
+									<Button
+										variant="secondary"
+										size="sm"
+										asChild
+										className="gap-2"
 									>
-										<Edit className="h-4 w-4" />
-										Edit Event
-									</Link>
-								</Button>
+										<Link
+											to={`/churches/${event.churchOrganizationId}/events/${event.id}/edit`}
+										>
+											<Edit className="h-4 w-4" />
+											Edit Event
+										</Link>
+									</Button>
+								</div>
 							)}
 						</div>
 					</div>
@@ -142,6 +253,49 @@ export default function EventDetails() {
 
 			{/* Main Content */}
 			<div className="container mx-auto p-4 max-w-4xl">
+				{/* Photo Uploader for Past Events */}
+				{showPhotoUploader && isEventPast && canEditEvents && (
+					<Card className="mb-6">
+						<CardHeader>
+							<CardTitle className="text-lg">Event Photos</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<EventPhotoUploader
+								eventId={event.id}
+								existingPhotos={eventPhotos}
+								onPhotosChange={setEventPhotos}
+								onSavePhotos={handleSavePhotos}
+								isSubmitting={isSubmitting}
+							/>
+						</CardContent>
+					</Card>
+				)}
+
+				{/* Event Photos Carousel (only show if there are photos) */}
+				{!showPhotoUploader && eventPhotos.length > 0 && (
+					<Card className="mb-6 p-3">
+						<CardHeader>
+							<CardTitle className="text-lg">Event Photos</CardTitle>
+						</CardHeader>
+						<CardContent className="m-5">
+							<Carousel>
+								<CarouselContent>
+									{eventPhotos.map((photo) => (
+										<CarouselItem key={photo.id}>
+											<img
+												src={photo.photoUrl}
+												alt={photo.caption || "Event Photo"}
+											/>
+										</CarouselItem>
+									))}
+								</CarouselContent>
+								<CarouselPrevious />
+								<CarouselNext />
+							</Carousel>
+						</CardContent>
+					</Card>
+				)}
+
 				<div className="grid gap-6 md:grid-cols-3">
 					{/* Event Details Sidebar */}
 					<div className="md:col-span-1 space-y-4">

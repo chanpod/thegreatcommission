@@ -305,3 +305,19 @@ export const usersToOrganizationRoles = pgTable("users_to_organization_roles", {
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at").notNull(),
 });
+
+// Add event_photos table after the events table
+export const eventPhotos = pgTable("event_photos", {
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => uuidv4()),
+	eventId: text("event_id")
+		.notNull()
+		.references(() => events.id, {
+			onDelete: "cascade",
+		}),
+	photoUrl: text("photo_url").notNull(),
+	caption: text("caption"),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
