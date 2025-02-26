@@ -77,6 +77,18 @@ export const action = createAuthLoader(async ({ request, params }) => {
 		.set(configData)
 		.where(eq(landingPageConfig.churchOrganizationId, params.organization));
 
+	// Update custom domain if provided
+	const customDomain = formData.get("customDomain") as string;
+	if (customDomain !== undefined) {
+		await db
+			.update(churchOrganization)
+			.set({
+				customDomain: customDomain || null,
+				updatedAt: now,
+			})
+			.where(eq(churchOrganization.id, params.organization));
+	}
+
 	return { success: true };
 }, true);
 
@@ -95,7 +107,10 @@ export default function LandingConfig() {
 	const [heroImageUrl, setHeroImageUrl] = useState<string>(
 		config?.heroImage || "",
 	);
-	const [logoUrl, setLogoUrl] = useState<string>(config?.logoUrl || "");
+	const [logoUrl, setLogoUrl] = useState<string>(organization?.logoUrl || "");
+	const [customDomain, setCustomDomain] = useState<string>(
+		organization?.customDomain || "",
+	);
 	const [formData, setFormData] = useState({
 		heroHeadline: config?.heroHeadline || "",
 		heroSubheadline: config?.heroSubheadline || "",
@@ -112,6 +127,7 @@ export default function LandingConfig() {
 		const hasChanges =
 			heroImageUrl !== (config?.heroImage || "") ||
 			logoUrl !== (config?.logoUrl || "") ||
+			customDomain !== (organization?.customDomain || "") ||
 			JSON.stringify(socialLinks) !== (config?.socialLinks || "{}") ||
 			formData.heroHeadline !== (config?.heroHeadline || "") ||
 			formData.heroSubheadline !== (config?.heroSubheadline || "") ||
@@ -123,7 +139,15 @@ export default function LandingConfig() {
 			formData.contactAddress !== (config?.contactAddress || "");
 
 		setHasUnsavedChanges(hasChanges);
-	}, [heroImageUrl, logoUrl, socialLinks, formData, config]);
+	}, [
+		heroImageUrl,
+		logoUrl,
+		customDomain,
+		socialLinks,
+		formData,
+		config,
+		organization,
+	]);
 
 	// Handle navigation attempts
 	useBeforeUnload((event) => {
@@ -165,6 +189,7 @@ export default function LandingConfig() {
 		submitData.set("socialLinks", JSON.stringify(socialLinks));
 		submitData.set("heroImage", heroImageUrl);
 		submitData.set("logoUrl", logoUrl);
+		submitData.set("customDomain", customDomain);
 
 		submit(submitData, { method: "post" });
 		setHasUnsavedChanges(false);
@@ -432,13 +457,128 @@ export default function LandingConfig() {
 					</CardContent>
 				</Card>
 
+				<Card>
+					<CardHeader>
+						<CardTitle>Website Settings</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<div className="space-y-2">
+							<Label htmlFor="customDomain">Custom Domain</Label>
+							<Input
+								id="customDomain"
+								value={customDomain}
+								onChange={(e) => setCustomDomain(e.target.value)}
+								placeholder="e.g., yourchurch.com"
+							/>
+							<p className="text-sm text-muted-foreground">
+								Enter your custom domain to use for your church website. You'll
+								need to set up a CNAME record pointing to
+								thegreatcommission.org.
+							</p>
+
+							{customDomain && (
+								<div className="mt-2">
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={async () => {
+											try {
+												const response = await fetch(
+													`/api/check-domain?domain=${encodeURIComponent(customDomain)}`,
+												);
+												const data = await response.json();
+
+												if (data.isConfigured) {
+													toast.success("Domain is properly configured! 🎉");
+												} else if (!data.exists) {
+													toast.error(
+														"This domain is not saved in our system yet. Save your changes first.",
+													);
+												} else if (data.dns.error) {
+													toast.error(`DNS error: ${data.dns.error}`);
+												} else if (!data.dns.success) {
+													toast.error(
+														"CNAME record not properly configured. Please check your DNS settings.",
+													);
+												} else {
+													toast.error(
+														"Domain verification failed. Please check your settings.",
+													);
+												}
+											} catch (error) {
+												toast.error("Error checking domain configuration");
+												console.error(error);
+											}
+										}}
+									>
+										Verify Domain Setup
+									</Button>
+								</div>
+							)}
+						</div>
+
+						<div className="mt-4 p-4 bg-muted rounded-md">
+							<h3 className="text-sm font-medium mb-2">
+								How to set up your custom domain:
+							</h3>
+							<ol className="text-sm text-muted-foreground space-y-2 list-decimal pl-4">
+								<li>
+									Purchase a domain from a domain registrar (like Namecheap,
+									GoDaddy, or Google Domains).
+								</li>
+								<li>
+									In your domain registrar's DNS settings, add a CNAME record:
+								</li>
+								<ul className="list-disc pl-6 mt-1 space-y-1">
+									<li>
+										<strong>Host/Name:</strong> @ or www (depending on if you
+										want example.com or www.example.com)
+									</li>
+									<li>
+										<strong>Value/Target:</strong> thegreatcommission.org
+									</li>
+									<li>
+										<strong>TTL:</strong> 3600 (or Auto)
+									</li>
+								</ul>
+								<li>Enter your domain above (without http:// or https://)</li>
+								<li>
+									Save your changes and wait for DNS propagation (can take up to
+									48 hours)
+								</li>
+							</ol>
+							<p className="text-sm text-muted-foreground mt-2">
+								Once set up, your church's landing page will be accessible at
+								your custom domain.
+							</p>
+						</div>
+					</CardContent>
+				</Card>
+
 				<div className="flex justify-end gap-4 p-3">
 					<Button
 						type="button"
-						variant="ghost"
-						onClick={() => handleNavigation(`/churches/${organization.id}`)}
+						variant="outline"
+						onClick={() => {
+							if (hasUnsavedChanges) {
+								setShowUnsavedDialog(true);
+								setPendingNavigation(`/churches/${organization.id}/landing`);
+							} else {
+								navigate(`/churches/${organization.id}/landing`);
+							}
+						}}
 					>
 						Cancel
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={() => {
+							window.open(`/landing/${organization.id}`, "_blank");
+						}}
+					>
+						Preview Landing Page
 					</Button>
 					<Button type="submit" disabled={!hasUnsavedChanges}>
 						Save Changes

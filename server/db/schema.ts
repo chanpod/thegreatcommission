@@ -101,6 +101,7 @@ export const churchOrganization = pgTable("church_organizations", {
 	liveStreamUrl: text("live_stream_url"),
 	email: text("email"),
 	phone: text("phone"),
+	customDomain: text("custom_domain").unique(), // Store the custom domain for the church's landing page
 	parentOrganizationId: text("parent_organization_id").references(
 		(): AnyPgColumn => churchOrganization.id,
 	),

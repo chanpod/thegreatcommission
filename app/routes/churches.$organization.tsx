@@ -26,6 +26,7 @@ import { PermissionsService } from "@/server/services/PermissionsService";
 import { format } from "date-fns";
 import { GuidedMessageComposer } from "~/components/messaging/GuidedMessageComposer";
 import { useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 
 export const links: Route.LinksFunction = () => [
 	{ rel: "stylesheet", href: stylesheet },
@@ -122,7 +123,11 @@ export default function OrganizationLayout() {
 			<header className="bg-white shadow">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
 					<div className="flex items-center">
-						<h1 className="text-2xl font-bold text-gray-900">
+						<h1 className="text-2xl flex items-center gap-2 font-bold text-gray-900">
+							<Avatar>
+								<AvatarImage src={organization.logoUrl} />
+								<AvatarFallback>{organization.name.slice(0, 2)}</AvatarFallback>
+							</Avatar>
 							{organization.name}
 						</h1>
 					</div>

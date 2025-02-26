@@ -109,7 +109,11 @@ const LandingPage = ({
 					liveStreamUrl={organization.liveStreamUrl}
 					isLive={isLive}
 				/>
-				<Events events={upcomingEvents} />
+				{upcomingEvents.length > 0 && (
+					<>
+						<Events events={upcomingEvents} churchId={organization.id} />
+					</>
+				)}
 				<About
 					title={config?.aboutTitle || "About Us"}
 					content={config?.aboutContent || organization.description}

@@ -63,11 +63,13 @@ export const loader = createAuthLoader(
 			.where(
 				and(
 					eq(events.churchOrganizationId, params.organization),
-					eq(events.type, "local"),
 					gte(events.startDate, now),
+					// Exclude recurring service events
+					eq(events.type, "local"),
 				),
 			)
-			.limit(3);
+			.orderBy(events.startDate)
+			.limit(4);
 
 		let isLive = false;
 		if (organization.liveStreamUrl) {
