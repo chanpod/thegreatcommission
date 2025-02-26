@@ -150,7 +150,7 @@ export function EventDialog({
 
 	const handleImageUploadComplete = (res: { url: string }[]) => {
 		if (res?.[0]) {
-			setEvent((prev) => ({ ...prev, heroImageUrl: res[0].url }));
+			setEvent((prev) => ({ ...prev, heroImageUrl: res[0].ufsUrl }));
 			toast.success("Hero image uploaded successfully");
 		}
 	};

@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 export default function Header({
 	churchName,
@@ -13,11 +14,10 @@ export default function Header({
 				<div className="flex justify-between items-center">
 					<div className="flex items-center gap-3">
 						{logoUrl && (
-							<img
-								src={logoUrl}
-								alt={`${churchName} logo`}
-								className="h-10 w-auto object-contain"
-							/>
+							<Avatar alt={`${churchName} logo`}>
+								<AvatarImage src={logoUrl} alt={`${churchName} logo`} />
+								<AvatarFallback>CN</AvatarFallback>
+							</Avatar>
 						)}
 						<h1 className="text-xl font-bold text-white">{churchName}</h1>
 					</div>

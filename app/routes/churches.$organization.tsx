@@ -101,7 +101,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 };
 
 const NAV_ITEMS = [
-	{ name: "Overview", href: "" },
+	{ name: "Overview", href: "details" },
 	{ name: "Members", href: "members" },
 	{ name: "Teams", href: "teams" },
 	{ name: "Events", href: "events" },

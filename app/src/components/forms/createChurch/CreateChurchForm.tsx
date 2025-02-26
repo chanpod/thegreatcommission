@@ -136,7 +136,8 @@ const CreateChurchForm = (props: Props) => {
 							endpoint="imageUploader"
 							onClientUploadComplete={(res) => {
 								if (res?.[0]) {
-									setLogoUrl(res[0].url);
+									console.log("res", res);
+									setLogoUrl(res[0].ufsUrl);
 									toast.success("Logo uploaded successfully");
 								}
 							}}

@@ -558,7 +558,7 @@ export default function GettingStarted() {
 												endpoint="imageUploader"
 												onClientUploadComplete={(res) => {
 													if (res?.[0]) {
-														setLogoUrl(res[0].url);
+														setLogoUrl(res[0].ufsUrl);
 														toast.success("Logo uploaded successfully");
 													}
 												}}
@@ -719,7 +719,7 @@ export default function GettingStarted() {
 													endpoint="imageUploader"
 													onClientUploadComplete={(res) => {
 														if (res?.[0]) {
-															setHeroImageUrl(res[0].url);
+															setHeroImageUrl(res[0].ufsUrl);
 															toast.success("Image uploaded successfully");
 														}
 													}}

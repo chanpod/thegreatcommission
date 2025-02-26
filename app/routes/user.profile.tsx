@@ -140,7 +140,7 @@ const UserProfilePage = () => {
 									endpoint="imageUploader"
 									onClientUploadComplete={(res) => {
 										if (res?.[0]) {
-											handleAvatarUpload(res[0].url);
+											handleAvatarUpload(res[0].ufsUrl);
 											toast.success("Profile picture updated successfully");
 										}
 									}}
@@ -176,7 +176,7 @@ const UserProfilePage = () => {
 									endpoint="imageUploader"
 									onClientUploadComplete={(res) => {
 										if (res?.[0]) {
-											handleAvatarUpload(res[0].url);
+											handleAvatarUpload(res[0].ufsUrl);
 											toast.success("Profile picture updated successfully");
 										}
 									}}

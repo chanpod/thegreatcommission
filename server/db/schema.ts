@@ -105,6 +105,8 @@ export const churchOrganization = pgTable("church_organizations", {
 		(): AnyPgColumn => churchOrganization.id,
 	),
 	avatarUrl: text("avatar_url"),
+	// Logo
+	logoUrl: text("logo_url"),
 	themeColors: text("theme_colors").default(
 		JSON.stringify({
 			primary: "#3b82f6", // Blue
@@ -232,8 +234,7 @@ export const landingPageConfig = pgTable("landing_page_config", {
 	heroImage: text("hero_image"),
 	heroHeadline: text("hero_headline"),
 	heroSubheadline: text("hero_subheadline"),
-	// Logo
-	logoUrl: text("logo_url"),
+
 	// About section
 	aboutTitle: text("about_title"),
 	aboutContent: text("about_content"),
