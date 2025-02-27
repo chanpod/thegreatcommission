@@ -1,12 +1,10 @@
-import { useAuth } from "@clerk/react-router";
 import { rootAuthLoader } from "@clerk/react-router/ssr.server";
 import {
+	type FileRouter,
 	createRouteHandler,
 	createUploadthing,
-	type FileRouter,
 } from "uploadthing/remix";
 import { UploadThingError } from "uploadthing/server";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { AuthService } from "~/services/AuthService";
 
 const f = createUploadthing();
