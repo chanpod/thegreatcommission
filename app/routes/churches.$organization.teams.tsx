@@ -30,7 +30,6 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
 import { db } from "~/server/dbConnection";
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
 import { Input } from "~/src/components/forms/input/Input";
@@ -69,65 +68,69 @@ export const loader = createAuthLoader(
 	true,
 );
 
-export const action = async ({ request, params }) => {
-	const formData = await request.formData();
-	const action = formData.get("_action");
-	const user = await authenticator.isAuthenticated(request);
-	if (!user) {
-		throw new Error("Not authenticated");
-	}
-	const permissionsService = new PermissionsService();
-	const permissions = await permissionsService.getTeamPermissions(
-		user.id,
-		params.organization,
-	);
+export const action = createAuthLoader(
+	async ({ request, params, userContext }) => {
+		const formData = await request.formData();
+		const action = formData.get("_action");
+		const user = userContext.user;
 
-	if (action === "create") {
-		if (!permissions.canAdd) {
-			return { error: "You are not authorized to create teams" };
+		const permissionsService = new PermissionsService();
+		const permissions = await permissionsService.getTeamPermissions(
+			user.id,
+			params.organization,
+		);
+
+		if (action === "create") {
+			if (!permissions.canAdd) {
+				return { error: "You are not authorized to create teams" };
+			}
+			const teamData = {
+				name: formData.get("name"),
+				description: formData.get("description"),
+				type: formData.get("type"),
+				color: formData.get("color"),
+				churchOrganizationId: params.organization,
+				updatedAt: new Date(),
+			};
+
+			await db.insert(teamsTable).values(teamData);
+			return { success: true, message: "Team created successfully" };
 		}
-		const teamData = {
-			name: formData.get("name"),
-			description: formData.get("description"),
-			type: formData.get("type"),
-			color: formData.get("color"),
-			churchOrganizationId: params.organization,
-			updatedAt: new Date(),
-		};
 
-		await db.insert(teamsTable).values(teamData);
-		return { success: true, message: "Team created successfully" };
-	}
+		if (action === "update") {
+			if (!permissions.canEdit) {
+				return { error: "You are not authorized to update teams" };
+			}
+			const teamId = formData.get("teamId");
+			const teamData = {
+				name: formData.get("name"),
+				description: formData.get("description"),
+				type: formData.get("type"),
+				color: formData.get("color"),
+				churchOrganizationId: params.organization,
+				updatedAt: new Date(),
+			};
 
-	if (action === "update") {
-		if (!permissions.canEdit) {
-			return { error: "You are not authorized to update teams" };
+			await db
+				.update(teamsTable)
+				.set(teamData)
+				.where(eq(teamsTable.id, teamId));
+			return { success: true, message: "Team updated successfully" };
 		}
-		const teamId = formData.get("teamId");
-		const teamData = {
-			name: formData.get("name"),
-			description: formData.get("description"),
-			type: formData.get("type"),
-			color: formData.get("color"),
-			churchOrganizationId: params.organization,
-			updatedAt: new Date(),
-		};
 
-		await db.update(teamsTable).set(teamData).where(eq(teamsTable.id, teamId));
-		return { success: true, message: "Team updated successfully" };
-	}
-
-	if (action === "delete") {
-		if (!permissions.canDelete) {
-			return { error: "You are not authorized to delete teams" };
+		if (action === "delete") {
+			if (!permissions.canDelete) {
+				return { error: "You are not authorized to delete teams" };
+			}
+			const teamId = formData.get("teamId");
+			await db.delete(teamsTable).where(eq(teamsTable.id, teamId));
+			return { success: true, message: "Team deleted successfully" };
 		}
-		const teamId = formData.get("teamId");
-		await db.delete(teamsTable).where(eq(teamsTable.id, teamId));
-		return { success: true, message: "Team deleted successfully" };
-	}
 
-	return { error: "Invalid action" };
-};
+		return { error: "Invalid action" };
+	},
+	true,
+);
 
 const TEAM_TYPES = [
 	"ministry",
