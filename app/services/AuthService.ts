@@ -29,6 +29,12 @@ export class AuthService {
 		if (!clerkUserId) return null;
 
 		try {
+			console.log("clerk secret key", process.env.CLERK_SECRET_KEY);
+			console.log(
+				"clerk publishable key",
+				process.env.VITE_CLERK_PUBLISHABLE_KEY,
+			);
+
 			const clerkUser = await createClerkClient({
 				secretKey: process.env.CLERK_SECRET_KEY,
 				publishableKey: process.env.VITE_CLERK_PUBLISHABLE_KEY,
