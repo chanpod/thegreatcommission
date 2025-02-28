@@ -7,6 +7,7 @@ import { db } from "~/server/dbConnection";
 import {
 	organizationRoles,
 	roles,
+	users,
 	usersToOrganizationRoles,
 	usersToRoles,
 } from "@/server/db/schema";
@@ -21,6 +22,7 @@ export interface AuthenticatedUser {
 	userToOrgRoles: Array<typeof usersToOrganizationRoles.$inferSelect>;
 }
 
+// biome-ignore lint/complexity/noStaticOnlyClass: <explanation>
 export class AuthService {
 	static async getAuthenticatedUser(
 		auth: AuthObject,
@@ -48,7 +50,39 @@ export class AuthService {
 				churches: false,
 			});
 
-			const user = getUserQuery.users;
+			let user = getUserQuery.users;
+
+			// If user doesn't exist in our database, create a new user
+			if (!user) {
+				console.log("Creating new user for first-time login:", userEmail);
+
+				// Extract user info from Clerk
+				const firstName = clerkUser.firstName || "";
+				const lastName = clerkUser.lastName || "";
+				const imageUrl = clerkUser.imageUrl;
+
+				// Create the new user in our database
+				const newUsers = await db
+					.insert(users)
+					.values({
+						email: userEmail,
+						firstName,
+						lastName,
+						avatarUrl: imageUrl,
+					})
+					.returning();
+
+				if (newUsers && newUsers.length > 0) {
+					user = newUsers[0];
+					console.log("Created new user:", user);
+				} else {
+					console.error("Failed to create new user");
+					return null;
+				}
+			}
+
+			console.log("getUserQuery", getUserQuery);
+
 			const userId = user.id;
 
 			// Get all organization roles and user-to-role assignments
@@ -80,7 +114,7 @@ export class AuthService {
 	}
 
 	static async requireAuth(auth: AuthObject): Promise<AuthenticatedUser> {
-		const user = await this.getAuthenticatedUser(auth);
+		const user = await AuthService.getAuthenticatedUser(auth);
 		if (!user) {
 			throw new Response("Unauthorized", { status: 401 });
 		}
