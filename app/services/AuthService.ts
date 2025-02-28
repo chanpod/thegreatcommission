@@ -37,10 +37,17 @@ export class AuthService {
 				process.env.VITE_CLERK_PUBLISHABLE_KEY,
 			);
 
-			const clerkUser = await createClerkClient({
+			const clerkUserClient = createClerkClient({
 				secretKey: process.env.CLERK_SECRET_KEY,
 				publishableKey: process.env.VITE_CLERK_PUBLISHABLE_KEY,
-			}).users.getUser(clerkUserId);
+			});
+
+			console.log("clerkUserClient", clerkUserClient);
+			console.log("clerkUserClient.users", clerkUserClient.users);
+			const clerkUser = await clerkUserClient.users.getUser(clerkUserId);
+
+			console.log("clerkUser", clerkUser);
+			console.log("clerkUser.emailAddresses", clerkUser.emailAddresses);
 
 			const userEmail = clerkUser.emailAddresses[0].emailAddress;
 
