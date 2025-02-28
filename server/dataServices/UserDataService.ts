@@ -44,7 +44,9 @@ export async function getUser(
 		}
 	} else {
 		const result = await query.then((result) => result[0]);
-		users = result as typeof users;
+		if (result) {
+			users = result as typeof users;
+		}
 	}
 
 	return {
