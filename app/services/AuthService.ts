@@ -49,8 +49,8 @@ export class AuthService {
 				roles: true,
 				churches: false,
 			});
-
-			let user = getUserQuery.users;
+			console.log("getUserQuery", getUserQuery);
+			let user = getUserQuery?.users;
 
 			// If user doesn't exist in our database, create a new user
 			if (!user) {
