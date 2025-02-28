@@ -31,23 +31,12 @@ export class AuthService {
 		if (!clerkUserId) return null;
 
 		try {
-			console.log("clerk secret key", process.env.CLERK_SECRET_KEY);
-			console.log(
-				"clerk publishable key",
-				process.env.VITE_CLERK_PUBLISHABLE_KEY,
-			);
-
 			const clerkUserClient = createClerkClient({
 				secretKey: process.env.CLERK_SECRET_KEY,
 				publishableKey: process.env.VITE_CLERK_PUBLISHABLE_KEY,
 			});
 
-			console.log("clerkUserClient", clerkUserClient);
-			console.log("clerkUserClient.users", clerkUserClient.users);
 			const clerkUser = await clerkUserClient.users.getUser(clerkUserId);
-
-			console.log("clerkUser", clerkUser);
-			console.log("clerkUser.emailAddresses", clerkUser.emailAddresses);
 
 			const userEmail = clerkUser.emailAddresses[0].emailAddress;
 
@@ -56,7 +45,7 @@ export class AuthService {
 				roles: true,
 				churches: false,
 			});
-			console.log("getUserQuery", getUserQuery);
+
 			let user = getUserQuery?.users;
 
 			// If user doesn't exist in our database, create a new user
