@@ -98,7 +98,7 @@ export default function Header() {
 					</div>
 					<div>
 						<SignedOut>
-							<SignInButton mode="modal" />
+							<SignInButton style={{ color: "black" }} mode="modal" />
 						</SignedOut>
 						<SignedIn>
 							<UserButton showName />
