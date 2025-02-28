@@ -77,8 +77,6 @@ export class AuthService {
 				}
 			}
 
-			console.log("getUserQuery", getUserQuery);
-
 			const userId = user.id;
 
 			// Get all organization roles and user-to-role assignments

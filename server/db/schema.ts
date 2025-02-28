@@ -322,3 +322,47 @@ export const eventPhotos = pgTable("event_photos", {
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Table for tracking message usage for billing purposes
+export const messageTracker = pgTable("message_tracker", {
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => uuidv4()),
+	churchOrganizationId: text("church_organization_id")
+		.notNull()
+		.references(() => churchOrganization.id),
+	messageType: text("message_type").notNull(), // "sms", "phone", "email"
+	recipientId: text("recipient_id").references(() => users.id),
+	recipientPhone: text("recipient_phone"),
+	recipientEmail: text("recipient_email"),
+	sentByUserId: text("sent_by_user_id").references(() => users.id),
+	messageContent: text("message_content"), // Optional for compliance/auditing
+	messageSubject: text("message_subject"), // For email messages
+	messageLength: integer("message_length"), // Character count for SMS
+	callDuration: integer("call_duration"), // Duration in seconds for phone calls
+	status: text("status").notNull().default("sent"), // sent, delivered, failed
+	providerMessageId: text("provider_message_id"), // ID returned by Twilio/SendGrid
+	cost: integer("cost"), // Cost in cents
+	sentAt: timestamp("sent_at").defaultNow().notNull(),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at").notNull(),
+});
+
+// Saved message usage reports
+export const messageUsageReports = pgTable("message_usage_reports", {
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => uuidv4()),
+	name: text("name").notNull(),
+	churchOrganizationId: text("church_organization_id")
+		.notNull()
+		.references(() => churchOrganization.id),
+	startDate: timestamp("start_date").notNull(),
+	endDate: timestamp("end_date").notNull(),
+	period: text("period").notNull(), // week, month, year
+	emailCount: integer("email_count").default(0),
+	smsCount: integer("sms_count").default(0),
+	phoneCount: integer("phone_count").default(0),
+	totalCost: integer("total_cost").default(0), // Stored in cents
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+});
