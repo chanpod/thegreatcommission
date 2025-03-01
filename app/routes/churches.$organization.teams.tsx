@@ -160,7 +160,7 @@ function TeamCard({
 	onMembersClick,
 }: TeamCardProps) {
 	return (
-		<Card className="p-4 space-y-4">
+		<Card className="p-4 space-y-4 shadow-xl">
 			<div className="flex items-start justify-between">
 				<div>
 					<h3 className="text-lg font-semibold text-foreground">

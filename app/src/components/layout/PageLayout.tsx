@@ -24,7 +24,7 @@ export const PageLayout = ({
 	className,
 }: PageLayoutProps) => {
 	return (
-		<Card className={cn("bg-white", className)}>
+		<Card>
 			<CardContent>
 				<CardHeader>
 					<div className="flex items-center">

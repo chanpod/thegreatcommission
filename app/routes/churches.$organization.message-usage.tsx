@@ -240,9 +240,7 @@ export default function MessageUsage() {
 									<Link
 										to={`/churches/${organization.id}/message-usage?period=week`}
 										className={`px-3 py-1.5 text-sm font-medium rounded-sm ${
-											period === "week"
-												? "bg-white shadow text-gray-700"
-												: "text-gray-200 hover:text-gray-400"
+											period === "week" ? "bg-white shadow text-gray-700" : ""
 										}`}
 									>
 										Week
@@ -250,9 +248,7 @@ export default function MessageUsage() {
 									<Link
 										to={`/churches/${organization.id}/message-usage?period=month`}
 										className={`px-3 py-1.5 text-sm font-medium rounded-sm ${
-											period === "month"
-												? "bg-white shadow text-gray-700"
-												: "text-gray-200 hover:text-gray-400"
+											period === "month" ? "bg-white shadow text-gray-700" : ""
 										}`}
 									>
 										Month
@@ -260,9 +256,7 @@ export default function MessageUsage() {
 									<Link
 										to={`/churches/${organization.id}/message-usage?period=year`}
 										className={`px-3 py-1.5 text-sm font-medium rounded-sm ${
-											period === "year"
-												? "bg-white shadow text-gray-700"
-												: "text-gray-200 hover:text-gray-400"
+											period === "year" ? "bg-white shadow text-gray-700" : ""
 										}`}
 									>
 										Year
@@ -271,7 +265,6 @@ export default function MessageUsage() {
 
 								<Button variant="outline" size="sm" asChild>
 									<Link
-										className="text-gray-700 hover:text-gray-200"
 										to={`/churches/${organization.id}/message-usage/reports`}
 									>
 										View Saved Reports
@@ -280,11 +273,7 @@ export default function MessageUsage() {
 
 								<Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
 									<DialogTrigger asChild>
-										<Button
-											className="text-gray-700 hover:text-gray-200"
-											variant="outline"
-											size="sm"
-										>
+										<Button variant="outline" size="sm">
 											<BookmarkIcon className="mr-2 h-4 w-4" />
 											Save Report
 										</Button>
@@ -383,7 +372,7 @@ export default function MessageUsage() {
 							</div>
 						</div>
 
-						<div className="grid gap-4 md:grid-cols-3">
+						<div className="grid gap-4 md:grid-cols-3 dark">
 							<Card>
 								<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 									<CardTitle className="text-sm font-medium">
@@ -469,7 +458,10 @@ export default function MessageUsage() {
 								</TabsTrigger>
 							</TabsList>
 
-							<TabsContent value="overview" className="space-y-4">
+							<TabsContent
+								value="overview"
+								className="space-y-4 dark rounded-lg"
+							>
 								<Card>
 									<CardHeader>
 										<CardTitle>Usage by Message Type</CardTitle>

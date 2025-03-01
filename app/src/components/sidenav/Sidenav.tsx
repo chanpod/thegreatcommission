@@ -74,7 +74,7 @@ export function Sidenav() {
 						transition: { duration: 0.3 },
 					}}
 					ref={ref}
-					className="sidebar bg-background shadow-md"
+					className="sidebar dark bg-background shadow-md"
 				>
 					<div
 						className="sidebar-header flex items-center justify-center py-4"
@@ -83,7 +83,7 @@ export function Sidenav() {
 						<div className="inline-flex">
 							<Link
 								to="/"
-								className="text-white flex-col items-center justify-center"
+								className="text-foreground flex-col items-center justify-center"
 							>
 								<div className="flex items-center justify-center">
 									<div
@@ -111,10 +111,10 @@ export function Sidenav() {
 								return (
 									<Link
 										onClick={() => setSideNavOpen(false)}
-										className={`flex flex-row items-center justify-between m-2 h-11 px-2 rounded-lg text-gray-300 hover:bg-gray-100 hover:text-gray-700 ${
+										className={`flex flex-row items-center justify-between m-2 h-11 px-2 rounded-lg ${
 											current
 												? "bg-primary text-white rounded-md"
-												: "bg-background rounded-md"
+												: "bg-background text-foreground hover:bg-accent hover:text-accent-foreground rounded-md"
 										}`}
 										key={item.name}
 										to={item.href}

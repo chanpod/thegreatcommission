@@ -149,8 +149,8 @@ const AddMember = () => {
 
 	return (
 		<Sheet open={isOpen} onOpenChange={handleOpenChange}>
-			<SheetContent>
-				<PageLayout title="Add Member" className="mt-3">
+			<SheetContent className="p-3">
+				<PageLayout title="Add Member">
 					<Form method="post" className="space-y-4">
 						<UsersForm defaultValues={{}} />
 						<Button type="submit">Add Member</Button>

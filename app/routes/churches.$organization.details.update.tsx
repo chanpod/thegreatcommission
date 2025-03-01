@@ -99,16 +99,16 @@ const Update = () => {
 
 	return (
 		<Sheet open={isOpen} onOpenChange={handleOpenChange}>
-			<SheetContent>
-				<div className="overflow-auto">
-					<PageLayout title="Update" className="mt-3">
+			<SheetContent className="p-3">
+				<PageLayout title="Update">
+					<div className="overflow-auto">
 						<Form method="put" className="space-y-4" onSubmit={handleSubmit}>
 							<CreateChurchForm initialValues={loaderData?.organization} />
 
 							<Button type="submit">Update</Button>
 						</Form>
-					</PageLayout>
-				</div>
+					</div>
+				</PageLayout>
 			</SheetContent>
 		</Sheet>
 	);

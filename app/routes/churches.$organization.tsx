@@ -205,7 +205,12 @@ export default function OrganizationLayout() {
 				</nav>
 
 				{/* Content Area */}
-				<div className="bg-white shadow overflow-hidden sm:rounded-lg">
+				<div
+					className="bg-white shadow overflow-hidden rounded-lg"
+					style={{
+						borderRadius: "1rem",
+					}}
+				>
 					<Outlet />
 				</div>
 			</main>

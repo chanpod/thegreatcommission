@@ -8,6 +8,11 @@ const Card = React.forwardRef<
 >(({ className, ...props }, ref) => (
 	<div
 		ref={ref}
+		style={{
+			borderRadius: "1rem",
+			boxShadow:
+				"0 -2px 8px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.12)",
+		}}
 		className={cn(
 			"container mx-auto p-4 space-y-3 bg-card text-card-foreground",
 			className,

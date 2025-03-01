@@ -73,8 +73,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 									<Sidenav />
 									<div className="flex-col w-full h-full">
 										<Header />
-										<div className="flex-col h-full text-foreground pt-4 w-full ">
-											<div className="p-0 md:p-3 ">{children}</div>
+
+										<hr className="border-t border-gray-200" />
+										<div className="flex-col h-full text-foreground w-full ">
+											<div className="">{children}</div>
 										</div>
 									</div>
 								</div>
