@@ -8,6 +8,7 @@ import {
 	serial,
 	foreignKey,
 	type AnyPgColumn,
+	numeric,
 } from "drizzle-orm/pg-core";
 import { v4 as uuidv4 } from "uuid";
 
@@ -231,17 +232,31 @@ export const landingPageConfig = pgTable("landing_page_config", {
 		.unique(),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at").notNull(),
+
 	// Hero section
 	heroImage: text("hero_image"),
 	heroHeadline: text("hero_headline"),
 	heroSubheadline: text("hero_subheadline"),
+	heroImagePosition: text("hero_image_position"), // center, top, bottom, left, right
+	heroImageObjectFit: text("hero_image_object_fit"), // cover, contain, fill
+	heroOverlayOpacity: numeric("hero_overlay_opacity"), // 0-1
+	heroHeight: text("hero_height"), // height in px, vh, etc.
 
 	// About section
 	aboutTitle: text("about_title"),
 	aboutContent: text("about_content"),
+	aboutSubtitle: text("about_subtitle"),
+	aboutLogoImage: text("about_logo_image"),
+	aboutButtons: text("about_buttons"), // JSON string containing button config
+	aboutSection: text("about_section"), // JSON string containing complete about section config
+
+	// Custom sections
+	customSections: text("custom_sections"), // JSON string containing all custom sections
+
 	// Footer
 	footerContent: text("footer_content"),
 	socialLinks: text("social_links"), // JSON string containing social media links
+
 	// Contact information (override church organization default if needed)
 	contactEmail: text("contact_email"),
 	contactPhone: text("contact_phone"),

@@ -31,6 +31,8 @@ import {
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { RichTextEditor } from "~/components/messaging/RichTextEditor";
 import { ClientOnly } from "remix-utils/client-only";
+import type { CustomSectionProps } from "~/components/CustomSection";
+import type { AboutSectionButton } from "~/components/About";
 
 export const loader = createAuthLoader(
 	async ({ request, params, userContext }) => {
@@ -61,8 +63,20 @@ export const action = createAuthLoader(async ({ request, params }) => {
 		heroImage: formData.get("heroImage") as string,
 		heroHeadline: formData.get("heroHeadline") as string,
 		heroSubheadline: formData.get("heroSubheadline") as string,
+		heroImagePosition: formData.get("heroImagePosition") as string,
+		heroImageObjectFit: formData.get("heroImageObjectFit") as string,
+		heroOverlayOpacity: formData.get("heroOverlayOpacity") as string,
+		heroHeight: formData.get("heroHeight") as string,
+
 		aboutTitle: formData.get("aboutTitle") as string,
-		aboutContent: formData.get("aboutContent") as string, // This will contain the rich text HTML
+		aboutContent: formData.get("aboutContent") as string,
+		aboutSubtitle: formData.get("aboutSubtitle") as string,
+		aboutLogoImage: formData.get("aboutLogoImage") as string,
+		aboutButtons: formData.get("aboutButtons") as string,
+		aboutSection: formData.get("aboutSection") as string,
+
+		customSections: formData.get("customSections") as string,
+
 		footerContent: formData.get("footerContent") as string,
 		socialLinks: formData.get("socialLinks") as string,
 		contactEmail: formData.get("contactEmail") as string,
@@ -101,20 +115,48 @@ export default function LandingConfig() {
 	const [pendingNavigation, setPendingNavigation] = useState<string | null>(
 		null,
 	);
-	const [socialLinks, setSocialLinks] = useState<Record<string, string>>(
-		config?.socialLinks ? JSON.parse(config.socialLinks) : {},
-	);
+
+	// Hero configuration state
 	const [heroImageUrl, setHeroImageUrl] = useState<string>(
 		config?.heroImage || "",
 	);
+	const [heroConfig, setHeroConfig] = useState({
+		imagePosition: config?.heroImagePosition || "center",
+		imageObjectFit: config?.heroImageObjectFit || "cover",
+		overlayOpacity: config?.heroOverlayOpacity || "0.5",
+		height: config?.heroHeight || "500px",
+	});
+
+	// About section state
+	const [aboutLogoUrl, setAboutLogoUrl] = useState<string>(
+		config?.aboutLogoImage || "",
+	);
+	const [aboutButtons, setAboutButtons] = useState<
+		Array<{ label: string; url: string }>
+	>(config?.aboutButtons ? JSON.parse(config.aboutButtons) : []);
+
+	// Custom sections state
+	const [customSections, setCustomSections] = useState<CustomSectionProps[]>(
+		config?.customSections ? JSON.parse(config.customSections) : [],
+	);
+
+	// Social links state
+	const [socialLinks, setSocialLinks] = useState<Record<string, string>>(
+		config?.socialLinks ? JSON.parse(config.socialLinks) : {},
+	);
+
+	// Logo URL state
 	const [logoUrl, setLogoUrl] = useState<string>(organization?.logoUrl || "");
 	const [customDomain, setCustomDomain] = useState<string>(
 		organization?.customDomain || "",
 	);
+
+	// Form data state
 	const [formData, setFormData] = useState({
 		heroHeadline: config?.heroHeadline || "",
 		heroSubheadline: config?.heroSubheadline || "",
 		aboutTitle: config?.aboutTitle || "",
+		aboutSubtitle: config?.aboutSubtitle || "",
 		aboutContent: config?.aboutContent || "",
 		footerContent: config?.footerContent || "",
 		contactEmail: config?.contactEmail || "",
@@ -126,12 +168,20 @@ export default function LandingConfig() {
 	useEffect(() => {
 		const hasChanges =
 			heroImageUrl !== (config?.heroImage || "") ||
-			logoUrl !== (config?.logoUrl || "") ||
+			heroConfig.imagePosition !== (config?.heroImagePosition || "center") ||
+			heroConfig.imageObjectFit !== (config?.heroImageObjectFit || "cover") ||
+			heroConfig.overlayOpacity !== (config?.heroOverlayOpacity || "0.5") ||
+			heroConfig.height !== (config?.heroHeight || "500px") ||
+			aboutLogoUrl !== (config?.aboutLogoImage || "") ||
+			JSON.stringify(aboutButtons) !== (config?.aboutButtons || "[]") ||
+			JSON.stringify(customSections) !== (config?.customSections || "[]") ||
+			logoUrl !== (organization?.logoUrl || "") ||
 			customDomain !== (organization?.customDomain || "") ||
 			JSON.stringify(socialLinks) !== (config?.socialLinks || "{}") ||
 			formData.heroHeadline !== (config?.heroHeadline || "") ||
 			formData.heroSubheadline !== (config?.heroSubheadline || "") ||
 			formData.aboutTitle !== (config?.aboutTitle || "") ||
+			formData.aboutSubtitle !== (config?.aboutSubtitle || "") ||
 			formData.aboutContent !== (config?.aboutContent || "") ||
 			formData.footerContent !== (config?.footerContent || "") ||
 			formData.contactEmail !== (config?.contactEmail || "") ||
@@ -141,6 +191,10 @@ export default function LandingConfig() {
 		setHasUnsavedChanges(hasChanges);
 	}, [
 		heroImageUrl,
+		heroConfig,
+		aboutLogoUrl,
+		aboutButtons,
+		customSections,
 		logoUrl,
 		customDomain,
 		socialLinks,
@@ -167,10 +221,22 @@ export default function LandingConfig() {
 	};
 
 	const handleFieldChange = (
-		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+		e: React.ChangeEvent<
+			HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+		>,
 	) => {
 		const { name, value } = e.target;
 		setFormData((prev) => ({
+			...prev,
+			[name]: value,
+		}));
+	};
+
+	const handleHeroConfigChange = (
+		e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+	) => {
+		const { name, value } = e.target;
+		setHeroConfig((prev) => ({
 			...prev,
 			[name]: value,
 		}));
@@ -181,13 +247,37 @@ export default function LandingConfig() {
 		const submitData = new FormData();
 
 		// Add all form data fields
-		Object.entries(formData).forEach(([key, value]) => {
+		for (const [key, value] of Object.entries(formData)) {
 			submitData.set(key, value);
-		});
+		}
 
-		// Add social links and hero image
-		submitData.set("socialLinks", JSON.stringify(socialLinks));
+		// Add hero configuration
 		submitData.set("heroImage", heroImageUrl);
+		submitData.set("heroImagePosition", heroConfig.imagePosition);
+		submitData.set("heroImageObjectFit", heroConfig.imageObjectFit);
+		submitData.set("heroOverlayOpacity", heroConfig.overlayOpacity);
+		submitData.set("heroHeight", heroConfig.height);
+
+		// Add about section configuration
+		submitData.set("aboutLogoImage", aboutLogoUrl);
+		submitData.set("aboutButtons", JSON.stringify(aboutButtons));
+
+		// Generate the complete aboutSection JSON
+		const aboutSection = {
+			title: formData.aboutTitle,
+			subtitle: formData.aboutSubtitle,
+			content: formData.aboutContent,
+			logoImage: aboutLogoUrl,
+			buttons: aboutButtons,
+			backgroundGradient: "linear-gradient(135deg, #00a99d 0%, #89d7bb 100%)",
+		};
+		submitData.set("aboutSection", JSON.stringify(aboutSection));
+
+		// Add custom sections
+		submitData.set("customSections", JSON.stringify(customSections));
+
+		// Add social links and logo
+		submitData.set("socialLinks", JSON.stringify(socialLinks));
 		submitData.set("logoUrl", logoUrl);
 		submitData.set("customDomain", customDomain);
 
@@ -224,6 +314,76 @@ export default function LandingConfig() {
 			delete newLinks[platform];
 			return newLinks;
 		});
+	};
+
+	// About buttons management
+	const addAboutButton = () => {
+		setAboutButtons((prev) => [...prev, { label: "New Button", url: "#" }]);
+	};
+
+	const updateAboutButton = (
+		index: number,
+		field: "label" | "url",
+		value: string,
+	) => {
+		setAboutButtons((prev) =>
+			prev.map((button, i) =>
+				i === index ? { ...button, [field]: value } : button,
+			),
+		);
+	};
+
+	const removeAboutButton = (index: number) => {
+		setAboutButtons((prev) => prev.filter((_, i) => i !== index));
+	};
+
+	// Custom sections management
+	const addCustomSection = () => {
+		const newSection = {
+			id: `section-${Date.now()}`,
+			title: "New Section",
+			subtitle: "Section subtitle",
+			content:
+				"<p>This is a new custom section. Edit the content to your needs.</p>",
+			backgroundColor: "#ffffff",
+			textColor: "#333333",
+			layout: "text-only",
+		};
+
+		setCustomSections((prev) => [...prev, newSection]);
+	};
+
+	const updateCustomSection = (
+		index: number,
+		field: string,
+		value: string | number | boolean | object,
+	) => {
+		setCustomSections((prev) =>
+			prev.map((section, i) =>
+				i === index ? { ...section, [field]: value } : section,
+			),
+		);
+	};
+
+	const removeCustomSection = (index: number) => {
+		setCustomSections((prev) => prev.filter((_, i) => i !== index));
+	};
+
+	const moveCustomSection = (index: number, direction: "up" | "down") => {
+		if (
+			(direction === "up" && index === 0) ||
+			(direction === "down" && index === customSections.length - 1)
+		) {
+			return;
+		}
+
+		const newSections = [...customSections];
+		const targetIndex = direction === "up" ? index - 1 : index + 1;
+		const temp = newSections[targetIndex];
+		newSections[targetIndex] = newSections[index];
+		newSections[index] = temp;
+
+		setCustomSections(newSections);
 	};
 
 	return (
@@ -291,12 +451,53 @@ export default function LandingConfig() {
 						<div className="space-y-2">
 							<Label htmlFor="heroImage">Hero Image</Label>
 							{heroImageUrl && (
-								<div className="relative w-full aspect-video rounded-lg overflow-hidden mb-2">
-									<img
-										src={heroImageUrl}
-										alt="Hero"
-										className="object-cover w-full h-full"
-									/>
+								<div
+									className="relative w-full rounded-lg overflow-hidden mb-2"
+									style={{ height: heroConfig.height || "500px" }}
+								>
+									<div className="absolute inset-0">
+										<img
+											src={heroImageUrl}
+											alt="Hero"
+											className="w-full h-full"
+											style={{
+												objectFit:
+													(heroConfig.imageObjectFit as any) || "cover",
+												objectPosition: (() => {
+													switch (heroConfig.imagePosition) {
+														case "top":
+															return "center top";
+														case "bottom":
+															return "center bottom";
+														case "left":
+															return "left center";
+														case "right":
+															return "right center";
+														default:
+															return "center center";
+													}
+												})(),
+											}}
+										/>
+									</div>
+									<div
+										className="absolute inset-0 flex flex-col justify-center items-center text-white px-4 text-center"
+										style={{
+											backgroundColor: `rgba(0, 0, 0, ${heroConfig.overlayOpacity || 0.5})`,
+										}}
+									>
+										<h2 className="text-2xl md:text-3xl font-bold mb-2">
+											{formData.heroHeadline ||
+												`Welcome to ${organization.name}`}
+										</h2>
+										<p className="text-lg md:text-xl">
+											{formData.heroSubheadline ||
+												"A place of worship, fellowship, and growth"}
+										</p>
+										<p className="mt-4 text-xs uppercase tracking-wide opacity-80">
+											Preview - This is how your hero section will appear
+										</p>
+									</div>
 								</div>
 							)}
 							<UploadButton
@@ -319,6 +520,7 @@ export default function LandingConfig() {
 								</p>
 							)}
 						</div>
+
 						<div>
 							<Label htmlFor="heroHeadline">Headline</Label>
 							<Input
@@ -329,6 +531,7 @@ export default function LandingConfig() {
 								placeholder={`Welcome to ${organization.name}`}
 							/>
 						</div>
+
 						<div>
 							<Label htmlFor="heroSubheadline">Subheadline</Label>
 							<Input
@@ -339,6 +542,74 @@ export default function LandingConfig() {
 								placeholder="A place of worship, fellowship, and growth"
 							/>
 						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div>
+								<Label htmlFor="imagePosition">Image Position</Label>
+								<select
+									id="imagePosition"
+									name="imagePosition"
+									value={heroConfig.imagePosition}
+									onChange={handleHeroConfigChange}
+									className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+								>
+									<option value="center">Center</option>
+									<option value="top">Top</option>
+									<option value="bottom">Bottom</option>
+									<option value="left">Left</option>
+									<option value="right">Right</option>
+								</select>
+							</div>
+
+							<div>
+								<Label htmlFor="imageObjectFit">Image Fit</Label>
+								<select
+									id="imageObjectFit"
+									name="imageObjectFit"
+									value={heroConfig.imageObjectFit}
+									onChange={handleHeroConfigChange}
+									className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+								>
+									<option value="cover">Cover (fills area, may crop)</option>
+									<option value="contain">
+										Contain (shows all, may have space)
+									</option>
+									<option value="fill">Fill (stretches to fit)</option>
+								</select>
+							</div>
+
+							<div>
+								<Label htmlFor="overlayOpacity">Overlay Opacity</Label>
+								<div className="flex items-center gap-4">
+									<input
+										id="overlayOpacity"
+										name="overlayOpacity"
+										type="range"
+										min="0"
+										max="1"
+										step="0.1"
+										value={heroConfig.overlayOpacity}
+										onChange={handleHeroConfigChange}
+										className="flex-1"
+									/>
+									<span>{Number(heroConfig.overlayOpacity).toFixed(1)}</span>
+								</div>
+							</div>
+
+							<div>
+								<Label htmlFor="height">Hero Height</Label>
+								<Input
+									id="height"
+									name="height"
+									value={heroConfig.height}
+									onChange={handleHeroConfigChange}
+									placeholder="500px"
+								/>
+								<p className="text-xs text-muted-foreground mt-1">
+									Use px, vh, or other valid CSS units (e.g., 500px, 80vh)
+								</p>
+							</div>
+						</div>
 					</CardContent>
 				</Card>
 
@@ -347,33 +618,314 @@ export default function LandingConfig() {
 						<CardTitle>About Section</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-4">
-						<div>
-							<Label htmlFor="aboutTitle">Title</Label>
-							<Input
-								id="aboutTitle"
-								name="aboutTitle"
-								value={formData.aboutTitle}
-								onChange={handleFieldChange}
-								placeholder="About Us"
-							/>
+						<div
+							className="p-4 rounded-lg mb-4"
+							style={{
+								background: "linear-gradient(135deg, #00a99d 0%, #89d7bb 100%)",
+							}}
+						>
+							<div className="text-white text-center">
+								<p className="text-xs uppercase tracking-wider">Preview</p>
+								<h3 className="text-lg font-semibold mt-1">
+									This section will have a teal gradient background like this
+								</h3>
+							</div>
 						</div>
-						<div>
-							<Label htmlFor="aboutContent">Content</Label>
-							<ClientOnly>
-								{() => (
-									<RichTextEditor
-										name="aboutContent"
-										defaultValue={formData.aboutContent}
-										onContentChange={(content) => {
-											setFormData((prev) => ({
-												...prev,
-												aboutContent: content,
-											}));
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+							<div className="space-y-4">
+								<div>
+									<Label htmlFor="aboutTitle">Main Title</Label>
+									<Input
+										id="aboutTitle"
+										name="aboutTitle"
+										value={formData.aboutTitle}
+										onChange={handleFieldChange}
+										placeholder="About Our Church"
+									/>
+								</div>
+
+								<div>
+									<Label htmlFor="aboutSubtitle">Subtitle</Label>
+									<Input
+										id="aboutSubtitle"
+										name="aboutSubtitle"
+										value={formData.aboutSubtitle}
+										onChange={handleFieldChange}
+										placeholder="Our Mission"
+									/>
+								</div>
+
+								<div>
+									<Label htmlFor="aboutContent">Content</Label>
+									<ClientOnly>
+										{() => (
+											<RichTextEditor
+												name="aboutContent"
+												defaultValue={formData.aboutContent}
+												onContentChange={(content) => {
+													setFormData((prev) => ({
+														...prev,
+														aboutContent: content,
+													}));
+												}}
+											/>
+										)}
+									</ClientOnly>
+								</div>
+							</div>
+
+							<div className="space-y-4">
+								<div className="space-y-2">
+									<Label>Section Logo/Image</Label>
+									{aboutLogoUrl && (
+										<div className="relative w-32 h-32 rounded-lg overflow-hidden mb-2 bg-gray-100 flex items-center justify-center">
+											<img
+												src={aboutLogoUrl}
+												alt="About Section Logo"
+												className="max-w-full max-h-full object-contain"
+											/>
+										</div>
+									)}
+									<UploadButton
+										endpoint="imageUploader"
+										onClientUploadComplete={(res) => {
+											if (res?.[0]) {
+												setAboutLogoUrl(res[0].ufsUrl);
+												toast.success(
+													"Image uploaded successfully. Please save changes to keep this image.",
+												);
+											}
+										}}
+										onUploadError={(error: Error) => {
+											toast.error(`Upload failed: ${error.message}`);
 										}}
 									/>
-								)}
-							</ClientOnly>
+									{aboutLogoUrl !== (config?.aboutLogoImage || "") && (
+										<p className="text-sm text-yellow-600">
+											* Remember to save changes to keep this uploaded image
+										</p>
+									)}
+								</div>
+
+								<div>
+									<div className="flex justify-between items-center mb-2">
+										<Label>Buttons</Label>
+										<Button
+											type="button"
+											variant="outline"
+											onClick={addAboutButton}
+										>
+											Add Button
+										</Button>
+									</div>
+
+									<div className="space-y-3">
+										{aboutButtons.map((button, index) => (
+											<div
+												key={`button-${button.label}-${index}`}
+												className="flex gap-2 items-start"
+											>
+												<div className="grid grid-cols-2 gap-2 flex-1">
+													<Input
+														value={button.label}
+														onChange={(e) =>
+															updateAboutButton(index, "label", e.target.value)
+														}
+														placeholder="Button Label"
+													/>
+													<Input
+														value={button.url}
+														onChange={(e) =>
+															updateAboutButton(index, "url", e.target.value)
+														}
+														placeholder="Button URL"
+													/>
+												</div>
+												<Button
+													type="button"
+													variant="destructive"
+													onClick={() => removeAboutButton(index)}
+												>
+													Remove
+												</Button>
+											</div>
+										))}
+
+										{aboutButtons.length === 0 && (
+											<p className="text-sm text-muted-foreground italic">
+												Add buttons like "What We Believe" or "Core Values" to
+												your about section
+											</p>
+										)}
+									</div>
+								</div>
+							</div>
 						</div>
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader className="flex flex-row justify-between items-center">
+						<CardTitle>Custom Sections</CardTitle>
+						<Button type="button" variant="outline" onClick={addCustomSection}>
+							Add New Section
+						</Button>
+					</CardHeader>
+					<CardContent className="space-y-6">
+						{customSections.length === 0 ? (
+							<div className="text-center p-8 border border-dashed rounded-lg">
+								<h3 className="text-lg font-medium mb-2">
+									No Custom Sections Yet
+								</h3>
+								<p className="text-muted-foreground mb-4">
+									Create custom sections for staff, ministries, testimonials,
+									and more.
+								</p>
+								<Button type="button" onClick={addCustomSection}>
+									Add Your First Section
+								</Button>
+							</div>
+						) : (
+							customSections.map((section, index) => (
+								<div
+									key={section.id || `section-${index}`}
+									className="border rounded-lg p-4"
+								>
+									<div className="flex justify-between items-center mb-4">
+										<h3 className="text-lg font-medium">
+											{section.title || `Section ${index + 1}`}
+										</h3>
+										<div className="flex gap-2">
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												onClick={() => moveCustomSection(index, "up")}
+												disabled={index === 0}
+											>
+												Move Up
+											</Button>
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												onClick={() => moveCustomSection(index, "down")}
+												disabled={index === customSections.length - 1}
+											>
+												Move Down
+											</Button>
+											<Button
+												type="button"
+												variant="destructive"
+												size="sm"
+												onClick={() => removeCustomSection(index)}
+											>
+												Remove
+											</Button>
+										</div>
+									</div>
+
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+										<div>
+											<Label htmlFor={`section-${index}-title`}>
+												Section Title
+											</Label>
+											<Input
+												id={`section-${index}-title`}
+												value={section.title || ""}
+												onChange={(e) =>
+													updateCustomSection(index, "title", e.target.value)
+												}
+											/>
+										</div>
+
+										<div>
+											<Label htmlFor={`section-${index}-subtitle`}>
+												Subtitle
+											</Label>
+											<Input
+												id={`section-${index}-subtitle`}
+												value={section.subtitle || ""}
+												onChange={(e) =>
+													updateCustomSection(index, "subtitle", e.target.value)
+												}
+											/>
+										</div>
+
+										<div>
+											<Label htmlFor={`section-${index}-layout`}>
+												Layout Type
+											</Label>
+											<select
+												id={`section-${index}-layout`}
+												value={section.layout || "text-only"}
+												onChange={(e) =>
+													updateCustomSection(index, "layout", e.target.value)
+												}
+												className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+											>
+												<option value="text-only">Text Only</option>
+												<option value="text-image">Text & Image</option>
+												<option value="full-width-image">
+													Full Width Image
+												</option>
+												<option value="cards">Cards/Grid</option>
+												<option value="team">Team Members</option>
+											</select>
+										</div>
+
+										<div>
+											<Label htmlFor={`section-${index}-background`}>
+												Background Color
+											</Label>
+											<div className="flex gap-2 items-center">
+												<input
+													type="color"
+													value={section.backgroundColor || "#ffffff"}
+													onChange={(e) =>
+														updateCustomSection(
+															index,
+															"backgroundColor",
+															e.target.value,
+														)
+													}
+													className="w-10 h-10"
+												/>
+												<Input
+													value={section.backgroundColor || "#ffffff"}
+													onChange={(e) =>
+														updateCustomSection(
+															index,
+															"backgroundColor",
+															e.target.value,
+														)
+													}
+												/>
+											</div>
+										</div>
+									</div>
+
+									<div>
+										<Label htmlFor={`section-${index}-content`}>Content</Label>
+										<ClientOnly>
+											{() => (
+												<RichTextEditor
+													name={`section-${index}-content`}
+													defaultValue={section.content || ""}
+													onContentChange={(content) => {
+														updateCustomSection(index, "content", content);
+													}}
+												/>
+											)}
+										</ClientOnly>
+									</div>
+
+									{/* Section-specific additional configuration could be added here */}
+									{/* This would include image uploads, team member management, card content, etc. */}
+								</div>
+							))
+						)}
 					</CardContent>
 				</Card>
 

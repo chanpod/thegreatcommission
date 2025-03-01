@@ -8,6 +8,9 @@ import Header from "~/components/Header";
 import ServiceTimes from "~/components/ServiceTimes";
 import Events from "~/components/Events";
 import About from "~/components/About";
+import type { AboutProps } from "~/components/About";
+import CustomSection from "~/components/CustomSection";
+import type { CustomSectionProps } from "~/components/CustomSection";
 import Footer from "~/components/Footer";
 import { Video } from "lucide-react";
 
@@ -25,11 +28,6 @@ interface ServiceTimesProps {
 
 interface EventsProps {
 	events: Array<typeof events.$inferSelect>;
-}
-
-interface AboutProps {
-	title: string;
-	content: string;
 }
 
 interface FooterProps {
@@ -92,32 +90,75 @@ const LandingPage = ({
 	upcomingEvents,
 	isLive,
 }: LandingPageProps) => {
+	// Parse customSections from config if they exist
+	const customSections: CustomSectionProps[] = config?.customSections
+		? JSON.parse(config.customSections)
+		: [];
+
+	// Parse aboutSection from config if it exists
+	const aboutSection: AboutProps = config?.aboutSection
+		? JSON.parse(config.aboutSection)
+		: {
+				title: config?.aboutTitle || "About Us",
+				content: config?.aboutContent || organization.description,
+				backgroundGradient: "linear-gradient(135deg, #00a99d 0%, #89d7bb 100%)",
+				buttons: [
+					...(config?.aboutButtons ? JSON.parse(config.aboutButtons) : []),
+				],
+				subtitle: config?.aboutSubtitle || "Our Mission",
+				logoImage: config?.aboutLogoImage || "",
+			};
+
+	// Hero configuration
+	const heroConfig = {
+		imageUrl: config?.heroImage || organization.churchBannerUrl,
+		headline: config?.heroHeadline || `Welcome to ${organization.name}`,
+		subheadline:
+			config?.heroSubheadline || "A place of worship, fellowship, and growth",
+		imagePosition: config?.heroImagePosition || "center",
+		imageObjectFit: config?.heroImageObjectFit || "cover",
+		overlayOpacity: config?.heroOverlayOpacity || 0.5,
+		height: config?.heroHeight || "500px",
+	};
+
 	return (
 		<ThemeProvider organization={organization}>
 			<div className="min-h-screen flex flex-col">
 				<Header churchName={organization.name} logoUrl={organization.logoUrl} />
 				<Hero
-					imageUrl={config?.heroImage || organization.churchBannerUrl}
-					headline={config?.heroHeadline || `Welcome to ${organization.name}`}
-					subheadline={
-						config?.heroSubheadline ||
-						"A place of worship, fellowship, and growth"
+					imageUrl={heroConfig.imageUrl}
+					headline={heroConfig.headline}
+					subheadline={heroConfig.subheadline}
+					imagePosition={
+						heroConfig.imagePosition as
+							| "center"
+							| "top"
+							| "bottom"
+							| "left"
+							| "right"
 					}
+					imageObjectFit={
+						heroConfig.imageObjectFit as "cover" | "contain" | "fill"
+					}
+					overlayOpacity={Number(heroConfig.overlayOpacity)}
+					height={heroConfig.height}
 				/>
 				<ServiceTimes
 					services={serviceTimes}
 					liveStreamUrl={organization.liveStreamUrl}
 					isLive={isLive}
 				/>
+
 				{upcomingEvents.length > 0 && (
-					<>
-						<Events events={upcomingEvents} churchId={organization.id} />
-					</>
+					<Events events={upcomingEvents} churchId={organization.id} />
 				)}
-				<About
-					title={config?.aboutTitle || "About Us"}
-					content={config?.aboutContent || organization.description}
-				/>
+
+				<About {...aboutSection} />
+
+				{/* Render custom sections if available */}
+				{customSections.map((section) => (
+					<CustomSection key={section.id} {...section} />
+				))}
 
 				<Footer
 					organization={organization}
