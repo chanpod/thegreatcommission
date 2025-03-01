@@ -10,7 +10,11 @@ import {
 	useSubmit,
 } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
-import { churchOrganization, landingPageConfig } from "server/db/schema";
+import {
+	churchOrganization,
+	landingPageConfig,
+	formConfig,
+} from "server/db/schema";
 import { toast } from "sonner";
 import type { CustomSectionProps } from "~/components/CustomSection";
 import { RichTextEditor } from "~/components/messaging/RichTextEditor";
@@ -53,7 +57,14 @@ export const loader = createAuthLoader(
 			.where(eq(churchOrganization.id, params.organization))
 			.then((res) => res[0]);
 
-		return { config, organization, permissions };
+		// Fetch available forms for the organization
+		const forms = await db
+			.select()
+			.from(formConfig)
+			.where(eq(formConfig.churchOrganizationId, params.organization))
+			.then((res) => res.filter((form) => form.active));
+
+		return { config, organization, permissions, forms };
 	},
 	true,
 );
@@ -139,7 +150,7 @@ export const action = createAuthLoader(async ({ request, params }) => {
 }, true);
 
 export default function LandingConfig() {
-	const { config, organization, permissions } = useLoaderData();
+	const { config, organization, permissions, forms } = useLoaderData();
 	const submit = useSubmit();
 	const navigate = useNavigate();
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -308,11 +319,16 @@ export default function LandingConfig() {
 		console.log("Saving aboutSection JSON:", JSON.stringify(aboutSection));
 
 		// Add custom sections
-		submitData.set("customSections", JSON.stringify(customSections));
+		// Ensure each custom section has its buttons property properly included
+		const sectionsToSave = customSections.map((section) => ({
+			...section,
+			buttons: section.buttons || [],
+		}));
+		submitData.set("customSections", JSON.stringify(sectionsToSave));
 
 		// Debug logging
-		console.log("Saving customSections:", customSections);
-		console.log("Saving customSections JSON:", JSON.stringify(customSections));
+		console.log("Saving customSections:", sectionsToSave);
+		console.log("Saving customSections JSON:", JSON.stringify(sectionsToSave));
 
 		// Add social links and logo
 		submitData.set("socialLinks", JSON.stringify(socialLinks));
@@ -382,7 +398,7 @@ export default function LandingConfig() {
 
 	// Custom sections management
 	const addCustomSection = () => {
-		const newSection = {
+		const newSection: CustomSectionProps = {
 			id: `section-${Date.now()}`,
 			title: "New Section",
 			subtitle: "Section subtitle",
@@ -390,7 +406,13 @@ export default function LandingConfig() {
 				"<p>This is a new custom section. Edit the content to your needs.</p>",
 			backgroundColor: "#ffffff",
 			textColor: "#333333",
-			layout: "text-only",
+			layout: "text-only" as
+				| "text-only"
+				| "text-image"
+				| "full-width-image"
+				| "cards"
+				| "team",
+			buttons: [],
 		};
 
 		setCustomSections((prev) => [...prev, newSection]);
@@ -818,6 +840,19 @@ export default function LandingConfig() {
 						</Button>
 					</CardHeader>
 					<CardContent className="space-y-6">
+						{forms.length > 0 && (
+							<div className="bg-blue-50 p-4 rounded-md mb-4">
+								<h3 className="text-sm font-medium text-blue-800 mb-1">
+									Form Integration Available
+								</h3>
+								<p className="text-sm text-blue-700">
+									You can now link buttons in custom sections directly to your
+									forms. Add a button to any section and use the dropdown to
+									select a form.
+								</p>
+							</div>
+						)}
+
 						{customSections.length === 0 ? (
 							<div className="text-center p-8 border border-dashed rounded-lg">
 								<h3 className="text-lg font-medium mb-2">
@@ -966,8 +1001,140 @@ export default function LandingConfig() {
 										</ClientOnly>
 									</div>
 
-									{/* Section-specific additional configuration could be added here */}
-									{/* This would include image uploads, team member management, card content, etc. */}
+									{/* Add buttons management for custom sections */}
+									<div className="mt-4">
+										<div className="flex justify-between items-center mb-2">
+											<Label>Section Buttons</Label>
+											<Button
+												type="button"
+												variant="outline"
+												onClick={() => {
+													const updatedSection = { ...section };
+													if (!updatedSection.buttons) {
+														updatedSection.buttons = [];
+													}
+													updatedSection.buttons.push({
+														label: "New Button",
+														url: "#",
+													});
+													updateCustomSection(
+														index,
+														"buttons",
+														updatedSection.buttons,
+													);
+												}}
+											>
+												Add Button
+											</Button>
+										</div>
+
+										<div className="space-y-3">
+											{section.buttons &&
+												section.buttons.map((button, buttonIndex) => (
+													<div
+														key={`section-${index}-button-${buttonIndex}`}
+														className="flex gap-2 items-start"
+													>
+														<div className="grid grid-cols-2 gap-2 flex-1">
+															<Input
+																value={button.label}
+																onChange={(e) => {
+																	const updatedButtons = [
+																		...(section.buttons || []),
+																	];
+																	updatedButtons[buttonIndex] = {
+																		...updatedButtons[buttonIndex],
+																		label: e.target.value,
+																	};
+																	updateCustomSection(
+																		index,
+																		"buttons",
+																		updatedButtons,
+																	);
+																}}
+																placeholder="Button Label"
+															/>
+															<Input
+																value={button.url}
+																onChange={(e) => {
+																	const updatedButtons = [
+																		...(section.buttons || []),
+																	];
+																	updatedButtons[buttonIndex] = {
+																		...updatedButtons[buttonIndex],
+																		url: e.target.value,
+																	};
+																	updateCustomSection(
+																		index,
+																		"buttons",
+																		updatedButtons,
+																	);
+																}}
+																placeholder="Button URL"
+															/>
+														</div>
+														<div className="flex gap-2">
+															<select
+																className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+																value=""
+																onChange={(e) => {
+																	if (e.target.value) {
+																		const formId = e.target.value;
+																		const updatedButtons = [
+																			...(section.buttons || []),
+																		];
+																		updatedButtons[buttonIndex] = {
+																			...updatedButtons[buttonIndex],
+																			url: `/landing/${organization.id}/forms/${formId}`,
+																		};
+																		updateCustomSection(
+																			index,
+																			"buttons",
+																			updatedButtons,
+																		);
+																	}
+																}}
+															>
+																<option value="">Link to form...</option>
+																{forms.map((form) => (
+																	<option key={form.id} value={form.id}>
+																		{form.name}
+																	</option>
+																))}
+															</select>
+															<Button
+																type="button"
+																variant="destructive"
+																onClick={() => {
+																	const updatedButtons = [
+																		...(section.buttons || []),
+																	];
+																	updatedButtons.splice(buttonIndex, 1);
+																	updateCustomSection(
+																		index,
+																		"buttons",
+																		updatedButtons,
+																	);
+																}}
+															>
+																Remove
+															</Button>
+														</div>
+														{button.url.includes("/forms/") && (
+															<p className="text-xs text-green-600 mt-1">
+																This button links to a form
+															</p>
+														)}
+													</div>
+												))}
+
+											{(!section.buttons || section.buttons.length === 0) && (
+												<p className="text-sm text-muted-foreground italic">
+													Add buttons to link to forms or other pages
+												</p>
+											)}
+										</div>
+									</div>
 								</div>
 							))
 						)}
