@@ -29,6 +29,7 @@ export interface CustomSectionProps {
 		link?: string;
 	}>;
 	teamMembers?: Array<{
+		userId?: string;
 		name: string;
 		role?: string;
 		image?: string;

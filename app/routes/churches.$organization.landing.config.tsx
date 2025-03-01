@@ -36,11 +36,94 @@ import { Textarea } from "~/components/ui/textarea";
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { UploadButton } from "~/utils/uploadthing";
 import { LandingToolbar } from "./churches.$organization.landing._index";
+import { OrganizationDataService } from "@/server/dataServices/OrganizationDataService";
+import { X } from "lucide-react";
+
+// Mini-sidenav component for quick navigation
+function MiniSidenav() {
+	const [activeSection, setActiveSection] = useState<string | null>(null);
+
+	// Update active section based on scroll position
+	useEffect(() => {
+		const handleScroll = () => {
+			const sections = document.querySelectorAll('[id$="-section"]');
+			let currentActiveSection: string | null = null;
+
+			sections.forEach((section) => {
+				const sectionTop = section.getBoundingClientRect().top;
+				if (sectionTop < 100) {
+					currentActiveSection = section.id;
+				}
+			});
+
+			setActiveSection(currentActiveSection);
+		};
+
+		window.addEventListener("scroll", handleScroll);
+		handleScroll(); // Initial check
+
+		return () => {
+			window.removeEventListener("scroll", handleScroll);
+		};
+	}, []);
+
+	const scrollToSection = (sectionId: string) => {
+		const section = document.getElementById(sectionId);
+		if (section) {
+			section.scrollIntoView({ behavior: "smooth" });
+		}
+	};
+
+	return (
+		<div className="fixed right-4 top-1/3 z-10 bg-white rounded-lg shadow-md p-2 border">
+			<div className="flex flex-col gap-2">
+				<button
+					onClick={() => scrollToSection("hero-section")}
+					className={`p-2 rounded-md text-sm ${activeSection === "hero-section" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
+				>
+					Hero
+				</button>
+				<button
+					onClick={() => scrollToSection("about-section")}
+					className={`p-2 rounded-md text-sm ${activeSection === "about-section" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
+				>
+					About
+				</button>
+				<button
+					onClick={() => scrollToSection("custom-sections")}
+					className={`p-2 rounded-md text-sm ${activeSection === "custom-sections" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
+				>
+					Custom Sections
+				</button>
+				<button
+					onClick={() => scrollToSection("social-section")}
+					className={`p-2 rounded-md text-sm ${activeSection === "social-section" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
+				>
+					Social
+				</button>
+				<button
+					onClick={() => scrollToSection("footer-section")}
+					className={`p-2 rounded-md text-sm ${activeSection === "footer-section" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
+				>
+					Footer
+				</button>
+				<button
+					onClick={() => scrollToSection("settings-section")}
+					className={`p-2 rounded-md text-sm ${activeSection === "settings-section" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
+				>
+					Settings
+				</button>
+			</div>
+		</div>
+	);
+}
 
 export const loader = createAuthLoader(
 	async ({ request, params, userContext }) => {
 		const user = userContext?.user;
 		const permissionsService = new PermissionsService();
+		const organizationDataService = new OrganizationDataService();
+
 		const permissions = await permissionsService.getOrganizationPermissions(
 			user.id,
 			params.organization,
@@ -64,7 +147,12 @@ export const loader = createAuthLoader(
 			.where(eq(formConfig.churchOrganizationId, params.organization))
 			.then((res) => res.filter((form) => form.active));
 
-		return { config, organization, permissions, forms };
+		// Fetch organization members
+		const members = await organizationDataService.getOrganizationMembers(
+			params.organization,
+		);
+
+		return { config, organization, permissions, forms, members };
 	},
 	true,
 );
@@ -150,7 +238,7 @@ export const action = createAuthLoader(async ({ request, params }) => {
 }, true);
 
 export default function LandingConfig() {
-	const { config, organization, permissions, forms } = useLoaderData();
+	const { config, organization, permissions, forms, members } = useLoaderData();
 	const submit = useSubmit();
 	const navigate = useNavigate();
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -207,6 +295,9 @@ export default function LandingConfig() {
 		contactAddress: config?.contactAddress || "",
 		contactFormEnabled: config?.contactFormEnabled || false,
 	});
+
+	// Search term state
+	const [searchTerm, setSearchTerm] = useState("");
 
 	// Track changes
 	useEffect(() => {
@@ -319,10 +410,13 @@ export default function LandingConfig() {
 		console.log("Saving aboutSection JSON:", JSON.stringify(aboutSection));
 
 		// Add custom sections
-		// Ensure each custom section has its buttons property properly included
+		// Ensure each custom section has its properties properly included
 		const sectionsToSave = customSections.map((section) => ({
 			...section,
 			buttons: section.buttons || [],
+			images: section.images || [],
+			cards: section.cards || [],
+			teamMembers: section.teamMembers || [],
 		}));
 		submitData.set("customSections", JSON.stringify(sectionsToSave));
 
@@ -413,6 +507,9 @@ export default function LandingConfig() {
 				| "cards"
 				| "team",
 			buttons: [],
+			images: [],
+			cards: [],
+			teamMembers: [],
 		};
 
 		setCustomSections((prev) => [...prev, newSection]);
@@ -458,59 +555,34 @@ export default function LandingConfig() {
 				permissions={permissions}
 				isLive={false}
 			/>
+			<MiniSidenav />
 			<div className="flex justify-between items-center mb-4 p-3">
-				<h1 className="text-2xl font-bold">Landing Page Configuration</h1>
-				<div className="flex items-center gap-4">
-					{hasUnsavedChanges && (
-						<div className="text-yellow-600 flex items-center gap-2">
-							<span className="animate-pulse">●</span>
-							<span>You have unsaved changes</span>
-						</div>
-					)}
+				<h1 className="text-3xl font-bold">Landing Page Configuration</h1>
+				<div className="flex gap-2">
+					<Button
+						type="button"
+						onClick={() => {
+							const form = document.getElementById(
+								"landing-config-form",
+							) as HTMLFormElement;
+							if (form) {
+								form.dispatchEvent(
+									new Event("submit", { cancelable: true, bubbles: true }),
+								);
+							}
+						}}
+					>
+						Save Changes
+					</Button>
 				</div>
 			</div>
 
-			<Form onSubmit={handleSubmit} className="space-y-8">
-				<Card>
-					<CardHeader>
-						<CardTitle>Church Logo</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-4">
-						<div className="space-y-2">
-							<Label htmlFor="logoUrl">Logo</Label>
-							{logoUrl && (
-								<div className="relative w-48 h-16 rounded-lg overflow-hidden mb-2 bg-gray-100 flex items-center justify-center">
-									<img
-										src={logoUrl}
-										alt="Church Logo"
-										className="max-w-full max-h-full object-contain"
-									/>
-								</div>
-							)}
-							<UploadButton
-								endpoint="imageUploader"
-								onClientUploadComplete={(res) => {
-									if (res?.[0]) {
-										setLogoUrl(res[0].ufsUrl);
-										toast.success(
-											"Logo uploaded successfully. Please save changes to keep this logo.",
-										);
-									}
-								}}
-								onUploadError={(error: Error) => {
-									toast.error(`Upload failed: ${error.message}`);
-								}}
-							/>
-							{logoUrl !== (config?.logoUrl || "") && (
-								<p className="text-sm text-yellow-600">
-									* Remember to save changes to keep this uploaded logo
-								</p>
-							)}
-						</div>
-					</CardContent>
-				</Card>
-
-				<Card>
+			<form
+				id="landing-config-form"
+				onSubmit={handleSubmit}
+				className="space-y-6"
+			>
+				<Card id="hero-section">
 					<CardHeader>
 						<CardTitle>Hero Section</CardTitle>
 					</CardHeader>
@@ -680,7 +752,7 @@ export default function LandingConfig() {
 					</CardContent>
 				</Card>
 
-				<Card>
+				<Card id="about-section">
 					<CardHeader>
 						<CardTitle>About Section</CardTitle>
 					</CardHeader>
@@ -832,7 +904,7 @@ export default function LandingConfig() {
 					</CardContent>
 				</Card>
 
-				<Card>
+				<Card id="custom-sections">
 					<CardHeader className="flex flex-row justify-between items-center">
 						<CardTitle>Custom Sections</CardTitle>
 						<Button type="button" variant="outline" onClick={addCustomSection}>
@@ -870,10 +942,13 @@ export default function LandingConfig() {
 							customSections.map((section, index) => (
 								<div
 									key={section.id || `section-${index}`}
-									className="border rounded-lg p-4"
+									className="border rounded-lg p-4 bg-slate-50 border-l-4 border-l-blue-500 shadow-sm"
 								>
 									<div className="flex justify-between items-center mb-4">
-										<h3 className="text-lg font-medium">
+										<h3 className="text-lg font-medium flex items-center">
+											<span className="bg-blue-500 text-white rounded-full w-6 h-6 inline-flex items-center justify-center mr-2 text-sm">
+												{index + 1}
+											</span>
 											{section.title || `Section ${index + 1}`}
 										</h3>
 										<div className="flex gap-2">
@@ -1000,6 +1075,585 @@ export default function LandingConfig() {
 											)}
 										</ClientOnly>
 									</div>
+
+									{/* Add image upload for layouts that need images */}
+									{(section.layout === "text-image" ||
+										section.layout === "full-width-image" ||
+										section.layout === "cards") && (
+										<div className="mt-4">
+											<Label>Section Images</Label>
+											<div className="mt-2 space-y-4">
+												{/* Display current images if they exist */}
+												{section.images && section.images.length > 0 ? (
+													<div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+														{section.images.map((image, imageIndex) => (
+															<div
+																key={`image-${imageIndex}`}
+																className="relative group"
+															>
+																<div className="aspect-video rounded-md overflow-hidden border bg-muted">
+																	<img
+																		src={image.url}
+																		alt={image.alt || "Section image"}
+																		className="w-full h-full object-cover"
+																	/>
+																</div>
+																<div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-md">
+																	<Button
+																		type="button"
+																		variant="destructive"
+																		size="sm"
+																		onClick={() => {
+																			const updatedImages = [
+																				...(section.images || []),
+																			];
+																			updatedImages.splice(imageIndex, 1);
+																			updateCustomSection(
+																				index,
+																				"images",
+																				updatedImages,
+																			);
+																		}}
+																	>
+																		Remove
+																	</Button>
+																</div>
+																<Input
+																	className="mt-1"
+																	placeholder="Image alt text"
+																	value={image.alt || ""}
+																	onChange={(e) => {
+																		const updatedImages = [
+																			...(section.images || []),
+																		];
+																		updatedImages[imageIndex] = {
+																			...updatedImages[imageIndex],
+																			alt: e.target.value,
+																		};
+																		updateCustomSection(
+																			index,
+																			"images",
+																			updatedImages,
+																		);
+																	}}
+																/>
+															</div>
+														))}
+													</div>
+												) : (
+													<p className="text-sm text-muted-foreground mb-4">
+														No images added yet. Upload images for your{" "}
+														{section.layout === "text-image"
+															? "text and image"
+															: section.layout === "full-width-image"
+																? "full width image"
+																: "cards"}{" "}
+														layout.
+													</p>
+												)}
+
+												{/* Upload button */}
+												<div>
+													<UploadButton
+														endpoint="imageUploader"
+														onClientUploadComplete={(res) => {
+															if (res?.[0]) {
+																const newImage = {
+																	url: res[0].ufsUrl,
+																	alt: "",
+																};
+																const updatedImages = [
+																	...(section.images || []),
+																];
+																updatedImages.push(newImage);
+																updateCustomSection(
+																	index,
+																	"images",
+																	updatedImages,
+																);
+																toast.success("Image uploaded successfully");
+															}
+														}}
+														onUploadError={(error: Error) => {
+															toast.error(`Upload failed: ${error.message}`);
+														}}
+													/>
+													<p className="text-xs text-muted-foreground mt-2">
+														{section.layout === "text-image"
+															? "Upload an image to display alongside your text."
+															: section.layout === "full-width-image"
+																? "Upload a full-width banner image."
+																: "Upload images for your cards. You can add multiple images."}
+													</p>
+												</div>
+											</div>
+										</div>
+									)}
+
+									{/* Add card content management for card layout */}
+									{section.layout === "cards" && (
+										<div className="mt-6">
+											<div className="flex justify-between items-center mb-2">
+												<Label>Cards</Label>
+												<Button
+													type="button"
+													variant="outline"
+													onClick={() => {
+														const updatedSection = { ...section };
+														if (!updatedSection.cards) {
+															updatedSection.cards = [];
+														}
+														updatedSection.cards.push({
+															title: "New Card",
+															content: "<p>Card content goes here.</p>",
+															image:
+																section.images && section.images.length > 0
+																	? section.images[0].url
+																	: "",
+															link: "",
+														});
+														updateCustomSection(
+															index,
+															"cards",
+															updatedSection.cards,
+														);
+													}}
+												>
+													Add Card
+												</Button>
+											</div>
+
+											<div className="space-y-4 mt-2">
+												{section.cards && section.cards.length > 0 ? (
+													section.cards.map((card, cardIndex) => (
+														<div
+															key={`card-${cardIndex}`}
+															className="border rounded-md p-4"
+														>
+															<div className="flex justify-between items-center mb-2">
+																<h4 className="font-medium">
+																	Card {cardIndex + 1}
+																</h4>
+																<Button
+																	type="button"
+																	variant="destructive"
+																	size="sm"
+																	onClick={() => {
+																		const updatedCards = [
+																			...(section.cards || []),
+																		];
+																		updatedCards.splice(cardIndex, 1);
+																		updateCustomSection(
+																			index,
+																			"cards",
+																			updatedCards,
+																		);
+																	}}
+																>
+																	Remove
+																</Button>
+															</div>
+															<div className="space-y-3">
+																<div>
+																	<Label>Title</Label>
+																	<Input
+																		value={card.title || ""}
+																		onChange={(e) => {
+																			const updatedCards = [
+																				...(section.cards || []),
+																			];
+																			updatedCards[cardIndex] = {
+																				...updatedCards[cardIndex],
+																				title: e.target.value,
+																			};
+																			updateCustomSection(
+																				index,
+																				"cards",
+																				updatedCards,
+																			);
+																		}}
+																		placeholder="Card Title"
+																	/>
+																</div>
+																<div>
+																	<Label>Content</Label>
+																	<Textarea
+																		value={card.content || ""}
+																		onChange={(e) => {
+																			const updatedCards = [
+																				...(section.cards || []),
+																			];
+																			updatedCards[cardIndex] = {
+																				...updatedCards[cardIndex],
+																				content: e.target.value,
+																			};
+																			updateCustomSection(
+																				index,
+																				"cards",
+																				updatedCards,
+																			);
+																		}}
+																		placeholder="Card content"
+																		rows={3}
+																	/>
+																</div>
+																<div>
+																	<Label>Link (Optional)</Label>
+																	<Input
+																		value={card.link || ""}
+																		onChange={(e) => {
+																			const updatedCards = [
+																				...(section.cards || []),
+																			];
+																			updatedCards[cardIndex] = {
+																				...updatedCards[cardIndex],
+																				link: e.target.value,
+																			};
+																			updateCustomSection(
+																				index,
+																				"cards",
+																				updatedCards,
+																			);
+																		}}
+																		placeholder="https://example.com"
+																	/>
+																</div>
+																<div>
+																	<Label>Image</Label>
+																	{section.images &&
+																	section.images.length > 0 ? (
+																		<select
+																			className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+																			value={card.image || ""}
+																			onChange={(e) => {
+																				const updatedCards = [
+																					...(section.cards || []),
+																				];
+																				updatedCards[cardIndex] = {
+																					...updatedCards[cardIndex],
+																					image: e.target.value,
+																				};
+																				updateCustomSection(
+																					index,
+																					"cards",
+																					updatedCards,
+																				);
+																			}}
+																		>
+																			<option value="">Select an image</option>
+																			{section.images.map((image, i) => (
+																				<option key={i} value={image.url}>
+																					Image {i + 1}{" "}
+																					{image.alt ? `- ${image.alt}` : ""}
+																				</option>
+																			))}
+																		</select>
+																	) : (
+																		<p className="text-sm text-muted-foreground">
+																			Upload images in the section above to use
+																			them in cards.
+																		</p>
+																	)}
+																</div>
+															</div>
+														</div>
+													))
+												) : (
+													<p className="text-sm text-muted-foreground italic">
+														Add cards to display in a grid layout. Each card can
+														have a title, content, image, and link.
+													</p>
+												)}
+											</div>
+										</div>
+									)}
+
+									{/* Add team members management for team layout */}
+									{section.layout === "team" && (
+										<div className="mt-6">
+											<div className="flex justify-between items-center mb-2">
+												<Label>Team Members</Label>
+												<Button
+													type="button"
+													variant="outline"
+													onClick={() => {
+														const updatedSection = { ...section };
+														if (!updatedSection.teamMembers) {
+															updatedSection.teamMembers = [];
+														}
+														updateCustomSection(
+															index,
+															"teamMembers",
+															updatedSection.teamMembers,
+														);
+													}}
+												>
+													Add Organization Members
+												</Button>
+											</div>
+
+											{/* Search and select organization members */}
+											<div className="mb-4">
+												<Label htmlFor={`member-search-${index}`}>
+													Search Organization Members
+												</Label>
+												<div className="flex gap-2 mt-1">
+													<Input
+														id={`member-search-${index}`}
+														placeholder="Search by name or email"
+														onChange={(e) => {
+															// This will trigger a re-render with the filtered members
+															setSearchTerm(e.target.value);
+														}}
+													/>
+												</div>
+
+												<div className="mt-3 border rounded-md p-2 max-h-60 overflow-y-auto">
+													{members.length > 0 ? (
+														members
+															.filter((member) => {
+																if (!searchTerm) return true;
+																const fullName =
+																	`${member.user.firstName} ${member.user.lastName}`.toLowerCase();
+																const email =
+																	member.user.email?.toLowerCase() || "";
+																const search = searchTerm.toLowerCase();
+																return (
+																	fullName.includes(search) ||
+																	email.includes(search)
+																);
+															})
+															.map((member) => {
+																// Check if this member is already added
+																const isAdded = section.teamMembers?.some(
+																	(tm) => tm.userId === member.user.id,
+																);
+
+																return (
+																	<div
+																		key={member.user.id}
+																		className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md"
+																	>
+																		<div className="flex items-center gap-2">
+																			<div className="font-medium">
+																				{member.user.firstName}{" "}
+																				{member.user.lastName}
+																			</div>
+																			<div className="text-sm text-gray-500">
+																				{member.user.email}
+																			</div>
+																		</div>
+																		<Button
+																			type="button"
+																			variant={
+																				isAdded ? "secondary" : "outline"
+																			}
+																			size="sm"
+																			onClick={() => {
+																				const updatedSection = { ...section };
+																				if (!updatedSection.teamMembers) {
+																					updatedSection.teamMembers = [];
+																				}
+
+																				// If already added, remove it
+																				if (isAdded) {
+																					updatedSection.teamMembers =
+																						updatedSection.teamMembers.filter(
+																							(tm) =>
+																								tm.userId !== member.user.id,
+																						);
+																				} else {
+																					// Add the member
+																					updatedSection.teamMembers.push({
+																						userId: member.user.id,
+																						name: `${member.user.firstName} ${member.user.lastName}`,
+																						role:
+																							member.roles &&
+																							member.roles.length > 0
+																								? member.roles[0].role?.name ||
+																									""
+																								: "",
+																						bio: "",
+																						image: "",
+																					});
+																				}
+
+																				updateCustomSection(
+																					index,
+																					"teamMembers",
+																					updatedSection.teamMembers,
+																				);
+																			}}
+																		>
+																			{isAdded ? "Remove" : "Add"}
+																		</Button>
+																	</div>
+																);
+															})
+													) : (
+														<p className="text-sm text-muted-foreground p-2">
+															No organization members found.
+														</p>
+													)}
+												</div>
+											</div>
+
+											<div className="space-y-4 mt-4">
+												<h4 className="font-medium text-sm">
+													Selected Team Members
+												</h4>
+												{section.teamMembers &&
+												section.teamMembers.length > 0 ? (
+													section.teamMembers.map((member, memberIndex) => (
+														<div
+															key={`member-${memberIndex}`}
+															className="border rounded-md p-4"
+														>
+															<div className="flex justify-between items-center mb-2">
+																<h4 className="font-medium">
+																	{member.name ||
+																		`Team Member ${memberIndex + 1}`}
+																</h4>
+																<Button
+																	type="button"
+																	variant="destructive"
+																	size="sm"
+																	onClick={() => {
+																		const updatedMembers = [
+																			...(section.teamMembers || []),
+																		];
+																		updatedMembers.splice(memberIndex, 1);
+																		updateCustomSection(
+																			index,
+																			"teamMembers",
+																			updatedMembers,
+																		);
+																	}}
+																>
+																	Remove
+																</Button>
+															</div>
+															<div className="space-y-3">
+																<div>
+																	<Label>Role/Position</Label>
+																	<Input
+																		value={member.role || ""}
+																		onChange={(e) => {
+																			const updatedMembers = [
+																				...(section.teamMembers || []),
+																			];
+																			updatedMembers[memberIndex] = {
+																				...updatedMembers[memberIndex],
+																				role: e.target.value,
+																			};
+																			updateCustomSection(
+																				index,
+																				"teamMembers",
+																				updatedMembers,
+																			);
+																		}}
+																		placeholder="Position or Title"
+																	/>
+																</div>
+																<div>
+																	<Label>Bio</Label>
+																	<Textarea
+																		value={member.bio || ""}
+																		onChange={(e) => {
+																			const updatedMembers = [
+																				...(section.teamMembers || []),
+																			];
+																			updatedMembers[memberIndex] = {
+																				...updatedMembers[memberIndex],
+																				bio: e.target.value,
+																			};
+																			updateCustomSection(
+																				index,
+																				"teamMembers",
+																				updatedMembers,
+																			);
+																		}}
+																		placeholder="Short biography"
+																		rows={3}
+																	/>
+																</div>
+																<div>
+																	<Label>Photo</Label>
+																	<div className="mt-2">
+																		{member.image ? (
+																			<div className="relative group mb-2">
+																				<div className="aspect-square w-24 rounded-md overflow-hidden border bg-muted">
+																					<img
+																						src={member.image}
+																						alt={member.name}
+																						className="w-full h-full object-cover"
+																					/>
+																				</div>
+																				<Button
+																					type="button"
+																					variant="destructive"
+																					size="sm"
+																					className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+																					onClick={() => {
+																						const updatedMembers = [
+																							...(section.teamMembers || []),
+																						];
+																						updatedMembers[memberIndex] = {
+																							...updatedMembers[memberIndex],
+																							image: "",
+																						};
+																						updateCustomSection(
+																							index,
+																							"teamMembers",
+																							updatedMembers,
+																						);
+																					}}
+																				>
+																					<X className="h-3 w-3" />
+																				</Button>
+																			</div>
+																		) : (
+																			<UploadButton
+																				endpoint="imageUploader"
+																				onClientUploadComplete={(res) => {
+																					if (res?.[0]) {
+																						const updatedMembers = [
+																							...(section.teamMembers || []),
+																						];
+																						updatedMembers[memberIndex] = {
+																							...updatedMembers[memberIndex],
+																							image: res[0].ufsUrl,
+																						};
+																						updateCustomSection(
+																							index,
+																							"teamMembers",
+																							updatedMembers,
+																						);
+																					}
+																				}}
+																				onUploadError={(error: Error) => {
+																					toast({
+																						title: "Error uploading photo",
+																						description: error.message,
+																						variant: "destructive",
+																					});
+																				}}
+																			/>
+																		)}
+																	</div>
+																</div>
+															</div>
+														</div>
+													))
+												) : (
+													<p className="text-sm text-muted-foreground italic">
+														No team members selected yet. Search and add
+														organization members above.
+													</p>
+												)}
+											</div>
+										</div>
+									)}
 
 									{/* Add buttons management for custom sections */}
 									<div className="mt-4">
@@ -1141,12 +1795,78 @@ export default function LandingConfig() {
 					</CardContent>
 				</Card>
 
-				<Card>
+				<Card id="social-section">
+					<CardHeader>
+						<CardTitle>Social Links</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<div className="space-y-2">
+							<div className="flex justify-between items-center">
+								<Label>Social Media Links</Label>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={addSocialLink}
+								>
+									Add Link
+								</Button>
+							</div>
+
+							{Object.keys(socialLinks).length === 0 ? (
+								<p className="text-sm text-muted-foreground italic">
+									No social links added yet.
+								</p>
+							) : (
+								<div className="space-y-3">
+									{Object.entries(socialLinks).map(([platform, url]) => (
+										<div key={platform} className="flex gap-2 items-center">
+											<select
+												className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+												value={platform}
+												onChange={(e) => {
+													if (e.target.value) {
+														updateSocialLink(platform, e.target.value, url);
+													}
+												}}
+											>
+												<option value="">Select platform</option>
+												<option value="facebook">Facebook</option>
+												<option value="twitter">Twitter</option>
+												<option value="instagram">Instagram</option>
+												<option value="youtube">YouTube</option>
+												<option value="linkedin">LinkedIn</option>
+												<option value="tiktok">TikTok</option>
+											</select>
+											<Input
+												value={url}
+												onChange={(e) => {
+													updateSocialLink(platform, platform, e.target.value);
+												}}
+												placeholder="URL"
+												className="flex-1"
+											/>
+											<Button
+												type="button"
+												variant="destructive"
+												onClick={() => removeSocialLink(platform)}
+											>
+												Remove
+											</Button>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
+					</CardContent>
+				</Card>
+
+				<Card id="footer-section">
 					<CardHeader>
 						<CardTitle>Footer</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-4">
-						<div>
+						<div className="space-y-2">
 							<Label htmlFor="footerContent">Content</Label>
 							<Textarea
 								id="footerContent"
@@ -1183,45 +1903,10 @@ export default function LandingConfig() {
 								/>
 							</div>
 						</div>
-						<div>
-							<div className="flex justify-between items-center mb-2">
-								<Label>Social Links</Label>
-								<Button type="button" variant="outline" onClick={addSocialLink}>
-									Add Link
-								</Button>
-							</div>
-							<div className="space-y-2">
-								{Object.entries(socialLinks).map(([platform, url]) => (
-									<div key={`${platform}-${url}`} className="flex gap-2">
-										<Input
-											value={platform}
-											onChange={(e) =>
-												updateSocialLink(platform, e.target.value, url)
-											}
-											placeholder="Platform (e.g., Facebook)"
-										/>
-										<Input
-											value={url}
-											onChange={(e) =>
-												updateSocialLink(platform, platform, e.target.value)
-											}
-											placeholder="URL"
-										/>
-										<Button
-											type="button"
-											variant="destructive"
-											onClick={() => removeSocialLink(platform)}
-										>
-											Remove
-										</Button>
-									</div>
-								))}
-							</div>
-						</div>
 					</CardContent>
 				</Card>
 
-				<Card>
+				<Card id="settings-section">
 					<CardHeader>
 						<CardTitle>Website Settings</CardTitle>
 					</CardHeader>
@@ -1354,7 +2039,10 @@ export default function LandingConfig() {
 									id="contactAddress"
 									value={formData.contactAddress}
 									onChange={(e) =>
-										setFormData({ ...formData, contactAddress: e.target.value })
+										setFormData({
+											...formData,
+											contactAddress: e.target.value,
+										})
 									}
 									placeholder="Enter contact address"
 								/>
@@ -1408,7 +2096,7 @@ export default function LandingConfig() {
 						Save Changes
 					</Button>
 				</div>
-			</Form>
+			</form>
 
 			<AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
 				<AlertDialogContent>
