@@ -1,121 +1,134 @@
-
-
-
 import { useState } from "react";
 import { useFetcher, useLoaderData } from "react-router";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import OrgRequestCard from "~/src/components/forms/cards/OrgRequestCard";
 import ChurchRowCard from "~/src/components/listItems/components/ChurchRowCard";
 import List from "~/src/components/listItems/List";
-import { InvitationStatus, InvitationTypes } from "~/src/types/invitation.types";
+import {
+	InvitationStatus,
+	InvitationTypes,
+} from "~/src/types/invitation.types";
 import type { Route } from "./+types";
-import { churchOrganization, organizationMembershipRequest } from "server/db/schema";
+import {
+	churchOrganization,
+	organizationMembershipRequest,
+} from "server/db/schema";
 import { and, eq, exists, not } from "drizzle-orm";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
-    const organization = await db.select().from(churchOrganization)
-        .where(eq(churchOrganization.id, params.organization))
-        .then(([organization]) => organization);
+	const organization = await db
+		.select()
+		.from(churchOrganization)
+		.where(eq(churchOrganization.id, params.organization))
+		.then(([organization]) => organization);
 
-    console.log(organization);
-    return {
-        requestingOrg: organization,
-
-    };
+	console.log(organization);
+	return {
+		requestingOrg: organization,
+	};
 };
 
 export const action = async ({ request, params }: Route.ActionArgs) => {
-    const form = await request.formData();
+	const form = await request.formData();
 
-    if (request.method === "POST") {
-        const orgId = JSON.parse(form.get("orgId") as string);
-        const parentOrgId = form.get("parentOrgId") as string;
+	if (request.method === "POST") {
+		const orgId = JSON.parse(form.get("orgId") as string);
+		const parentOrgId = form.get("parentOrgId") as string;
 
-        if (orgId === parentOrgId) {
-            throw new Error("Cannot associate with self");
-        }
+		if (orgId === parentOrgId) {
+			throw new Error("Cannot associate with self");
+		}
 
-        const response = await db.update(churchOrganization).set({
-            associations: {
-                connect: {
-                    id: orgId,
-                },
-            },
-        }).where(eq(churchOrganization.id, parentOrgId));
+		const response = await db
+			.update(churchOrganization)
+			.set({
+				associations: {
+					connect: {
+						id: orgId,
+					},
+				},
+			})
+			.where(eq(churchOrganization.id, parentOrgId));
 
-        return { success: true, response };
-    } else if (request.method === "DELETE") {
-        const orgId = form.get("orgId") as string;
-        const parentOrgId = form.get("parentOrgId") as string;
+		return { success: true, response };
+	} else if (request.method === "DELETE") {
+		const orgId = form.get("orgId") as string;
+		const parentOrgId = form.get("parentOrgId") as string;
 
-        const response = await db.update(churchOrganization).set({
-            associations: {
-                disconnect: {
-                    id: orgId,
-                },
-            },
-        }).where(eq(churchOrganization.id, parentOrgId));
+		const response = await db
+			.update(churchOrganization)
+			.set({
+				associations: {
+					disconnect: {
+						id: orgId,
+					},
+				},
+			})
+			.where(eq(churchOrganization.id, parentOrgId));
 
-        return { success: true, response };
-    }
+		return { success: true, response };
+	}
 
-    throw new Error("Method not allowed");
+	throw new Error("Method not allowed");
 };
 
-
 const AssociateChurch = () => {
-    const loaderData = useLoaderData();
-    const addOrgFetcher = useFetcher();
-    const leaveOrgFetcher = useFetcher();
-    const [activeFilter, setActiveFilter] = useState(InvitationStatus.accepted);
+	const loaderData = useLoaderData();
+	const addOrgFetcher = useFetcher();
+	const leaveOrgFetcher = useFetcher();
+	const [activeFilter, setActiveFilter] = useState(InvitationStatus.accepted);
 
-    function associateOrg(org: typeof churchOrganization.$inferSelect) {
-        addOrgFetcher.submit(
-            {
-                requestingChurchOrganizationId: loaderData.requestingOrg.id,
-                parentOrganizationId: org.id,
-                type: InvitationTypes.Organization,
-            },
-            {
-                method: "post",
-                action: `/api/invitation`,
-            }
-        );
-    }
+	function associateOrg(org: typeof churchOrganization.$inferSelect) {
+		addOrgFetcher.submit(
+			{
+				requestingChurchOrganizationId: loaderData.requestingOrg.id,
+				parentOrganizationId: org.id,
+				type: InvitationTypes.Organization,
+			},
+			{
+				method: "post",
+				action: `/api/invitation`,
+			},
+		);
+	}
 
-    function leaveOrganization() {
-        leaveOrgFetcher.submit(
-            {
-                orgId: loaderData.requestingOrg.id,
-                parentOrgId: loaderData.requestingOrg.parentOrganization.id,
-            },
-            {
-                method: "delete",
-            }
-        );
-    }
+	function leaveOrganization() {
+		leaveOrgFetcher.submit(
+			{
+				orgId: loaderData.requestingOrg.id,
+				parentOrgId: loaderData.requestingOrg.parentOrganization.id,
+			},
+			{
+				method: "delete",
+			},
+		);
+	}
 
-    function currentOrganizations() {
-        return loaderData.requestingOrg?.parentOrganization && (
-            <div>
-                <ChurchRowCard church={loaderData.requestingOrg?.parentOrganization} />
-                <Button onClick={() => leaveOrganization()} className="bg-red">
-                    Leave Org{" "}
-                </Button>
-            </div>
-        );
-    }
+	function currentOrganizations() {
+		return (
+			loaderData.requestingOrg?.parentOrganization && (
+				<div>
+					<ChurchRowCard
+						church={loaderData.requestingOrg?.parentOrganization}
+					/>
+					<Button onClick={() => leaveOrganization()} className="bg-red">
+						Leave Org{" "}
+					</Button>
+				</div>
+			)
+		);
+	}
 
-    function request() {
-        const acceptedActive = activeFilter === InvitationStatus.accepted;
-        const pendingActive = activeFilter === InvitationStatus.pending;
-        const declinedActive = activeFilter === InvitationStatus.declined;
-        return (
-            <>
-                {/* <div className="inline-flex rounded-md shadow-sm" role="group">
+	function request() {
+		const acceptedActive = activeFilter === InvitationStatus.accepted;
+		const pendingActive = activeFilter === InvitationStatus.pending;
+		const declinedActive = activeFilter === InvitationStatus.declined;
+		return (
+			<>
+				{/* <div className="inline-flex rounded-md shadow-sm" role="group">
                     <button
                         type="button"
                         onClick={() => setActiveFilter(InvitationStatus.accepted)}
@@ -147,25 +160,26 @@ const AssociateChurch = () => {
                         Declined
                     </button>
                 </div> */}
-                <List>
-                    {loaderData?.previousRequest?.map((request: typeof organizationMembershipRequest.$inferSelect) => {
-                        let bgColor = "";
-                        switch (request.status) {
-                            case InvitationStatus.pending:
-                                bgColor = "bg-yellow-400";
-                                break;
-                            case InvitationStatus.accepted:
-                                bgColor = "bg-green-800";
-                                break;
-                            case InvitationStatus.declined:
-                                bgColor = "bg-red-800";
-                                break;
-                        }
+				<List>
+					{loaderData?.previousRequest?.map(
+						(request: typeof organizationMembershipRequest.$inferSelect) => {
+							let bgColor = "";
+							switch (request.status) {
+								case InvitationStatus.pending:
+									bgColor = "bg-yellow-400";
+									break;
+								case InvitationStatus.accepted:
+									bgColor = "bg-green-800";
+									break;
+								case InvitationStatus.declined:
+									bgColor = "bg-red-800";
+									break;
+							}
 
-                        return (
-                            <div key={request.id}>
-                                <OrgRequestCard request={request} showStatus />
-                                {/* <Row className={bgColor}>
+							return (
+								<div key={request.id}>
+									<OrgRequestCard request={request} showStatus />
+									{/* <Row className={bgColor}>
                                     <RowItem>
                                         <Link to={`/churches/${request.parentOrganization.id}`}>
                                             <OrganizationListItem
@@ -178,45 +192,46 @@ const AssociateChurch = () => {
 
                                     <RowItem>{request.status}</RowItem>
                                 </Row> */}
-                            </div>
-                        );
-                    })}
-                </List>
-            </>
-        );
-    }
+								</div>
+							);
+						},
+					)}
+				</List>
+			</>
+		);
+	}
 
-    function makeNewRequest() {
-        return (
-            <List>
-                {loaderData?.organizations?.map((church: typeof churchOrganization.$inferSelect) => {
-                    return (
-                        <div key={church.id} className="">
-                            <ChurchRowCard church={church} />
+	function makeNewRequest() {
+		return (
+			<List>
+				{loaderData?.organizations?.map(
+					(church: typeof churchOrganization.$inferSelect) => {
+						return (
+							<div key={church.id} className="">
+								<ChurchRowCard church={church} />
 
-                            <Button className="ml-2" onClick={() => associateOrg(church)}>
-                                Request to join organization
-                            </Button>
-                        </div>
-                    );
-                })}
-            </List>
-        );
-    }
+								<Button className="ml-2" onClick={() => associateOrg(church)}>
+									Request to join organization
+								</Button>
+							</div>
+						);
+					},
+				)}
+			</List>
+		);
+	}
 
-    return (
-        <PageLayout title="Associate">
-            <Tabs defaultValue="current">
-                <TabsList>
-                    <TabsTrigger value="current">Current Parent Organization</TabsTrigger>
-                    <TabsTrigger value="makeNewRequest">Make New Request</TabsTrigger>
-                    <TabsTrigger value="previousRequest">Previous Request</TabsTrigger>
-                </TabsList>
-            </Tabs>
-
-
-        </PageLayout>
-    );
+	return (
+		<PageLayout title="Associate">
+			<Tabs defaultValue="current">
+				<TabsList>
+					<TabsTrigger value="current">Current Parent Organization</TabsTrigger>
+					<TabsTrigger value="makeNewRequest">Make New Request</TabsTrigger>
+					<TabsTrigger value="previousRequest">Previous Request</TabsTrigger>
+				</TabsList>
+			</Tabs>
+		</PageLayout>
+	);
 };
 
 export default AssociateChurch;

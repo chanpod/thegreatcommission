@@ -3,7 +3,7 @@ import {
 	type AuthObject,
 } from "@clerk/react-router/api.server";
 
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import {
 	organizationRoles,
 	roles,

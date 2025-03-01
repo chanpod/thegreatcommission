@@ -1,6 +1,6 @@
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { OrganizationDataService } from "@/server/dataServices/OrganizationDataService";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { teams, usersToTeams } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 

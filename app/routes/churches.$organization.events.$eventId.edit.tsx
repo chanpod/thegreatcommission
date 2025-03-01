@@ -6,7 +6,7 @@ import {
 	useSearchParams,
 	useActionData,
 } from "react-router";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { events } from "server/db/schema";
 import { eq } from "drizzle-orm";
 import { EventDialog } from "~/components/events/EventDialog";

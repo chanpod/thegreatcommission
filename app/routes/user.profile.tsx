@@ -3,7 +3,7 @@ import { Form, useFetcher, useLoaderData } from "react-router";
 import { useContext, useState } from "react";
 import { UserContext } from "~/src/providers/userProvider";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { UserService } from "~/services/UserService";
 import { UserAvatar } from "~/src/components/avatar/UserAvatar";
 import { Input } from "~/components/ui/input";

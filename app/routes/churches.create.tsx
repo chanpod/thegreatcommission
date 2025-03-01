@@ -15,7 +15,7 @@ import {
 	organizationRoles,
 	usersToOrganizationRoles,
 } from "server/db/schema";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { eq } from "drizzle-orm";
 import { getAllPermissions } from "~/lib/permissions";
 

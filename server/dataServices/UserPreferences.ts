@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { userPreferences } from "../db/schema";
 
 export async function getUserPreferences(userId: string) {

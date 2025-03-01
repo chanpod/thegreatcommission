@@ -228,8 +228,7 @@ export const landingPageConfig = pgTable("landing_page_config", {
 		.$defaultFn(() => uuidv4()),
 	churchOrganizationId: text("church_organization_id")
 		.notNull()
-		.references(() => churchOrganization.id)
-		.unique(),
+		.references(() => churchOrganization.id, { onDelete: "cascade" }),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at").notNull(),
 
@@ -237,10 +236,10 @@ export const landingPageConfig = pgTable("landing_page_config", {
 	heroImage: text("hero_image"),
 	heroHeadline: text("hero_headline"),
 	heroSubheadline: text("hero_subheadline"),
-	heroImagePosition: text("hero_image_position"), // center, top, bottom, left, right
-	heroImageObjectFit: text("hero_image_object_fit"), // cover, contain, fill
-	heroOverlayOpacity: numeric("hero_overlay_opacity"), // 0-1
-	heroHeight: text("hero_height"), // height in px, vh, etc.
+	heroImagePosition: text("hero_image_position").default("center"),
+	heroImageObjectFit: text("hero_image_object_fit").default("cover"),
+	heroOverlayOpacity: text("hero_overlay_opacity").default("0.5"),
+	heroHeight: text("hero_height").default("500px"),
 
 	// About section
 	aboutTitle: text("about_title"),
@@ -261,6 +260,7 @@ export const landingPageConfig = pgTable("landing_page_config", {
 	contactEmail: text("contact_email"),
 	contactPhone: text("contact_phone"),
 	contactAddress: text("contact_address"),
+	contactFormEnabled: boolean("contact_form_enabled").default(false),
 });
 
 export const teams = pgTable("teams", {
@@ -380,4 +380,44 @@ export const messageUsageReports = pgTable("message_usage_reports", {
 	phoneCount: integer("phone_count").default(0),
 	totalCost: integer("total_cost").default(0), // Stored in cents
 	createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Form configuration schema
+export const formConfig = pgTable("form_configs", {
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => uuidv4()),
+	churchOrganizationId: text("church_organization_id")
+		.notNull()
+		.references(() => churchOrganization.id),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at").defaultNow().notNull(),
+	name: text("name").notNull(),
+	formFields: text("form_fields").notNull(), // JSON string of form fields
+	formType: text("form_type").notNull(), // contact, prayer, first-time, etc.
+	redirectUrl: text("redirect_url"), // URL to redirect to after submission
+	emailNotifications: boolean("email_notifications").default(true),
+	notificationEmails: text("notification_emails"), // comma-separated list of emails
+	confirmationMessage: text("confirmation_message"), // Message to show after submission
+	active: boolean("active").default(true),
+});
+
+// Form submissions schema
+export const formSubmission = pgTable("form_submissions", {
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => uuidv4()),
+	formConfigId: text("form_config_id")
+		.notNull()
+		.references(() => formConfig.id),
+	churchOrganizationId: text("church_organization_id")
+		.notNull()
+		.references(() => churchOrganization.id),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	submissionData: text("submission_data").notNull(), // JSON string of form data
+	submitterEmail: text("submitter_email"),
+	submitterName: text("submitter_name"),
+	viewed: boolean("viewed").default(false),
+	archived: boolean("archived").default(false),
+	notes: text("notes"),
 });

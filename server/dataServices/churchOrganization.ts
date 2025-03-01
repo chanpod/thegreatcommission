@@ -1,4 +1,4 @@
-import { db } from "../dbConnection";
+import { db } from "@/server/db";
 import { eq } from "drizzle-orm";
 import { churchOrganization } from "@/server/db/schema";
 

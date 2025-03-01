@@ -1,7 +1,7 @@
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { churchOrganization, users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import {
 	MessagingService,
 	MessageRecipient,

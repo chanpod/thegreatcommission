@@ -1,5 +1,5 @@
 import { Outlet, useLoaderData } from "react-router";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import {
 	churchOrganization,
 	events,

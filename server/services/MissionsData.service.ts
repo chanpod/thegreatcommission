@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { missions } from "server/db/schema";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 
 export async function getMissionById(id: string) {
 	const mission = await db.select().from(missions).where(eq(missions.id, id));

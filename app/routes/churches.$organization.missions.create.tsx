@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Form, useNavigate, useParams } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Sheet, SheetContent } from "~/components/ui/sheet";
-import { createMission } from "~/server/services/data/MissionsData.service";
+import { createMission } from "@/server/services/MissionsData.service";
 import { MissionsService } from "~/services/MissionsService";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import type { Route } from "./+types";

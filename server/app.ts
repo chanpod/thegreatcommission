@@ -1,7 +1,7 @@
 import { createRequestHandler } from "@react-router/express";
 import express from "express";
 import "react-router";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { churchOrganization } from "server/db/schema";
 import { eq } from "drizzle-orm";
 import dns from "node:dns";

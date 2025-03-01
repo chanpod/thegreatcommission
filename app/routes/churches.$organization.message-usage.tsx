@@ -48,8 +48,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { verifyUserAccess } from "~/server/auth/verifyUserAccess";
-import { getChurchOrganization } from "~/server/data/churchOrganization";
-import { db } from "~/server/dbConnection";
+import { getChurchOrganization } from "@/server/dataServices/churchOrganization";
+import { db } from "@/server/db/dbConnection";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 
 export const loader = createAuthLoader(

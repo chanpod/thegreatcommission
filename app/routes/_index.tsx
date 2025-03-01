@@ -14,7 +14,7 @@ import {
 
 import WorldMap from "~/src/components/maps/WorldMap";
 import type { Route } from "./+types";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { missions } from "server/db/schema";
 import { ne } from "drizzle-orm";
 import { ClientOnly } from "remix-utils/client-only";

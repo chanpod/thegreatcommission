@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Sheet, SheetContent } from "~/components/ui/sheet";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import UsersForm from "~/src/components/forms/users/UsersForm";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 

@@ -20,7 +20,7 @@ import {
 	ChevronLeft,
 	UserCircle,
 } from "lucide-react";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import {
 	churchOrganization,
 	usersTochurchOrganization,

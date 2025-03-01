@@ -15,7 +15,7 @@ import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import { churchOrganization } from "server/db/schema";
 import { Button } from "~/components/ui/button";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import type { Route } from "./+types";
 import { Bell, Settings } from "lucide-react";
 import stylesheet from "~/components/messaging/styles.css?url";

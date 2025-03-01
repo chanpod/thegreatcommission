@@ -36,7 +36,7 @@ import {
 } from "~/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { cn, stripHtml } from "~/lib/utils";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 
 import {
 	type PermissionSet,

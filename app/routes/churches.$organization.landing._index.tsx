@@ -1,98 +1,19 @@
-import { PermissionsService } from "@/server/services/PermissionsService";
-import { and, eq, gte } from "drizzle-orm";
-import {
-	Settings,
-	Video,
-	Eye,
-	Share2,
-	Copy,
-	ArrowLeft,
-	Globe,
-} from "lucide-react";
-import { Link, useLoaderData } from "react-router";
-import {
-	churchOrganization,
-	events,
-	landingPageConfig,
-} from "server/db/schema";
+import { Copy, Eye, Globe, Video } from "lucide-react";
+import { Link, redirect, useLoaderData } from "react-router";
+import { churchOrganization } from "server/db/schema";
+import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { db } from "~/server/dbConnection";
 import LandingPage from "~/src/components/churchLandingPage/LandingPage";
-import { LiveStreamService } from "~/services/LiveStreamService";
-import { toast } from "sonner";
 
 export const loader = createAuthLoader(
 	async ({ params, request, userContext }) => {
-		const user = userContext?.user;
-
-		const permissionsService = new PermissionsService();
-		const permissions = await permissionsService.getOrganizationPermissions(
-			user.id,
-			params.organization,
-		);
-
-		const organization = await db
-			.select()
-			.from(churchOrganization)
-			.where(eq(churchOrganization.id, params.organization))
-			.then((res) => res[0]);
-
-		const config = await db
-			.select()
-			.from(landingPageConfig)
-			.where(eq(landingPageConfig.churchOrganizationId, params.organization))
-			.then((res) => res[0]);
-
-		// Get recurring service times
-		const serviceTimes = await db
-			.select()
-			.from(events)
-			.where(
-				and(
-					eq(events.churchOrganizationId, params.organization),
-					eq(events.type, "recurring"),
-				),
-			);
-
-		const now = new Date();
-		// Get upcoming local events (non-recurring, non-mission)
-		const upcomingEvents = await db
-			.select()
-			.from(events)
-			.where(
-				and(
-					eq(events.churchOrganizationId, params.organization),
-					gte(events.startDate, now),
-					// Exclude recurring service events
-					eq(events.type, "local"),
-				),
-			)
-			.orderBy(events.startDate)
-			.limit(4);
-
-		let isLive = false;
-		if (organization.liveStreamUrl) {
-			console.log("organization.liveStreamUrl", organization.liveStreamUrl);
-			const liveStreamService = new LiveStreamService(
-				process.env.YOUTUBE_API_KEY,
-			);
-			isLive = await liveStreamService.isStreamLive(organization.liveStreamUrl);
-		}
-
-		return {
-			organization,
-			config,
-			serviceTimes,
-			upcomingEvents,
-			permissions,
-			isLive,
-		};
+		throw redirect("config");
 	},
 	true,
 );
 
-function LandingToolbar({
+export function LandingToolbar({
 	organization,
 	permissions,
 	isLive,
@@ -111,15 +32,6 @@ function LandingToolbar({
 		<div className="bg-background border-b">
 			<div className="container mx-auto px-4 py-2">
 				<div className="flex items-center justify-between">
-					<div className="flex items-center gap-2">
-						<Button variant="secondary" size="sm" asChild>
-							<Link to={`/churches/${organization.id}`}>
-								<ArrowLeft className="h-4 w-4 mr-2" />
-								Back to Dashboard
-							</Link>
-						</Button>
-					</div>
-
 					<div className="flex items-center gap-2">
 						{organization.mainChurchWebsite && (
 							<Button variant="secondary" size="sm" asChild>
@@ -150,6 +62,12 @@ function LandingToolbar({
 								</a>
 							</Button>
 						)}
+						<Link to={`/churches/${organization.id}/forms`}>
+							<Button variant="secondary" size="sm">
+								<Copy className="h-4 w-4 mr-2" />
+								Manage Forms
+							</Button>
+						</Link>
 
 						<Button variant="secondary" size="sm" onClick={copyUrl}>
 							<Copy className="h-4 w-4 mr-2" />
@@ -166,15 +84,6 @@ function LandingToolbar({
 								Preview
 							</a>
 						</Button>
-
-						{permissions.canEdit && (
-							<Button variant="secondary" size="sm" asChild>
-								<Link to="config">
-									<Settings className="h-4 w-4 mr-2" />
-									Configure
-								</Link>
-							</Button>
-						)}
 					</div>
 				</div>
 			</div>

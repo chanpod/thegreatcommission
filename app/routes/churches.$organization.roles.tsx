@@ -33,7 +33,7 @@ import {
 } from "~/lib/permissions";
 import { createAuthLoader } from "~/server/auth/authLoader";
 
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
 import { Input } from "~/src/components/forms/input/Input";
 import { PageLayout } from "~/src/components/layout/PageLayout";

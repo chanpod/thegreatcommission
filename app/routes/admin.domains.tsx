@@ -1,5 +1,5 @@
 import { useLoaderData } from "react-router";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { churchOrganization } from "server/db/schema";
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { PageLayout } from "~/src/components/layout/PageLayout";

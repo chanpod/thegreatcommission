@@ -1,4 +1,4 @@
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { messageTracker } from "@/server/db/schema";
 import { eq, gte, lte, desc, sql, count } from "drizzle-orm";
 

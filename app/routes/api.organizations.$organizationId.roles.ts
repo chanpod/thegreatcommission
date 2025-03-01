@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { organizationRoles, usersToOrganizationRoles } from "server/db/schema";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 
 export const loader = createAuthLoader(async ({ request, params }) => {
 	// Get all roles for the organization

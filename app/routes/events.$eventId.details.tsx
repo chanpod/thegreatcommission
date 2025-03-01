@@ -1,5 +1,5 @@
 import { useLoaderData, useSubmit } from "react-router";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { events, eventPhotos } from "server/db/schema";
 import { eq } from "drizzle-orm";
 import type { Route } from "../+types/root";

@@ -1,6 +1,6 @@
 import sgMail from "@sendgrid/mail";
 import twilio from "twilio";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { users, churchOrganization } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { MessageTrackerService } from "./MessageTrackerService";

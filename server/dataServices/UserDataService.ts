@@ -6,7 +6,7 @@ import {
 	users as usersSchema,
 	usersToRoles,
 } from "server/db/schema";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 
 export async function updateUser(userId: string, user: typeof usersSchema) {
 	return await db

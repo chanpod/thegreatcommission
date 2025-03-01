@@ -4,9 +4,9 @@ import { data, useLoaderData } from "react-router";
 import { Button } from "~/components/ui/button";
 import { format } from "date-fns";
 import { verifyUserAccess } from "~/server/auth/verifyUserAccess";
-import { getChurchOrganization } from "~/server/data/churchOrganization";
+import { getChurchOrganization } from "@/server/dataServices/churchOrganization";
 import { type ActionFunctionArgs } from "react-router";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { messageUsageReports } from "@/server/db/schema";
 import {
 	Table,

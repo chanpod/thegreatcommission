@@ -5,7 +5,7 @@ import {
 	useSubmit,
 	useActionData,
 } from "react-router";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import {
 	users,
 	teams,

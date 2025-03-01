@@ -11,7 +11,7 @@ import {
 	useSubmit,
 } from "react-router";
 
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import { UserContext } from "~/src/providers/userProvider";
 

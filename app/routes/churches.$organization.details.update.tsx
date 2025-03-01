@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Sheet, SheetContent } from "~/components/ui/sheet";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { ChurchService } from "~/services/ChurchService";
 import CreateChurchForm from "~/src/components/forms/createChurch/CreateChurchForm";
 import { PageLayout } from "~/src/components/layout/PageLayout";

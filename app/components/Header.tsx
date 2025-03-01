@@ -4,9 +4,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 export default function Header({
 	churchName,
 	logoUrl,
+	organizationId,
 }: {
 	churchName: string;
 	logoUrl?: string | null;
+	organizationId?: string;
 }) {
 	return (
 		<header className="border-b primary-bg">
@@ -40,6 +42,14 @@ export default function Header({
 						>
 							About
 						</a>
+						{organizationId && (
+							<Link
+								to={`/landing/${organizationId}/forms`}
+								className="text-white/80 hover:text-accent transition-colors"
+							>
+								Forms
+							</Link>
+						)}
 					</nav>
 				</div>
 			</div>

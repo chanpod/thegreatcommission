@@ -1,23 +1,19 @@
-import {
-	useLoaderData,
-	useSubmit,
-	useBeforeUnload,
-	Link,
-	useNavigate,
-	Form,
-} from "react-router";
-import { db } from "~/server/dbConnection";
-import { churchOrganization, landingPageConfig } from "server/db/schema";
+import { db } from "@/server/db/dbConnection";
+import { PermissionsService } from "@/server/services/PermissionsService";
 import { eq } from "drizzle-orm";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { Textarea } from "~/components/ui/textarea";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import {
+	Form,
+	useBeforeUnload,
+	useLoaderData,
+	useNavigate,
+	useSubmit,
+} from "react-router";
+import { ClientOnly } from "remix-utils/client-only";
+import { churchOrganization, landingPageConfig } from "server/db/schema";
 import { toast } from "sonner";
-import { UploadButton } from "~/utils/uploadthing";
-import type { Route } from "../+types/root";
+import type { CustomSectionProps } from "~/components/CustomSection";
+import { RichTextEditor } from "~/components/messaging/RichTextEditor";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -28,15 +24,23 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { Textarea } from "~/components/ui/textarea";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { RichTextEditor } from "~/components/messaging/RichTextEditor";
-import { ClientOnly } from "remix-utils/client-only";
-import type { CustomSectionProps } from "~/components/CustomSection";
-import type { AboutSectionButton } from "~/components/About";
+import { UploadButton } from "~/utils/uploadthing";
+import { LandingToolbar } from "./churches.$organization.landing._index";
 
 export const loader = createAuthLoader(
 	async ({ request, params, userContext }) => {
 		const user = userContext?.user;
+		const permissionsService = new PermissionsService();
+		const permissions = await permissionsService.getOrganizationPermissions(
+			user.id,
+			params.organization,
+		);
 		const config = await db
 			.select()
 			.from(landingPageConfig)
@@ -49,7 +53,7 @@ export const loader = createAuthLoader(
 			.where(eq(churchOrganization.id, params.organization))
 			.then((res) => res[0]);
 
-		return { config, organization };
+		return { config, organization, permissions };
 	},
 	true,
 );
@@ -86,10 +90,38 @@ export const action = createAuthLoader(async ({ request, params }) => {
 		updatedAt: now,
 	};
 
-	await db
+	// Debug logging
+	console.log("Action received configData:", {
+		aboutSection: configData.aboutSection,
+		customSections: configData.customSections,
+		socialLinks: configData.socialLinks,
+	});
+
+	console.log("configData", configData);
+	const existingConfig = await db
+		.select()
+		.from(landingPageConfig)
+		.where(eq(landingPageConfig.churchOrganizationId, params.organization))
+		.then((res) => res[0]);
+
+	if (existingConfig) {
+		await db
+			.update(landingPageConfig)
+			.set(configData)
+			.where(eq(landingPageConfig.churchOrganizationId, params.organization));
+	} else {
+		await db.insert(landingPageConfig).values({
+			...configData,
+			churchOrganizationId: params.organization,
+		});
+	}
+
+	const result = await db
 		.update(landingPageConfig)
 		.set(configData)
 		.where(eq(landingPageConfig.churchOrganizationId, params.organization));
+
+	console.log("result", result);
 
 	// Update custom domain if provided
 	const customDomain = formData.get("customDomain") as string;
@@ -107,7 +139,7 @@ export const action = createAuthLoader(async ({ request, params }) => {
 }, true);
 
 export default function LandingConfig() {
-	const { config, organization } = useLoaderData<typeof loader>();
+	const { config, organization, permissions } = useLoaderData();
 	const submit = useSubmit();
 	const navigate = useNavigate();
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -162,6 +194,7 @@ export default function LandingConfig() {
 		contactEmail: config?.contactEmail || "",
 		contactPhone: config?.contactPhone || "",
 		contactAddress: config?.contactAddress || "",
+		contactFormEnabled: config?.contactFormEnabled || false,
 	});
 
 	// Track changes
@@ -186,7 +219,8 @@ export default function LandingConfig() {
 			formData.footerContent !== (config?.footerContent || "") ||
 			formData.contactEmail !== (config?.contactEmail || "") ||
 			formData.contactPhone !== (config?.contactPhone || "") ||
-			formData.contactAddress !== (config?.contactAddress || "");
+			formData.contactAddress !== (config?.contactAddress || "") ||
+			formData.contactFormEnabled !== (config?.contactFormEnabled || false);
 
 		setHasUnsavedChanges(hasChanges);
 	}, [
@@ -259,10 +293,6 @@ export default function LandingConfig() {
 		submitData.set("heroHeight", heroConfig.height);
 
 		// Add about section configuration
-		submitData.set("aboutLogoImage", aboutLogoUrl);
-		submitData.set("aboutButtons", JSON.stringify(aboutButtons));
-
-		// Generate the complete aboutSection JSON
 		const aboutSection = {
 			title: formData.aboutTitle,
 			subtitle: formData.aboutSubtitle,
@@ -273,11 +303,24 @@ export default function LandingConfig() {
 		};
 		submitData.set("aboutSection", JSON.stringify(aboutSection));
 
+		// Debug logging
+		console.log("Saving aboutSection:", aboutSection);
+		console.log("Saving aboutSection JSON:", JSON.stringify(aboutSection));
+
 		// Add custom sections
 		submitData.set("customSections", JSON.stringify(customSections));
 
+		// Debug logging
+		console.log("Saving customSections:", customSections);
+		console.log("Saving customSections JSON:", JSON.stringify(customSections));
+
 		// Add social links and logo
 		submitData.set("socialLinks", JSON.stringify(socialLinks));
+
+		// Debug logging
+		console.log("Saving socialLinks:", socialLinks);
+		console.log("Saving socialLinks JSON:", JSON.stringify(socialLinks));
+
 		submitData.set("logoUrl", logoUrl);
 		submitData.set("customDomain", customDomain);
 
@@ -388,6 +431,11 @@ export default function LandingConfig() {
 
 	return (
 		<>
+			<LandingToolbar
+				organization={organization}
+				permissions={permissions}
+				isLive={false}
+			/>
 			<div className="flex justify-between items-center mb-4 p-3">
 				<h1 className="text-2xl font-bold">Landing Page Configuration</h1>
 				<div className="flex items-center gap-4">
@@ -397,9 +445,6 @@ export default function LandingConfig() {
 							<span>You have unsaved changes</span>
 						</div>
 					)}
-					<Link to={`/landing/${organization.id}`} target="_blank">
-						<Button variant="secondary">View Public Page</Button>
-					</Link>
 				</div>
 			</div>
 
@@ -1108,6 +1153,66 @@ export default function LandingConfig() {
 					</CardContent>
 				</Card>
 
+				<Card className="mb-6">
+					<CardHeader>
+						<CardTitle>Contact Information</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="space-y-4">
+							<div>
+								<Label htmlFor="contactEmail">Contact Email</Label>
+								<Input
+									id="contactEmail"
+									value={formData.contactEmail}
+									onChange={(e) =>
+										setFormData({ ...formData, contactEmail: e.target.value })
+									}
+									placeholder="Enter contact email"
+								/>
+							</div>
+							<div>
+								<Label htmlFor="contactPhone">Contact Phone</Label>
+								<Input
+									id="contactPhone"
+									value={formData.contactPhone}
+									onChange={(e) =>
+										setFormData({ ...formData, contactPhone: e.target.value })
+									}
+									placeholder="Enter contact phone"
+								/>
+							</div>
+							<div>
+								<Label htmlFor="contactAddress">Contact Address</Label>
+								<Textarea
+									id="contactAddress"
+									value={formData.contactAddress}
+									onChange={(e) =>
+										setFormData({ ...formData, contactAddress: e.target.value })
+									}
+									placeholder="Enter contact address"
+								/>
+							</div>
+							<div className="flex items-center space-x-2">
+								<input
+									type="checkbox"
+									id="contactFormEnabled"
+									checked={formData.contactFormEnabled}
+									onChange={(e) =>
+										setFormData({
+											...formData,
+											contactFormEnabled: e.target.checked,
+										})
+									}
+									className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+								/>
+								<Label htmlFor="contactFormEnabled">
+									Enable Contact Form Section
+								</Label>
+							</div>
+						</div>
+					</CardContent>
+				</Card>
+
 				<div className="flex justify-end gap-4 p-3">
 					<Button
 						type="button"
@@ -1127,7 +1232,7 @@ export default function LandingConfig() {
 						type="button"
 						variant="outline"
 						onClick={() => {
-							window.open(`/landing/${organization.id}`, "_blank");
+							navigate(`/landing/${organization.id}`);
 						}}
 					>
 						Preview Landing Page

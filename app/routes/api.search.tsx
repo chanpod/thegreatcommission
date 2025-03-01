@@ -1,4 +1,4 @@
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 
 import { SearchEntityType } from "~/src/components/header/SearchBar";
 
