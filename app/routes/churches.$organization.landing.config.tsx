@@ -37,14 +37,32 @@ import { createAuthLoader } from "~/server/auth/authLoader";
 import { UploadButton } from "~/utils/uploadthing";
 import { LandingToolbar } from "./churches.$organization.landing._index";
 import { OrganizationDataService } from "@/server/dataServices/OrganizationDataService";
-import { X } from "lucide-react";
+import { ChevronUp, X } from "lucide-react";
 import { CustomSectionsEditor } from "~/components/landing/CustomSectionsEditor";
 import { HeroEditor } from "~/components/landing/HeroEditor";
 import { AboutEditor } from "~/components/landing/AboutEditor";
+import { AnimatePresence, motion } from "framer-motion";
 
 // Mini-sidenav component for quick navigation
 function MiniSidenav() {
 	const [activeSection, setActiveSection] = useState<string | null>(null);
+	const [isOpen, setIsOpen] = useState(false);
+	const [isMobile, setIsMobile] = useState(false);
+
+	// Check if on mobile
+	useEffect(() => {
+		const mediaQuery = window.matchMedia("(max-width: 768px)");
+		setIsMobile(mediaQuery.matches);
+
+		const handleResize = () => {
+			setIsMobile(mediaQuery.matches);
+		};
+
+		mediaQuery.addEventListener("change", handleResize);
+		return () => {
+			mediaQuery.removeEventListener("change", handleResize);
+		};
+	}, []);
 
 	// Update active section based on scroll position
 	useEffect(() => {
@@ -52,12 +70,12 @@ function MiniSidenav() {
 			const sections = document.querySelectorAll('[id$="-section"]');
 			let currentActiveSection: string | null = null;
 
-			sections.forEach((section) => {
+			for (const section of sections) {
 				const sectionTop = section.getBoundingClientRect().top;
 				if (sectionTop < 100) {
 					currentActiveSection = section.id;
 				}
-			});
+			}
 
 			setActiveSection(currentActiveSection);
 		};
@@ -74,48 +92,85 @@ function MiniSidenav() {
 		const section = document.getElementById(sectionId);
 		if (section) {
 			section.scrollIntoView({ behavior: "smooth" });
+			if (isMobile) {
+				setIsOpen(false); // Close the menu after clicking on mobile
+			}
 		}
 	};
+
+	// Define nav sections
+	const navSections = [
+		{ id: "hero-section", label: "Hero" },
+		{ id: "about-section", label: "About" },
+		{ id: "custom-sections", label: "Custom Sections" },
+		{ id: "social-section", label: "Social" },
+		{ id: "footer-section", label: "Footer" },
+		{ id: "settings-section", label: "Settings" },
+	];
+
+	if (isMobile) {
+		return (
+			<div className="fixed bottom-6 right-6 z-10">
+				<AnimatePresence>
+					{isOpen && (
+						<motion.div
+							initial={{ opacity: 0, y: 20 }}
+							animate={{ opacity: 1, y: 0 }}
+							exit={{ opacity: 0, y: 20 }}
+							className="absolute bottom-16 right-0 bg-white rounded-lg shadow-lg p-2 mb-2"
+						>
+							<div className="flex flex-col gap-1">
+								{navSections.map((section) => (
+									<button
+										type="button"
+										key={section.id}
+										onClick={() => scrollToSection(section.id)}
+										className={`p-2 rounded-md text-sm whitespace-nowrap ${
+											activeSection === section.id
+												? "bg-blue-100 text-blue-700"
+												: "hover:bg-gray-100"
+										}`}
+									>
+										{section.label}
+									</button>
+								))}
+							</div>
+						</motion.div>
+					)}
+				</AnimatePresence>
+
+				<button
+					type="button"
+					onClick={() => setIsOpen(!isOpen)}
+					className="w-12 h-12 rounded-full bg-primary text-white shadow-md flex items-center justify-center hover:bg-primary/90 transition-colors"
+				>
+					{isOpen ? (
+						<X className="h-5 w-5" />
+					) : (
+						<ChevronUp className="h-5 w-5" />
+					)}
+				</button>
+			</div>
+		);
+	}
 
 	return (
 		<div className="fixed right-4 top-1/3 z-10 bg-white rounded-lg shadow-md p-2 border">
 			<div className="flex flex-col gap-2">
-				<button
-					onClick={() => scrollToSection("hero-section")}
-					className={`p-2 rounded-md text-sm ${activeSection === "hero-section" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
-				>
-					Hero
-				</button>
-				<button
-					onClick={() => scrollToSection("about-section")}
-					className={`p-2 rounded-md text-sm ${activeSection === "about-section" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
-				>
-					About
-				</button>
-				<button
-					onClick={() => scrollToSection("custom-sections")}
-					className={`p-2 rounded-md text-sm ${activeSection === "custom-sections" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
-				>
-					Custom Sections
-				</button>
-				<button
-					onClick={() => scrollToSection("social-section")}
-					className={`p-2 rounded-md text-sm ${activeSection === "social-section" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
-				>
-					Social
-				</button>
-				<button
-					onClick={() => scrollToSection("footer-section")}
-					className={`p-2 rounded-md text-sm ${activeSection === "footer-section" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
-				>
-					Footer
-				</button>
-				<button
-					onClick={() => scrollToSection("settings-section")}
-					className={`p-2 rounded-md text-sm ${activeSection === "settings-section" ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}
-				>
-					Settings
-				</button>
+				{navSections.map((section) => (
+					<button
+						type="button"
+						key={section.id}
+						onClick={() => scrollToSection(section.id)}
+						className={`p-2 rounded-md text-sm ${
+							activeSection === section.id
+								? "bg-blue-100 text-blue-700"
+								: "hover:bg-gray-100"
+						}`}
+					>
+						{section.label}
+					</button>
+				))}
 			</div>
 		</div>
 	);

@@ -15,9 +15,13 @@ import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 import Header from "./src/components/header/Header";
 import { Sidenav } from "./src/components/sidenav/Sidenav";
-import { ApplicationProvider } from "./src/providers/appContextProvider";
+import {
+	ApplicationContext,
+	ApplicationProvider,
+} from "./src/providers/appContextProvider";
 import { UserProvider } from "./src/providers/userProvider";
 import { createAuthLoader } from "~/server/auth/authLoader";
+import { useContext, useState, useEffect } from "react";
 
 export const links: Route.LinksFunction = () => [
 	{ rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -69,17 +73,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 								organizationRoles={loaderData?.userContext?.organizationRoles}
 								userToOrgRoles={loaderData?.userContext?.userToOrgRoles}
 							>
-								<div className="flex bg-accent">
-									<Sidenav />
-									<div className="flex-col w-full h-full">
-										<Header />
-
-										<hr className="border-t border-gray-200" />
-										<div className="flex-col h-full text-foreground w-full ">
-											<div className="">{children}</div>
-										</div>
-									</div>
-								</div>
+								<MainLayout>{children}</MainLayout>
 							</UserProvider>
 						</ApplicationProvider>
 					</ClerkProvider>
@@ -89,6 +83,45 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<Toaster position="top-center" />
 			</body>
 		</html>
+	);
+}
+
+function MainLayout({ children }: { children: React.ReactNode }) {
+	const { sideNavOpen } = useContext(ApplicationContext);
+	const [isMobile, setIsMobile] = useState(false);
+
+	useEffect(() => {
+		const mediaQuery = window.matchMedia("(max-width: 1024px)");
+		setIsMobile(mediaQuery.matches);
+
+		const handleResize = () => {
+			setIsMobile(mediaQuery.matches);
+		};
+
+		mediaQuery.addEventListener("change", handleResize);
+		return () => {
+			mediaQuery.removeEventListener("change", handleResize);
+		};
+	}, []);
+
+	const sidebarVisible = isMobile ? sideNavOpen : true;
+
+	return (
+		<div className="flex bg-accent">
+			<Sidenav />
+			<div
+				className="flex-col w-full h-full transition-all duration-300"
+				style={{
+					marginLeft: sidebarVisible ? "250px" : "0",
+				}}
+			>
+				<Header />
+				<hr className="border-t border-gray-200" />
+				<div className="flex-col h-full text-foreground w-full ">
+					<div className="">{children}</div>
+				</div>
+			</div>
+		</div>
 	);
 }
 

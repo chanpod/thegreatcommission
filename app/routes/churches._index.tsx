@@ -1,59 +1,49 @@
-import { Link, useFetcher, useLoaderData } from "react-router";
-import { isNil, map } from "lodash-es";
+import { useLoaderData } from "react-router";
+import { map } from "lodash-es";
+import { ilike } from "drizzle-orm";
 
-import { Button } from "~/components/ui/button";
-import { SearchEntityType } from "~/src/components/header/SearchBar";
 import ChurchRowCard from "~/src/components/listItems/components/ChurchRowCard";
 import List from "~/src/components/listItems/List";
-import Toolbar from "~/src/components/toolbar/Toolbar";
-import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
 import type { Route } from "../+types/root";
 import { churchOrganization } from "server/db/schema";
 import { db } from "@/server/db/dbConnection";
-import { useContext } from "react";
-import { UserContext } from "~/src/providers/userProvider";
+import { SearchEntityType } from "~/src/components/header/SearchBar";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const churches = await db.select().from(churchOrganization);
+	const url = new URL(request.url);
+	const searchParams = url.searchParams;
+	const search = searchParams.get("search");
+	const entityType = searchParams.get("type") as SearchEntityType | null;
+
+	let baseQuery = db.select().from(churchOrganization);
+
+	// Apply search filter if search parameter exists and entity type is ChurchOrganization
+	let churches;
+	console.log(search);
+	if (search) {
+		churches = await baseQuery.where(
+			ilike(churchOrganization.name, `%${search}%`),
+		);
+	} else {
+		churches = await baseQuery;
+	}
 
 	return {
-		churches: churches,
+		churches,
 	};
 };
 
 export default function ChurchPage() {
-	const loaderData = useLoaderData();
-	const { isLoggedIn } = useIsLoggedIn();
-	const fetcher = useFetcher();
+	const loaderData = useLoaderData<typeof loader>();
+	const churches = loaderData.churches;
 
-	function onSearchChange(searchText: string) {
-		fetcher.load(
-			`/api/search?search=${encodeURI(searchText)}&type=${SearchEntityType.ChurchOrganization}`,
-		);
-	}
-
-	const churches = fetcher.data?.churches || loaderData.churches;
 	return (
-		<div className="space-y-4">
-			<div className="flex justify-between items-center">
-				<h1 className="text-3xl">Organizations</h1>
-				{isLoggedIn && (
-					<Link to="/churches/create">
-						<Button className="w-40 flex items-center justify-center space-x-2">
-							<span>Create</span>
-						</Button>
-					</Link>
-				)}
-			</div>
-
-			<Toolbar onChange={onSearchChange} />
-			<div>
-				<List>
-					{map(churches, (church: typeof churchOrganization.$inferSelect) => {
-						return <ChurchRowCard linkActive church={church} key={church.id} />;
-					})}
-				</List>
-			</div>
+		<div className="p-6">
+			<List>
+				{map(churches, (church: typeof churchOrganization.$inferSelect) => {
+					return <ChurchRowCard linkActive church={church} key={church.id} />;
+				})}
+			</List>
 		</div>
 	);
 }
