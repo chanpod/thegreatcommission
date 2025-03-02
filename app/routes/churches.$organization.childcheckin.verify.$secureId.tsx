@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router";
+import {
+	useParams,
+	useNavigate,
+	useLoaderData,
+	useFetcher,
+} from "react-router";
 import { Button } from "~/components/ui/button";
 import {
 	Card,
@@ -11,85 +16,159 @@ import {
 } from "~/components/ui/card";
 import { childCheckinService } from "~/services/ChildCheckinService";
 import { useToast } from "~/hooks/use-toast";
+import { createAuthLoader } from "~/server/auth/authLoader";
+import { data, redirect } from "react-router";
+
+// Loader to fetch check-in data
+export const loader = createAuthLoader(async ({ params, request }) => {
+	const { secureId, organization } = params;
+
+	if (!secureId || !organization) {
+		return data(
+			{
+				error: "Invalid parameters",
+			},
+			{ status: 400 },
+		);
+	}
+
+	try {
+		// Verify the checkin using the secure ID
+		const checkin = await childCheckinService.verifyCheckinBySecureId(secureId);
+
+		if (!checkin) {
+			return data(
+				{
+					error:
+						"Invalid or expired QR code. Please try again or contact a volunteer.",
+				},
+				{ status: 404 },
+			);
+		}
+
+		// Get child details
+		const child = await childCheckinService.getChildById(checkin.childId);
+
+		// Get guardian details
+		const guardian = await childCheckinService.getGuardianById(
+			checkin.checkedInByGuardianId,
+		);
+
+		return data({ checkin, child, guardian });
+	} catch (error) {
+		console.error("Error verifying checkin:", error);
+		return data(
+			{
+				error:
+					"An error occurred while verifying the check-in. Please try again or contact a volunteer.",
+			},
+			{ status: 500 },
+		);
+	}
+});
+
+// Action to handle checkout process
+export const action = createAuthLoader(async ({ params, request }) => {
+	const { secureId, organization } = params;
+
+	if (!secureId || !organization) {
+		return data(
+			{
+				success: false,
+				error: "Invalid parameters",
+			},
+			{ status: 400 },
+		);
+	}
+
+	try {
+		const formData = await request.formData();
+		const action = formData.get("_action");
+
+		if (action === "checkout") {
+			const checkinId = formData.get("checkinId");
+			const guardianId = formData.get("guardianId");
+
+			if (!checkinId || !guardianId) {
+				return data(
+					{
+						success: false,
+						error: "Missing required fields",
+					},
+					{ status: 400 },
+				);
+			}
+
+			await childCheckinService.checkoutChild(
+				checkinId.toString(),
+				guardianId.toString(),
+			);
+
+			return redirect(`/churches/${organization}/childcheckin`);
+		}
+
+		return data(
+			{
+				success: false,
+				error: "Invalid action",
+			},
+			{ status: 400 },
+		);
+	} catch (error) {
+		console.error("Error checking out child:", error);
+		return data(
+			{
+				success: false,
+				error:
+					"Failed to complete check-out. Please try again or contact a volunteer.",
+			},
+			{ status: 500 },
+		);
+	}
+});
 
 export default function VerifyCheckin() {
-	const { organization, secureId } = useParams();
+	const { organization } = useParams();
 	const navigate = useNavigate();
+	const fetcher = useFetcher();
 	const { toast } = useToast();
-	const [checkin, setCheckin] = useState(null);
-	const [child, setChild] = useState(null);
-	const [guardian, setGuardian] = useState(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState(null);
+	const loaderData = useLoaderData<typeof loader>();
 
+	// If there's a loader error, it means we couldn't verify the check-in
+	const error = loaderData.error;
+
+	// If there's no error, we have checkin, child, and guardian data
+	const { checkin, child, guardian } = loaderData.error
+		? { checkin: null, child: null, guardian: null }
+		: loaderData;
+
+	// Handle action errors
 	useEffect(() => {
-		const verifyCheckin = async () => {
-			try {
-				setLoading(true);
-				// Verify the checkin using the secure ID
-				const checkinData =
-					await childCheckinService.verifyCheckinBySecureId(secureId);
-
-				if (!checkinData) {
-					setError(
-						"Invalid or expired QR code. Please try again or contact a volunteer.",
-					);
-					setLoading(false);
-					return;
-				}
-
-				setCheckin(checkinData);
-
-				// Get child details
-				const childData = await childCheckinService.getChildById(
-					checkinData.childId,
-				);
-				setChild(childData);
-
-				// Get guardian details
-				const guardianData = await childCheckinService.getGuardianById(
-					checkinData.checkedInByGuardianId,
-				);
-				setGuardian(guardianData);
-
-				setLoading(false);
-			} catch (error) {
-				console.error("Error verifying checkin:", error);
-				setError(
-					"An error occurred while verifying the check-in. Please try again or contact a volunteer.",
-				);
-				setLoading(false);
-			}
-		};
-
-		verifyCheckin();
-	}, [secureId]);
-
-	const handleCheckout = async () => {
-		try {
-			if (!checkin || !guardian) return;
-
-			await childCheckinService.checkoutChild(checkin.id, guardian.id);
-
-			toast({
-				title: "Check-out Complete",
-				description: `${child.firstName} ${child.lastName} has been successfully checked out.`,
-			});
-
-			// Navigate back to the main checkin page
-			navigate(`/churches/${organization}/childcheckin`);
-		} catch (error) {
-			console.error("Error checking out child:", error);
+		if (fetcher.data && !fetcher.data.success && fetcher.data.error) {
 			toast({
 				title: "Error",
-				description:
-					"Failed to complete check-out. Please try again or contact a volunteer.",
+				description: fetcher.data.error,
 				variant: "destructive",
 			});
 		}
+	}, [fetcher.data, toast]);
+
+	const handleCheckout = () => {
+		if (!checkin || !guardian) return;
+
+		const formData = new FormData();
+		formData.append("_action", "checkout");
+		formData.append("checkinId", checkin.id);
+		formData.append("guardianId", guardian.id);
+		fetcher.submit(formData, { method: "post" });
+
+		toast({
+			title: "Check-out Complete",
+			description: `${child.firstName} ${child.lastName} has been successfully checked out.`,
+		});
 	};
 
-	if (loading) {
+	if (!checkin && !error) {
 		return (
 			<div className="container mx-auto py-8 flex items-center justify-center min-h-[60vh]">
 				<Card className="w-full max-w-md">
@@ -250,14 +329,21 @@ export default function VerifyCheckin() {
 						</p>
 					</div>
 				</CardContent>
-				<CardFooter className="flex justify-between">
+				<CardFooter className="flex space-x-2 justify-between">
 					<Button
 						variant="outline"
-						onClick={() => navigate(`/churches/${organization}/childcheckin`)}
+						onClick={() =>
+							navigate(`/churches/${organization}/childcheckin/list`)
+						}
 					>
-						Cancel
+						Back to Check-in List
 					</Button>
-					<Button onClick={handleCheckout}>Confirm Check-out</Button>
+					<fetcher.Form method="post">
+						<input type="hidden" name="_action" value="checkout" />
+						<input type="hidden" name="checkinId" value={checkin.id} />
+						<input type="hidden" name="guardianId" value={guardian.id} />
+						<Button type="submit">Confirm Check-out</Button>
+					</fetcher.Form>
 				</CardFooter>
 			</Card>
 		</div>

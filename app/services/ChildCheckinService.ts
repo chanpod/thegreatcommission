@@ -12,7 +12,7 @@ import {
 	type NewCheckinSession,
 	type NewChildCheckin,
 	type NewAuthorizedPickupPerson,
-} from "../schema/childCheckin";
+} from "../../server/db/childCheckin";
 import { eq, and, isNull } from "drizzle-orm";
 
 export class ChildCheckinService {

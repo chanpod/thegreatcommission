@@ -1,6 +1,6 @@
 import { text, timestamp, boolean, pgTable } from "drizzle-orm/pg-core";
 import { v4 as uuidv4 } from "uuid";
-import { users, churchOrganization } from "../../server/db/schema";
+import { users, churchOrganization } from "./schema";
 
 // Table for storing children information
 export const childrenTable = pgTable("children", {

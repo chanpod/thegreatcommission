@@ -1,5 +1,10 @@
-import { useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useState, useRef, useEffect } from "react";
+import {
+	useParams,
+	useNavigate,
+	useLoaderData,
+	useFetcher,
+} from "react-router";
 import { Button } from "~/components/ui/button";
 import {
 	Card,
@@ -13,16 +18,194 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Textarea } from "~/components/ui/textarea";
-import { useToast } from "~/hooks/use-toast";
+import { toast } from "sonner";
 import { childCheckinService } from "../services/ChildCheckinService";
 import { QRCodeSVG } from "qrcode.react";
+import { createAuthLoader } from "~/server/auth/authLoader";
+import { data, redirect } from "react-router";
+
+// Loader to fetch active check-in sessions
+export const loader = createAuthLoader(async ({ params, request }) => {
+	const { organization } = params;
+
+	if (!organization) {
+		return data({ sessions: [] }, { status: 400 });
+	}
+
+	try {
+		const sessions =
+			await childCheckinService.getActiveCheckinSessions(organization);
+		return data({ sessions });
+	} catch (error) {
+		console.error("Error fetching sessions:", error);
+		return data(
+			{ sessions: [], error: "Failed to load check-in sessions" },
+			{ status: 500 },
+		);
+	}
+});
+
+// Action to handle form submissions
+export const action = createAuthLoader(async ({ params, request }) => {
+	const { organization } = params;
+
+	if (!organization) {
+		return data(
+			{ success: false, error: "Invalid organization" },
+			{ status: 400 },
+		);
+	}
+
+	const formData = await request.formData();
+	const action = formData.get("_action");
+
+	try {
+		// Create session
+		if (action === "createSession") {
+			const sessionName = formData.get("sessionName");
+
+			if (!sessionName) {
+				return data(
+					{ success: false, error: "Session name is required" },
+					{ status: 400 },
+				);
+			}
+
+			const sessionData = {
+				name: sessionName.toString(),
+				churchOrganizationId: organization,
+				startTime: new Date(),
+				updatedAt: new Date(),
+			};
+
+			const newSession =
+				await childCheckinService.createCheckinSession(sessionData);
+			return data({ success: true, session: newSession });
+		}
+
+		// Complete check-in
+		if (action === "completeCheckin") {
+			// Get data from form
+			const childFirstName = formData.get("childFirstName");
+			const childLastName = formData.get("childLastName");
+			const dateOfBirth = formData.get("dateOfBirth");
+			const allergies = formData.get("allergies");
+			const specialNotes = formData.get("specialNotes");
+			const childPhotoUrl = formData.get("childPhotoUrl");
+
+			const guardianFirstName = formData.get("guardianFirstName");
+			const guardianLastName = formData.get("guardianLastName");
+			const phone = formData.get("phone");
+			const email = formData.get("email");
+			const guardianPhotoUrl = formData.get("guardianPhotoUrl");
+
+			const sessionId = formData.get("sessionId");
+			const pickupPersonsJson = formData.get("authorizedPickups");
+
+			// Validate required fields
+			if (
+				!childFirstName ||
+				!childLastName ||
+				!guardianFirstName ||
+				!guardianLastName ||
+				!sessionId
+			) {
+				return data(
+					{
+						success: false,
+						error: "Missing required fields",
+					},
+					{ status: 400 },
+				);
+			}
+
+			// Create child record
+			const childData = {
+				firstName: childFirstName.toString(),
+				lastName: childLastName.toString(),
+				dateOfBirth: dateOfBirth ? dateOfBirth.toString() : undefined,
+				allergies: allergies ? allergies.toString() : undefined,
+				specialNotes: specialNotes ? specialNotes.toString() : undefined,
+				photoUrl: childPhotoUrl ? childPhotoUrl.toString() : undefined,
+				churchOrganizationId: organization,
+				updatedAt: new Date(),
+			};
+			const newChild = await childCheckinService.createChild(childData);
+
+			// Create guardian record
+			const guardianData = {
+				firstName: guardianFirstName.toString(),
+				lastName: guardianLastName.toString(),
+				phone: phone ? phone.toString() : undefined,
+				email: email ? email.toString() : undefined,
+				photoUrl: guardianPhotoUrl ? guardianPhotoUrl.toString() : undefined,
+				churchOrganizationId: organization,
+				updatedAt: new Date(),
+			};
+			const newGuardian =
+				await childCheckinService.createGuardian(guardianData);
+
+			// Link child to guardian
+			await childCheckinService.linkChildToGuardian({
+				childId: newChild.id,
+				guardianId: newGuardian.id,
+				relationship: "parent",
+				updatedAt: new Date(),
+			});
+
+			// Create checkin record
+			const checkinData = {
+				childId: newChild.id,
+				sessionId: sessionId.toString(),
+				checkedInByGuardianId: newGuardian.id,
+				updatedAt: new Date(),
+			};
+			const newCheckin = await childCheckinService.checkinChild(checkinData);
+
+			// Add authorized pickup persons if any
+			if (pickupPersonsJson) {
+				const authorizedPickups = JSON.parse(pickupPersonsJson.toString());
+				for (const pickup of authorizedPickups) {
+					await childCheckinService.addAuthorizedPickupPerson({
+						firstName: pickup.firstName,
+						lastName: pickup.lastName,
+						relationship: pickup.relationship,
+						childCheckinId: newCheckin.id,
+						updatedAt: new Date(),
+					});
+				}
+			}
+
+			// Generate QR code URL
+			const host = new URL(request.url).host;
+			const qrUrl = `${host}/churches/${organization}/childcheckin/verify/${newCheckin.secureId}`;
+
+			return {
+				success: true,
+				checkin: newCheckin,
+				qrCodeUrl: qrUrl,
+				childInfo: newChild,
+				guardianInfo: newGuardian,
+			};
+		}
+
+		return data({ success: false, error: "Invalid action" }, { status: 400 });
+	} catch (error) {
+		console.error("Error processing action:", error);
+		return data(
+			{ success: false, error: "Failed to process action" },
+			{ status: 500 },
+		);
+	}
+});
 
 export default function ChildCheckin() {
 	const { organization } = useParams();
 	const navigate = useNavigate();
-	const { toast } = useToast();
+	const { sessions } = useLoaderData<typeof loader>();
+	const fetcher = useFetcher();
+
 	const [activeTab, setActiveTab] = useState("session");
-	const [sessions, setSessions] = useState([]);
 	const [activeSession, setActiveSession] = useState(null);
 	const [childInfo, setChildInfo] = useState({
 		firstName: "",
@@ -51,32 +234,40 @@ export default function ChildCheckin() {
 	const guardianVideoRef = useRef(null);
 	const guardianCanvasRef = useRef(null);
 
-	// Function to handle session creation
-	const handleCreateSession = async (e) => {
-		e.preventDefault();
-		try {
-			const sessionData = {
-				name: e.target.sessionName.value,
-				churchOrganizationId: organization,
-				startTime: new Date(),
-				updatedAt: new Date(),
-			};
-			const newSession =
-				await childCheckinService.createCheckinSession(sessionData);
-			setSessions([...sessions, newSession]);
-			setActiveSession(newSession);
-			toast({
-				title: "Session Created",
-				description: `Session "${newSession.name}" has been created successfully.`,
-			});
+	// Handle successful session creation
+	useEffect(() => {
+		if (fetcher.data && fetcher.data.success && fetcher.data.session) {
+			setActiveSession(fetcher.data.session);
+			toast.success(
+				`Session "${fetcher.data.session.name}" has been created successfully.`,
+			);
 			setActiveTab("child");
-		} catch (error) {
-			toast({
-				title: "Error",
-				description: "Failed to create session. Please try again.",
-				variant: "destructive",
-			});
 		}
+	}, [fetcher.data]);
+
+	// Handle successful check-in
+	useEffect(() => {
+		if (fetcher.data && fetcher.data.success && fetcher.data.checkin) {
+			setQrCodeUrl(fetcher.data.qrCodeUrl);
+			setCheckinComplete(true);
+			setActiveTab("complete");
+			toast.success("Child has been successfully checked in.");
+		}
+	}, [fetcher.data]);
+
+	// Handle errors
+	useEffect(() => {
+		if (fetcher.data && !fetcher.data.success && fetcher.data.error) {
+			toast.error(fetcher.data.error);
+		}
+	}, [fetcher.data]);
+
+	// Function to handle session creation
+	const handleCreateSession = (e) => {
+		e.preventDefault();
+		const formData = new FormData(e.target);
+		formData.append("_action", "createSession");
+		fetcher.submit(formData, { method: "post" });
 	};
 
 	// Function to handle child info update
@@ -108,11 +299,7 @@ export default function ChildCheckin() {
 			}
 		} catch (err) {
 			console.error("Error accessing camera:", err);
-			toast({
-				title: "Camera Error",
-				description: "Could not access camera. Please check permissions.",
-				variant: "destructive",
-			});
+			toast.error("Could not access camera. Please check permissions.");
 		}
 	};
 
@@ -127,11 +314,7 @@ export default function ChildCheckin() {
 			}
 		} catch (err) {
 			console.error("Error accessing camera:", err);
-			toast({
-				title: "Camera Error",
-				description: "Could not access camera. Please check permissions.",
-				variant: "destructive",
-			});
+			toast.error("Could not access camera. Please check permissions.");
 		}
 	};
 
@@ -161,7 +344,9 @@ export default function ChildCheckin() {
 			const stream = video.srcObject;
 			if (stream) {
 				const tracks = stream.getTracks();
-				tracks.forEach((track) => track.stop());
+				for (const track of tracks) {
+					track.stop();
+				}
 				video.srcObject = null;
 			}
 		}
@@ -193,7 +378,9 @@ export default function ChildCheckin() {
 			const stream = video.srcObject;
 			if (stream) {
 				const tracks = stream.getTracks();
-				tracks.forEach((track) => track.stop());
+				for (const track of tracks) {
+					track.stop();
+				}
 				video.srcObject = null;
 			}
 		}
@@ -213,76 +400,38 @@ export default function ChildCheckin() {
 	};
 
 	// Function to complete checkin process
-	const handleCompleteCheckin = async () => {
-		try {
-			// Create child record
-			const childData = {
-				...childInfo,
-				churchOrganizationId: organization,
-				updatedAt: new Date(),
-			};
-			const newChild = await childCheckinService.createChild(childData);
+	const handleCompleteCheckin = () => {
+		if (guardianInfo.firstName && guardianInfo.lastName) {
+			const formData = new FormData();
 
-			// Create guardian record
-			const guardianData = {
-				...guardianInfo,
-				churchOrganizationId: organization,
-				updatedAt: new Date(),
-			};
-			const newGuardian =
-				await childCheckinService.createGuardian(guardianData);
+			// Add action type
+			formData.append("_action", "completeCheckin");
 
-			// Link child to guardian
-			await childCheckinService.linkChildToGuardian({
-				childId: newChild.id,
-				guardianId: newGuardian.id,
-				relationship: "parent",
-				updatedAt: new Date(),
-			});
+			// Add child info
+			formData.append("childFirstName", childInfo.firstName);
+			formData.append("childLastName", childInfo.lastName);
+			formData.append("dateOfBirth", childInfo.dateOfBirth);
+			formData.append("allergies", childInfo.allergies);
+			formData.append("specialNotes", childInfo.specialNotes);
+			formData.append("childPhotoUrl", childInfo.photoUrl);
 
-			// Create checkin record
-			const checkinData = {
-				childId: newChild.id,
-				sessionId: activeSession.id,
-				checkedInByGuardianId: newGuardian.id,
-				updatedAt: new Date(),
-			};
-			const newCheckin = await childCheckinService.checkinChild(checkinData);
+			// Add guardian info
+			formData.append("guardianFirstName", guardianInfo.firstName);
+			formData.append("guardianLastName", guardianInfo.lastName);
+			formData.append("phone", guardianInfo.phone);
+			formData.append("email", guardianInfo.email);
+			formData.append("guardianPhotoUrl", guardianInfo.photoUrl);
 
-			// Add authorized pickup persons if any
-			for (const pickup of authorizedPickups) {
-				await childCheckinService.addAuthorizedPickupPerson({
-					firstName: pickup.firstName,
-					lastName: pickup.lastName,
-					relationship: pickup.relationship,
-					childCheckinId: newCheckin.id,
-					updatedAt: new Date(),
-				});
-			}
+			// Add session ID
+			formData.append("sessionId", activeSession.id);
 
-			// Generate QR code URL
-			const qrUrl = `${window.location.origin}/churches/${organization}/childcheckin/verify/${newCheckin.secureId}`;
-			setQrCodeUrl(qrUrl);
+			// Add authorized pickup persons
+			formData.append("authorizedPickups", JSON.stringify(authorizedPickups));
 
-			// Send text message with QR code if phone number provided
-			if (guardianInfo.phone) {
-				// This would be implemented with a messaging service
-				console.log(`Sending QR code to ${guardianInfo.phone}: ${qrUrl}`);
-			}
-
-			setCheckinComplete(true);
-			setActiveTab("complete");
-
-			toast({
-				title: "Check-in Complete",
-				description: "Child has been successfully checked in.",
-			});
-		} catch (error) {
-			toast({
-				title: "Error",
-				description: "Failed to complete check-in. Please try again.",
-				variant: "destructive",
-			});
+			// Submit form data
+			fetcher.submit(formData, { method: "post" });
+		} else {
+			toast.error("Please enter the guardian's first and last name.");
 		}
 	};
 
@@ -304,7 +453,6 @@ export default function ChildCheckin() {
 					</TabsTrigger>
 				</TabsList>
 
-				{/* Session Tab */}
 				<TabsContent value="session">
 					<Card>
 						<CardHeader>
@@ -314,7 +462,10 @@ export default function ChildCheckin() {
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<form onSubmit={handleCreateSession} className="space-y-4">
+							<fetcher.Form
+								onSubmit={handleCreateSession}
+								className="space-y-4"
+							>
 								<div className="space-y-2">
 									<Label htmlFor="sessionName">Session Name</Label>
 									<Input
@@ -325,7 +476,7 @@ export default function ChildCheckin() {
 									/>
 								</div>
 								<Button type="submit">Create Session</Button>
-							</form>
+							</fetcher.Form>
 
 							{sessions.length > 0 && (
 								<div className="mt-6">
@@ -335,7 +486,9 @@ export default function ChildCheckin() {
 											<Card
 												key={session.id}
 												className={`p-4 cursor-pointer ${activeSession?.id === session.id ? "border-primary" : ""}`}
-												onClick={() => setActiveSession(session)}
+												onClick={() => {
+													setActiveSession(session);
+												}}
 											>
 												<div className="font-medium">{session.name}</div>
 												<div className="text-sm text-muted-foreground">
@@ -350,7 +503,11 @@ export default function ChildCheckin() {
 						</CardContent>
 						<CardFooter>
 							<Button
-								onClick={() => activeSession && setActiveTab("child")}
+								onClick={() => {
+									if (activeSession) {
+										setActiveTab("child");
+									}
+								}}
 								disabled={!activeSession}
 							>
 								Next: Child Information
@@ -359,7 +516,6 @@ export default function ChildCheckin() {
 					</Card>
 				</TabsContent>
 
-				{/* Child Info Tab */}
 				<TabsContent value="child">
 					<Card>
 						<CardHeader>
@@ -447,7 +603,9 @@ export default function ChildCheckin() {
 													playsInline
 													className="w-full h-64 object-cover"
 													onLoadedMetadata={() => console.log("Camera ready")}
-												/>
+												>
+													<track kind="captions" />
+												</video>
 												<canvas
 													ref={childCanvasRef}
 													style={{ display: "none" }}
@@ -478,12 +636,9 @@ export default function ChildCheckin() {
 									if (childInfo.firstName && childInfo.lastName) {
 										setActiveTab("guardian");
 									} else {
-										toast({
-											title: "Required Fields",
-											description:
-												"Please enter the child's first and last name.",
-											variant: "destructive",
-										});
+										toast.error(
+											"Please enter the child's first and last name.",
+										);
 									}
 								}}
 							>
@@ -493,7 +648,6 @@ export default function ChildCheckin() {
 					</Card>
 				</TabsContent>
 
-				{/* Guardian Info Tab */}
 				<TabsContent value="guardian">
 					<Card>
 						<CardHeader>
@@ -574,7 +728,9 @@ export default function ChildCheckin() {
 													playsInline
 													className="w-full h-64 object-cover"
 													onLoadedMetadata={() => console.log("Camera ready")}
-												/>
+												>
+													<track kind="captions" />
+												</video>
 												<canvas
 													ref={guardianCanvasRef}
 													style={{ display: "none" }}
@@ -665,27 +821,11 @@ export default function ChildCheckin() {
 							<Button variant="outline" onClick={() => setActiveTab("child")}>
 								Back
 							</Button>
-							<Button
-								onClick={() => {
-									if (guardianInfo.firstName && guardianInfo.lastName) {
-										handleCompleteCheckin();
-									} else {
-										toast({
-											title: "Required Fields",
-											description:
-												"Please enter the guardian's first and last name.",
-											variant: "destructive",
-										});
-									}
-								}}
-							>
-								Complete Check-in
-							</Button>
+							<Button onClick={handleCompleteCheckin}>Complete Check-in</Button>
 						</CardFooter>
 					</Card>
 				</TabsContent>
 
-				{/* Complete Tab */}
 				<TabsContent value="complete">
 					<Card>
 						<CardHeader>

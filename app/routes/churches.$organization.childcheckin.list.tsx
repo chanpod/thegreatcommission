@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router";
+import {
+	useParams,
+	useNavigate,
+	Link,
+	useLoaderData,
+	useFetcher,
+} from "react-router";
 import { Button } from "~/components/ui/button";
 import {
 	Card,
@@ -13,90 +19,204 @@ import { Label } from "~/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { childCheckinService } from "~/services/ChildCheckinService";
 import { useToast } from "~/hooks/use-toast";
+import { createAuthLoader } from "~/server/auth/authLoader";
+import { data } from "react-router";
+
+// Loader to fetch sessions and checkins
+export const loader = createAuthLoader(async ({ params, request }) => {
+	const { organization } = params;
+
+	if (!organization) {
+		return data(
+			{
+				sessions: [],
+				checkins: [],
+				error: "Invalid organization",
+			},
+			{ status: 400 },
+		);
+	}
+
+	try {
+		const sessions =
+			await childCheckinService.getActiveCheckinSessions(organization);
+
+		// If there are sessions, fetch checkins for the first session
+		let checkins = [];
+		if (sessions.length > 0) {
+			checkins = await childCheckinService.getActiveCheckins(sessions[0].id);
+		}
+
+		return data({
+			sessions,
+			checkins,
+			activeSessionId: sessions.length > 0 ? sessions[0].id : null,
+		});
+	} catch (error) {
+		console.error("Error loading data:", error);
+		return data(
+			{
+				sessions: [],
+				checkins: [],
+				error: "Failed to load check-in data",
+			},
+			{ status: 500 },
+		);
+	}
+});
+
+// Action to handle form submissions
+export const action = createAuthLoader(async ({ params, request }) => {
+	const { organization } = params;
+
+	if (!organization) {
+		return data(
+			{ success: false, error: "Invalid organization" },
+			{ status: 400 },
+		);
+	}
+
+	const formData = await request.formData();
+	const action = formData.get("_action");
+
+	try {
+		if (action === "getCheckins") {
+			const sessionId = formData.get("sessionId");
+
+			if (!sessionId) {
+				return data(
+					{ success: false, error: "Session ID is required" },
+					{ status: 400 },
+				);
+			}
+
+			const checkins = await childCheckinService.getActiveCheckins(
+				sessionId.toString(),
+			);
+			return data({
+				success: true,
+				checkins,
+				activeSessionId: sessionId.toString(),
+			});
+		}
+
+		if (action === "checkout") {
+			const checkinId = formData.get("checkinId");
+			const guardianId = formData.get("guardianId");
+			const sessionId = formData.get("sessionId");
+
+			if (!checkinId || !guardianId || !sessionId) {
+				return data(
+					{ success: false, error: "Missing required fields" },
+					{ status: 400 },
+				);
+			}
+
+			await childCheckinService.checkoutChild(
+				checkinId.toString(),
+				guardianId.toString(),
+			);
+
+			// Fetch updated checkins list
+			const checkins = await childCheckinService.getActiveCheckins(
+				sessionId.toString(),
+			);
+
+			return data({
+				success: true,
+				message: "Child has been successfully checked out",
+				checkins,
+				activeSessionId: sessionId.toString(),
+			});
+		}
+
+		return data({ success: false, error: "Invalid action" }, { status: 400 });
+	} catch (error) {
+		console.error("Error processing action:", error);
+		return data(
+			{ success: false, error: "Failed to process action" },
+			{ status: 500 },
+		);
+	}
+});
 
 export default function ChildCheckinList() {
 	const { organization } = useParams();
 	const navigate = useNavigate();
 	const { toast } = useToast();
-	const [sessions, setSessions] = useState([]);
-	const [activeSession, setActiveSession] = useState(null);
-	const [checkins, setCheckins] = useState([]);
-	const [loading, setLoading] = useState(true);
+	const {
+		sessions,
+		checkins: initialCheckins,
+		activeSessionId: initialSessionId,
+		error,
+	} = useLoaderData<typeof loader>();
+	const fetcher = useFetcher();
+
+	const [activeSessionId, setActiveSessionId] = useState(initialSessionId);
+	const [checkins, setCheckins] = useState(initialCheckins);
+	const [loading, setLoading] = useState(false);
 	const [searchTerm, setSearchTerm] = useState("");
 
+	// Show error toast if there's an error from the loader
 	useEffect(() => {
-		const fetchSessions = async () => {
-			try {
-				setLoading(true);
-				const sessionsData =
-					await childCheckinService.getActiveCheckinSessions(organization);
-				setSessions(sessionsData);
-
-				if (sessionsData.length > 0) {
-					setActiveSession(sessionsData[0]);
-					fetchCheckins(sessionsData[0].id);
-				} else {
-					setLoading(false);
-				}
-			} catch (error) {
-				console.error("Error fetching sessions:", error);
-				toast({
-					title: "Error",
-					description: "Failed to load check-in sessions. Please try again.",
-					variant: "destructive",
-				});
-				setLoading(false);
-			}
-		};
-
-		fetchSessions();
-	}, [organization, toast]);
-
-	const fetchCheckins = async (sessionId) => {
-		try {
-			setLoading(true);
-			const checkinsData =
-				await childCheckinService.getActiveCheckins(sessionId);
-			setCheckins(checkinsData);
-			setLoading(false);
-		} catch (error) {
-			console.error("Error fetching checkins:", error);
+		if (error) {
 			toast({
 				title: "Error",
-				description: "Failed to load check-ins. Please try again.",
+				description: error,
+				variant: "destructive",
+			});
+		}
+	}, [error, toast]);
+
+	// Update checkins when fetcher returns data
+	useEffect(() => {
+		if (fetcher.data && fetcher.data.success) {
+			setCheckins(fetcher.data.checkins);
+			setActiveSessionId(fetcher.data.activeSessionId);
+			setLoading(false);
+
+			// Show success message if available
+			if (fetcher.data.message) {
+				toast({
+					title: "Success",
+					description: fetcher.data.message,
+				});
+			}
+		} else if (fetcher.data && !fetcher.data.success && fetcher.data.error) {
+			toast({
+				title: "Error",
+				description: fetcher.data.error,
 				variant: "destructive",
 			});
 			setLoading(false);
 		}
-	};
+	}, [fetcher.data, toast]);
+
+	// Set loading state when fetcher is submitting
+	useEffect(() => {
+		if (fetcher.state === "submitting") {
+			setLoading(true);
+		}
+	}, [fetcher.state]);
 
 	const handleSessionChange = (sessionId) => {
-		const session = sessions.find((s) => s.id === sessionId);
-		setActiveSession(session);
-		fetchCheckins(sessionId);
+		setLoading(true);
+		const formData = new FormData();
+		formData.append("_action", "getCheckins");
+		formData.append("sessionId", sessionId);
+		fetcher.submit(formData, { method: "post" });
 	};
 
-	const handleCheckout = async (checkinId, guardianId) => {
-		try {
-			await childCheckinService.checkoutChild(checkinId, guardianId);
-
-			// Refresh the list
-			fetchCheckins(activeSession.id);
-
-			toast({
-				title: "Check-out Complete",
-				description: "Child has been successfully checked out.",
-			});
-		} catch (error) {
-			console.error("Error checking out child:", error);
-			toast({
-				title: "Error",
-				description: "Failed to complete check-out. Please try again.",
-				variant: "destructive",
-			});
-		}
+	const handleCheckout = (checkinId, guardianId) => {
+		const formData = new FormData();
+		formData.append("_action", "checkout");
+		formData.append("checkinId", checkinId);
+		formData.append("guardianId", guardianId);
+		formData.append("sessionId", activeSessionId);
+		fetcher.submit(formData, { method: "post" });
 	};
 
+	const activeSession = sessions.find((s) => s.id === activeSessionId);
 	const filteredCheckins = checkins.filter((checkin) => {
 		const childName =
 			`${checkin.child.firstName} ${checkin.child.lastName}`.toLowerCase();
@@ -140,8 +260,9 @@ export default function ChildCheckinList() {
 						<select
 							id="session-select"
 							className="w-full p-2 border rounded-md mt-1"
-							value={activeSession?.id || ""}
+							value={activeSessionId || ""}
 							onChange={(e) => handleSessionChange(e.target.value)}
+							disabled={loading}
 						>
 							{sessions.map((session) => (
 								<option key={session.id} value={session.id}>
@@ -237,6 +358,7 @@ export default function ChildCheckinList() {
 																checkin.checkedInByGuardianId,
 															)
 														}
+														disabled={loading}
 													>
 														Check Out
 													</Button>
@@ -252,8 +374,7 @@ export default function ChildCheckinList() {
 							<Card>
 								<CardContent className="pt-6">
 									<p className="text-center text-muted-foreground">
-										This tab would show all children, including those already
-										checked out.
+										All check-ins view will be implemented soon.
 									</p>
 								</CardContent>
 							</Card>

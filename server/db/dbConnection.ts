@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pgpkg from "pg";
 import * as schema from "./schema";
-import * as childCheckinSchema from "../../app/schema/childCheckin";
+import * as childCheckinSchema from "./childCheckin";
 const { Pool } = pgpkg;
 // Create a PostgreSQL connection pool
 const pool = new Pool({
