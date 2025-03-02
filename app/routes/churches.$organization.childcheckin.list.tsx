@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import {
 	useParams,
 	useNavigate,
@@ -6,6 +6,8 @@ import {
 	useLoaderData,
 	useFetcher,
 	useSearchParams,
+	useSubmit,
+	useActionData,
 } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
@@ -47,6 +49,14 @@ import type {
 	CheckinSession,
 } from "@/server/db/schema";
 import { Switch } from "~/components/ui/switch";
+import { Textarea } from "~/components/ui/textarea";
+import {
+	X,
+	Search,
+	ArrowRightCircle,
+	InfoIcon,
+	MessageSquare,
+} from "lucide-react";
 
 // Define extended types for the checkin data with additional properties
 interface ExtendedChildCheckin extends ChildCheckin {
@@ -412,37 +422,31 @@ function RenameSessionDialog({
 }
 
 export default function ChildCheckinList() {
-	const { organization } = useParams();
+	const loaderData = useLoaderData<LoaderData>();
+	const { sessions, checkins, checkedOutToday, error } = loaderData;
 	const navigate = useNavigate();
-	const { toast } = useToast();
-	const [searchParams, setSearchParams] = useSearchParams();
-	const loaderData = useLoaderData<typeof loader>() as LoaderData;
-
-	const {
-		sessions: initialSessions,
-		checkins: initialCheckins,
-		checkedOutToday: initialCheckedOutToday,
-		error,
-	} = loaderData;
-	const fetcher = useFetcher<ActionData>();
-
-	const checkins = fetcher.data?.checkins || initialCheckins;
-	const checkedOutToday =
-		fetcher.data?.checkedOutToday || initialCheckedOutToday;
-
+	const submit = useSubmit();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [showCheckedOut, setShowCheckedOut] = useState(false);
+	const [loading, setLoading] = useState(false);
 	const [processingCheckinId, setProcessingCheckinId] = useState<string | null>(
 		null,
 	);
-	const loading = fetcher.state === "submitting";
-	const sessions = loaderData.sessions;
-	// State for rename session dialog
-	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
-	const [sessionToRename, setSessionToRename] = useState<{
+	const { toast } = useToast();
+	const [searchParams, setSearchParams] = useSearchParams();
+	const sessionId = searchParams.get("sessionId");
+	const activeSession = sessions.find((s) => s.id === sessionId);
+	const params = useParams();
+	const messageFetcher = useFetcher();
+	const [guardianToMessage, setGuardianToMessage] = useState<{
 		id: string;
 		name: string;
+		phone: string;
 	} | null>(null);
+	const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+	const [messageText, setMessageText] = useState("");
+	const [messageSending, setMessageSending] = useState(false);
+	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
 
 	// Show error toast if there's an error from the loader
 	useEffect(() => {
@@ -455,28 +459,82 @@ export default function ChildCheckinList() {
 		}
 	}, [error, toast]);
 
-	// Update checkins when fetcher returns data
+	// Message templates for common scenarios
+	const messageTemplates = [
+		{
+			id: "pickup",
+			title: "Pickup Reminder",
+			text: "Hi, please come pick up your child at your earliest convenience. Thank you!",
+		},
+		{
+			id: "emergency",
+			title: "Emergency",
+			text: "Hi, we have an urgent situation with your child. Please come to the children's area as soon as possible.",
+		},
+		{
+			id: "needs",
+			title: "Child Needs",
+			text: "Hi, your child needs additional supplies (diapers/change of clothes). Could you please bring them to the children's area?",
+		},
+		{
+			id: "comfort",
+			title: "Child Comfort",
+			text: "Hi, your child is upset and we're having trouble comforting them. Could you please come to the children's area when possible?",
+		},
+	];
+
+	// Monitor messageFetcher state changes
 	useEffect(() => {
-		if (fetcher.data?.success) {
-			// Show success message if available
-			if (fetcher.data.message) {
-				toast({
-					title: "Success",
-					description: fetcher.data.message,
-				});
+		// Set loading state based on fetcher state
+		if (messageFetcher.state === "submitting") {
+			setMessageSending(true);
+		} else if (messageFetcher.state === "idle" && messageSending) {
+			setMessageSending(false);
+
+			// Only close dialog and show toast when we get a response and were previously sending
+			if (messageFetcher.data) {
+				// Close dialog only now that we have a response
+				setMessageDialogOpen(false);
+				setMessageText("");
+				setGuardianToMessage(null);
+
+				// Show toast based on the response
+				if (messageFetcher.data.success) {
+					toast({
+						title: "Message Sent",
+						description:
+							messageFetcher.data.message || "Message sent successfully",
+					});
+				} else {
+					toast({
+						title: "Error Sending Message",
+						description:
+							messageFetcher.data.error ||
+							"Failed to send message. Please try again.",
+						variant: "destructive",
+					});
+				}
 			}
-			// Reset processing state
-			setProcessingCheckinId(null);
-		} else if (fetcher.data && !fetcher.data.success && fetcher.data.error) {
-			toast({
-				title: "Error",
-				description: fetcher.data.error,
-				variant: "destructive",
-			});
-			// Reset processing state on error too
-			setProcessingCheckinId(null);
 		}
-	}, [fetcher.data, toast]);
+	}, [messageFetcher.state, messageFetcher.data, messageSending, toast]);
+
+	// Function to handle sending a message to a guardian
+	const handleSendMessage = () => {
+		if (!guardianToMessage || !messageText.trim()) return;
+
+		const formData = new FormData();
+		formData.append("message", messageText);
+		formData.append("type", "sms");
+		formData.append("recipientIds[]", `guardian:${guardianToMessage.id}`);
+
+		messageFetcher.submit(formData, {
+			method: "post",
+			action: `/churches/${params.organization}/message`,
+		});
+
+		// Don't close the dialog yet - wait for the response
+		// The useEffect will handle closing it when the response comes back
+	};
 
 	const handleSessionChange = (sessionId: string) => {
 		const urlSearchParams = new URLSearchParams(searchParams);
@@ -506,14 +564,13 @@ export default function ChildCheckinList() {
 		setProcessingCheckinId(checkinId);
 
 		toast({
-			title: "Processing...",
+			title: "Processing",
 			description: "Processing checkout, please wait...",
 		});
-		fetcher.submit(formData, { method: "post" });
+		submit(formData, { method: "post" });
 	};
 
 	const handleRenameSession = (session: { id: string; name: string }) => {
-		setSessionToRename(session);
 		setIsRenameDialogOpen(true);
 	};
 
@@ -539,9 +596,6 @@ export default function ChildCheckinList() {
 
 		return age;
 	};
-
-	const sessionId = searchParams.get("sessionId");
-	const activeSession = sessions.find((s) => s.id === sessionId);
 
 	// Filter checkins based on search term
 	const filterCheckins = (checkins: ExtendedChildCheckin[]) => {
@@ -573,6 +627,12 @@ export default function ChildCheckinList() {
 
 	return (
 		<div className="container mx-auto py-8">
+			{error && (
+				<div className="mb-6 p-4 bg-red-100 text-red-800 rounded border border-red-300">
+					{error}
+				</div>
+			)}
+
 			<div className="flex justify-between items-center mb-6">
 				<div>
 					<h1 className="text-3xl font-bold">Child Check-in List</h1>
@@ -587,7 +647,9 @@ export default function ChildCheckinList() {
 					)}
 				</div>
 				<Button
-					onClick={() => navigate(`/churches/${organization}/childcheckin`)}
+					onClick={() =>
+						navigate(`/churches/${params.organization}/childcheckin`)
+					}
 				>
 					New Check-in
 				</Button>
@@ -606,7 +668,9 @@ export default function ChildCheckinList() {
 							Create a new check-in session to get started.
 						</p>
 						<Button
-							onClick={() => navigate(`/churches/${organization}/childcheckin`)}
+							onClick={() =>
+								navigate(`/churches/${params.organization}/childcheckin`)
+							}
 						>
 							Create Session
 						</Button>
@@ -754,28 +818,47 @@ export default function ChildCheckinList() {
 														<h4 className="font-medium mb-2">Guardian:</h4>
 														{checkin.guardians &&
 														checkin.guardians.length > 0 ? (
-															<div className="flex items-center">
-																<Avatar className="h-10 w-10 mr-2">
-																	<AvatarImage
-																		src={checkin.guardians[0].photoUrl}
-																		alt={`${checkin.guardians[0].firstName} ${checkin.guardians[0].lastName}`}
-																	/>
-																	<AvatarFallback>
-																		{getInitials(
-																			checkin.guardians[0].firstName,
-																			checkin.guardians[0].lastName,
+															<div className="flex items-center justify-between">
+																<div className="flex items-center">
+																	<Avatar className="h-10 w-10 mr-2">
+																		<AvatarImage
+																			src={checkin.guardians[0].photoUrl}
+																			alt={`${checkin.guardians[0].firstName} ${checkin.guardians[0].lastName}`}
+																		/>
+																		<AvatarFallback>
+																			{getInitials(
+																				checkin.guardians[0].firstName,
+																				checkin.guardians[0].lastName,
+																			)}
+																		</AvatarFallback>
+																	</Avatar>
+																	<div>
+																		{checkin.guardians[0].firstName}{" "}
+																		{checkin.guardians[0].lastName}
+																		{checkin.guardians[0].phone && (
+																			<div className="text-sm text-muted-foreground">
+																				{checkin.guardians[0].phone}
+																			</div>
 																		)}
-																	</AvatarFallback>
-																</Avatar>
-																<div>
-																	{checkin.guardians[0].firstName}{" "}
-																	{checkin.guardians[0].lastName}
-																	{checkin.guardians[0].phone && (
-																		<div className="text-sm text-muted-foreground">
-																			{checkin.guardians[0].phone}
-																		</div>
-																	)}
+																	</div>
 																</div>
+																{checkin.guardians[0].phone && (
+																	<Button
+																		variant="outline"
+																		size="sm"
+																		onClick={() => {
+																			setGuardianToMessage({
+																				id: checkin.guardians[0].id,
+																				name: `${checkin.guardians[0].firstName} ${checkin.guardians[0].lastName}`,
+																				phone: checkin.guardians[0].phone,
+																			});
+																			setMessageDialogOpen(true);
+																		}}
+																	>
+																		<MessageSquare className="h-4 w-4 mr-1" />
+																		Message
+																	</Button>
+																)}
 															</div>
 														) : (
 															<div>No guardian information available</div>
@@ -988,12 +1071,94 @@ export default function ChildCheckinList() {
 			{/* Rename Session Dialog */}
 			<RenameSessionDialog
 				isOpen={isRenameDialogOpen}
-				onClose={() => {
-					setIsRenameDialogOpen(false);
-					setSessionToRename(null);
-				}}
-				session={sessionToRename}
+				onClose={() => setIsRenameDialogOpen(false)}
+				session={
+					sessionId
+						? {
+								id: sessionId,
+								name: sessions.find((s) => s.id === sessionId)?.name || "",
+							}
+						: null
+				}
 			/>
+
+			{/* Message Guardian Dialog */}
+			<Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Message to {guardianToMessage?.name}</DialogTitle>
+					</DialogHeader>
+					<div className="space-y-4 py-4">
+						<div className="space-y-2">
+							<Label>Templates</Label>
+							<div className="grid grid-cols-2 gap-2 mb-4">
+								{messageTemplates.map((template) => (
+									<Button
+										key={template.id}
+										variant="outline"
+										className="h-auto py-2 px-3 justify-start"
+										onClick={() => setMessageText(template.text)}
+									>
+										{template.title}
+									</Button>
+								))}
+							</div>
+							<Label htmlFor="message">Message</Label>
+							<Textarea
+								id="message"
+								placeholder="Type your message here..."
+								value={messageText}
+								onChange={(e) => setMessageText(e.target.value)}
+								className="min-h-[100px]"
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setMessageDialogOpen(false)}
+							disabled={messageSending}
+						>
+							Cancel
+						</Button>
+						<Button
+							onClick={handleSendMessage}
+							disabled={!messageText.trim() || messageSending}
+						>
+							{messageSending ? (
+								<>
+									<svg
+										className="animate-spin -ml-1 mr-3 h-4 w-4"
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										aria-hidden="true"
+										role="img"
+									>
+										<title>Loading Spinner</title>
+										<circle
+											className="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											strokeWidth="4"
+										/>
+										<path
+											className="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+										/>
+									</svg>
+									Sending...
+								</>
+							) : (
+								"Send SMS"
+							)}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
