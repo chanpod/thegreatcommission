@@ -18,6 +18,15 @@ import { childCheckinService } from "~/services/ChildCheckinService";
 import { useToast } from "~/hooks/use-toast";
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { data, redirect } from "react-router";
+import type { ChildCheckin, Child, Guardian } from "@/server/db/childCheckin";
+
+// Define types for our loader data
+interface LoaderData {
+	checkin?: ChildCheckin;
+	child?: Child;
+	guardian?: Guardian;
+	error?: string;
+}
 
 // Loader to fetch check-in data
 export const loader = createAuthLoader(async ({ params, request }) => {
@@ -132,7 +141,7 @@ export default function VerifyCheckin() {
 	const navigate = useNavigate();
 	const fetcher = useFetcher();
 	const { toast } = useToast();
-	const loaderData = useLoaderData<typeof loader>();
+	const loaderData = useLoaderData<typeof loader>() as LoaderData;
 
 	// If there's a loader error, it means we couldn't verify the check-in
 	const error = loaderData.error;
@@ -156,17 +165,32 @@ export default function VerifyCheckin() {
 	const handleCheckout = () => {
 		if (!checkin || !guardian) return;
 
+		// Show processing toast
+		toast({
+			title: "Processing...",
+			description: "Processing checkout, please wait...",
+		});
+
 		const formData = new FormData();
 		formData.append("_action", "checkout");
 		formData.append("checkinId", checkin.id);
 		formData.append("guardianId", guardian.id);
 		fetcher.submit(formData, { method: "post" });
-
-		toast({
-			title: "Check-out Complete",
-			description: `${child.firstName} ${child.lastName} has been successfully checked out.`,
-		});
 	};
+
+	// Handle action completion
+	useEffect(() => {
+		if (fetcher.state === "idle" && fetcher.data && fetcher.data.success) {
+			toast({
+				title: "Check-out Complete",
+				description: `${child?.firstName} ${child?.lastName} has been successfully checked out.`,
+			});
+			// Redirect after a short delay to allow the toast to be seen
+			setTimeout(() => {
+				navigate(`/churches/${organization}/childcheckin`);
+			}, 2000);
+		}
+	}, [fetcher.state, fetcher.data, child, navigate, organization, toast]);
 
 	if (!checkin && !error) {
 		return (
@@ -342,7 +366,16 @@ export default function VerifyCheckin() {
 						<input type="hidden" name="_action" value="checkout" />
 						<input type="hidden" name="checkinId" value={checkin.id} />
 						<input type="hidden" name="guardianId" value={guardian.id} />
-						<Button type="submit">Confirm Check-out</Button>
+						<Button type="submit" disabled={fetcher.state === "submitting"}>
+							{fetcher.state === "submitting" ? (
+								<>
+									<div className="animate-spin -ml-1 mr-3 h-4 w-4 border-b-2 border-white rounded-full" />
+									Processing...
+								</>
+							) : (
+								"Confirm Check-out"
+							)}
+						</Button>
 					</fetcher.Form>
 				</CardFooter>
 			</Card>

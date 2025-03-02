@@ -7,6 +7,8 @@ import {
 	UserCheck,
 	UserPlus,
 	Users,
+	Baby,
+	Clock,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { churchOrganization } from "server/db/schema";
@@ -47,16 +49,16 @@ export const OrgDescription = ({
 			description: "Members active in the last 30 days",
 		},
 		{
-			title: "Active Teams",
-			value: analytics.totalTeams,
-			icon: Group,
-			description: `Average team size: ${analytics.averageTeamSize.toFixed(1)} members`,
+			title: "Checked-in Children",
+			value: analytics.checkedInChildren || 0,
+			icon: Baby,
+			description: "Number of children currently checked in",
 		},
 		{
-			title: "Team Participation",
-			value: `${((analytics.membersInTeams / analytics.totalMembers) * 100).toFixed(0)}%`,
-			icon: UserCheck,
-			description: `${analytics.membersInTeams} members in teams`,
+			title: "Weekly Children",
+			value: analytics.weeklyChildrenCount || 0,
+			icon: Clock,
+			description: "Unique children checked in this week",
 		},
 		{
 			title: "Active Events",

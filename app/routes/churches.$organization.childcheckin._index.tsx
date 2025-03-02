@@ -32,6 +32,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "~/components/ui/dialog";
+import { Badge } from "~/components/ui/badge";
 
 // Loader to fetch active check-in sessions
 export const loader = createAuthLoader(async ({ params, request }) => {
@@ -44,7 +45,21 @@ export const loader = createAuthLoader(async ({ params, request }) => {
 	try {
 		const sessions =
 			await childCheckinService.getActiveCheckinSessions(organization);
-		return data({ sessions });
+
+		// Fetch active count for each session
+		const sessionsWithCounts = await Promise.all(
+			sessions.map(async (session) => {
+				const activeCount = await childCheckinService.getActiveCheckinsCount(
+					session.id,
+				);
+				return {
+					...session,
+					activeCount,
+				};
+			}),
+		);
+
+		return data({ sessions: sessionsWithCounts });
 	} catch (error) {
 		console.error("Error fetching sessions:", error);
 		return data(
@@ -61,6 +76,7 @@ type LoaderData = {
 		name: string;
 		startTime: string | Date;
 		churchOrganizationId: string;
+		activeCount: number;
 	}>;
 	error?: string;
 };
@@ -71,6 +87,7 @@ type Session = {
 	name: string;
 	startTime: string | Date;
 	churchOrganizationId: string;
+	activeCount: number;
 };
 
 // Action to handle form submissions
@@ -685,7 +702,20 @@ export default function ChildCheckin() {
 
 							{sessions?.length > 0 && (
 								<div className="mt-6">
-									<h3 className="text-lg font-medium mb-2">Active Sessions</h3>
+									<div className="flex items-center mb-2 justify-between">
+										<h3 className="text-lg font-medium">Active Sessions</h3>
+										{sessions.some((s) => s.activeCount > 0) && (
+											<div className="text-sm text-muted-foreground">
+												<Badge variant="secondary">
+													{sessions.reduce(
+														(total, session) => total + session.activeCount,
+														0,
+													)}
+												</Badge>{" "}
+												total children checked in
+											</div>
+										)}
+									</div>
 									<div className="space-y-2">
 										{sessions?.map((session) => (
 											<Card
@@ -710,6 +740,13 @@ export default function ChildCheckin() {
 														<div className="text-sm text-muted-foreground">
 															Started:{" "}
 															{new Date(session.startTime).toLocaleString()}
+														</div>
+														<div className="text-sm mt-1">
+															<Badge variant="outline" className="mr-1">
+																{session.activeCount}
+															</Badge>
+															{session.activeCount === 1 ? "child" : "children"}{" "}
+															checked in
 														</div>
 														{activeSession?.id === session.id && (
 															<div className="mt-2 text-sm font-medium text-primary">
