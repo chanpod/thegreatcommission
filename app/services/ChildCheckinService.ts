@@ -18,11 +18,19 @@ import { eq, and, isNull } from "drizzle-orm";
 export class ChildCheckinService {
 	// Child management
 	async createChild(childData: NewChild) {
-		const [child] = await db
+		const child = await db
 			.insert(childrenTable)
-			.values(childData)
+			.values({
+				...childData,
+				dateOfBirth:
+					typeof childData.dateOfBirth === "string"
+						? new Date(childData.dateOfBirth)
+						: childData.dateOfBirth,
+				updatedAt: new Date(),
+			})
 			.returning();
-		return child;
+
+		return child[0];
 	}
 
 	async getChildById(childId: string) {

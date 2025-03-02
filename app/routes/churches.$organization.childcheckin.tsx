@@ -121,12 +121,12 @@ export const action = createAuthLoader(async ({ params, request }) => {
 
 			// Create child record
 			const childData = {
-				firstName: childFirstName.toString(),
-				lastName: childLastName.toString(),
-				dateOfBirth: dateOfBirth ? dateOfBirth.toString() : undefined,
-				allergies: allergies ? allergies.toString() : undefined,
-				specialNotes: specialNotes ? specialNotes.toString() : undefined,
-				photoUrl: childPhotoUrl ? childPhotoUrl.toString() : undefined,
+				firstName: childFirstName?.toString(),
+				lastName: childLastName?.toString(),
+				dateOfBirth: dateOfBirth ? dateOfBirth?.toString() : undefined,
+				allergies: allergies ? allergies?.toString() : undefined,
+				specialNotes: specialNotes ? specialNotes?.toString() : undefined,
+				photoUrl: childPhotoUrl ? childPhotoUrl?.toString() : undefined,
 				churchOrganizationId: organization,
 				updatedAt: new Date(),
 			};
@@ -134,11 +134,11 @@ export const action = createAuthLoader(async ({ params, request }) => {
 
 			// Create guardian record
 			const guardianData = {
-				firstName: guardianFirstName.toString(),
-				lastName: guardianLastName.toString(),
-				phone: phone ? phone.toString() : undefined,
-				email: email ? email.toString() : undefined,
-				photoUrl: guardianPhotoUrl ? guardianPhotoUrl.toString() : undefined,
+				firstName: guardianFirstName?.toString(),
+				lastName: guardianLastName?.toString(),
+				phone: phone ? phone?.toString() : undefined,
+				email: email ? email?.toString() : undefined,
+				photoUrl: guardianPhotoUrl ? guardianPhotoUrl?.toString() : undefined,
 				churchOrganizationId: organization,
 				updatedAt: new Date(),
 			};
@@ -177,7 +177,7 @@ export const action = createAuthLoader(async ({ params, request }) => {
 			}
 
 			// Generate QR code URL
-			const host = new URL(request.url).host;
+			const host = new URL(request.url).origin;
 			const qrUrl = `${host}/churches/${organization}/childcheckin/verify/${newCheckin.secureId}`;
 
 			return {
