@@ -24,6 +24,14 @@ import { fileUploadService } from "../services/FileUploadService";
 import { QRCodeSVG } from "qrcode.react";
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { data, redirect } from "react-router";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "~/components/ui/dialog";
 
 // Loader to fetch active check-in sessions
 export const loader = createAuthLoader(async ({ params, request }) => {
@@ -55,6 +63,14 @@ type LoaderData = {
 		churchOrganizationId: string;
 	}>;
 	error?: string;
+};
+
+// Session type
+type Session = {
+	id: string;
+	name: string;
+	startTime: string | Date;
+	churchOrganizationId: string;
 };
 
 // Action to handle form submissions
@@ -227,6 +243,34 @@ export const action = createAuthLoader(async ({ params, request }) => {
 			};
 		}
 
+		// Rename session
+		if (action === "renameSession") {
+			const sessionId = formData.get("sessionId");
+			const newName = formData.get("newName");
+
+			if (!sessionId || !newName) {
+				return data(
+					{ success: false, error: "Session ID and new name are required" },
+					{ status: 400 },
+				);
+			}
+
+			await childCheckinService.updateSessionName(
+				sessionId.toString(),
+				newName.toString(),
+			);
+
+			// Fetch updated sessions list
+			const sessions =
+				await childCheckinService.getActiveCheckinSessions(organization);
+
+			return data({
+				success: true,
+				message: "Session has been successfully renamed",
+				sessions,
+			});
+		}
+
 		return data({ success: false, error: "Invalid action" }, { status: 400 });
 	} catch (error) {
 		console.error("Error processing action:", error);
@@ -237,15 +281,86 @@ export const action = createAuthLoader(async ({ params, request }) => {
 	}
 });
 
+// RenameSessionDialog component
+interface RenameSessionDialogProps {
+	isOpen: boolean;
+	onClose: () => void;
+	session: Session | null;
+	onRename: (sessionId: string, newName: string) => void;
+}
+
+function RenameSessionDialog({
+	isOpen,
+	onClose,
+	session,
+	onRename,
+}: RenameSessionDialogProps) {
+	const [newName, setNewName] = useState("");
+
+	useEffect(() => {
+		if (session) {
+			setNewName(session.name);
+		}
+	}, [session]);
+
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+
+		if (session && newName.trim()) {
+			onRename(session.id, newName);
+			onClose();
+		}
+	};
+
+	return (
+		<Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Rename Session</DialogTitle>
+					<DialogDescription>
+						Enter a new name for the session.
+					</DialogDescription>
+				</DialogHeader>
+				<form onSubmit={handleSubmit}>
+					<div className="grid gap-4 py-4">
+						<div className="grid grid-cols-4 items-center gap-4">
+							<Label htmlFor="name" className="text-right">
+								Name
+							</Label>
+							<Input
+								id="name"
+								value={newName}
+								onChange={(e) => setNewName(e.target.value)}
+								className="col-span-3"
+								autoFocus
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={onClose}>
+							Cancel
+						</Button>
+						<Button type="submit" disabled={!newName.trim()}>
+							Save Changes
+						</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
 export default function ChildCheckin() {
 	const { organization } = useParams();
 	const navigate = useNavigate();
 	const loaderData = useLoaderData<typeof loader>() as LoaderData;
-	const sessions = loaderData?.sessions || [];
+	const [sessions, setSessions] = useState<Session[]>(
+		loaderData?.sessions || [],
+	);
 	const fetcher = useFetcher();
 
 	const [activeTab, setActiveTab] = useState("session");
-	const [activeSession, setActiveSession] = useState(null);
+	const [activeSession, setActiveSession] = useState<Session | null>(null);
 	const [childInfo, setChildInfo] = useState({
 		firstName: "",
 		lastName: "",
@@ -266,6 +381,10 @@ export default function ChildCheckin() {
 	const [guardianPhoto, setGuardianPhoto] = useState(null);
 	const [qrCodeUrl, setQrCodeUrl] = useState("");
 	const [checkinComplete, setCheckinComplete] = useState(false);
+
+	// State for rename session dialog
+	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+	const [sessionToRename, setSessionToRename] = useState<Session | null>(null);
 
 	// Refs for camera elements
 	const childVideoRef = useRef(null);
@@ -294,6 +413,27 @@ export default function ChildCheckin() {
 		}
 	}, [fetcher.data]);
 
+	// Handle sessions update
+	useEffect(() => {
+		if (fetcher.data?.success && fetcher.data?.sessions) {
+			setSessions(fetcher.data.sessions);
+
+			// Update active session if it was renamed
+			if (activeSession) {
+				const updatedActiveSession = fetcher.data.sessions.find(
+					(session) => session.id === activeSession.id,
+				);
+				if (updatedActiveSession) {
+					setActiveSession(updatedActiveSession);
+				}
+			}
+
+			if (fetcher.data.message) {
+				toast.success(fetcher.data.message);
+			}
+		}
+	}, [fetcher.data]);
+
 	// Handle errors
 	useEffect(() => {
 		if (fetcher.data && !fetcher.data.success && fetcher.data.error) {
@@ -302,10 +442,26 @@ export default function ChildCheckin() {
 	}, [fetcher.data]);
 
 	// Function to handle session creation
-	const handleCreateSession = (e) => {
+	const handleCreateSession = (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
-		const formData = new FormData(e.target);
+		const formData = new FormData(e.target as HTMLFormElement);
 		formData.append("_action", "createSession");
+		fetcher.submit(formData, { method: "post" });
+	};
+
+	// Function to handle session rename
+	const handleRenameSession = (session: Session) => {
+		setSessionToRename(session);
+		setIsRenameDialogOpen(true);
+	};
+
+	// Function to submit session rename
+	const submitRenameSession = (sessionId: string, newName: string) => {
+		const formData = new FormData();
+		formData.append("_action", "renameSession");
+		formData.append("sessionId", sessionId);
+		formData.append("newName", newName);
+
 		fetcher.submit(formData, { method: "post" });
 	};
 
@@ -539,21 +695,39 @@ export default function ChildCheckin() {
 														? "border-2 border-primary bg-primary/5"
 														: "hover:bg-muted/50"
 												}`}
-												onClick={() => {
-													setActiveSession(session);
-													toast.success(`Selected session: ${session.name}`);
-												}}
 											>
-												<div className="font-medium">{session.name}</div>
-												<div className="text-sm text-muted-foreground">
-													Started:{" "}
-													{new Date(session.startTime).toLocaleString()}
-												</div>
-												{activeSession?.id === session.id && (
-													<div className="mt-2 text-sm font-medium text-primary">
-														✓ Selected
+												<div className="flex justify-between items-center">
+													<div
+														className="flex-1"
+														onClick={() => {
+															setActiveSession(session);
+															toast.success(
+																`Selected session: ${session.name}`,
+															);
+														}}
+													>
+														<div className="font-medium">{session.name}</div>
+														<div className="text-sm text-muted-foreground">
+															Started:{" "}
+															{new Date(session.startTime).toLocaleString()}
+														</div>
+														{activeSession?.id === session.id && (
+															<div className="mt-2 text-sm font-medium text-primary">
+																✓ Selected
+															</div>
+														)}
 													</div>
-												)}
+													<Button
+														variant="ghost"
+														size="sm"
+														onClick={(e) => {
+															e.stopPropagation();
+															handleRenameSession(session);
+														}}
+													>
+														Rename
+													</Button>
+												</div>
 											</Card>
 										))}
 									</div>
@@ -1041,6 +1215,14 @@ export default function ChildCheckin() {
 					</Card>
 				</TabsContent>
 			</Tabs>
+
+			{/* Rename Session Dialog */}
+			<RenameSessionDialog
+				isOpen={isRenameDialogOpen}
+				onClose={() => setIsRenameDialogOpen(false)}
+				session={sessionToRename}
+				onRename={submitRenameSession}
+			/>
 		</div>
 	);
 }

@@ -32,21 +32,39 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "~/components/ui/dialog";
 import type {
 	ChildCheckin,
 	Guardian,
 	AuthorizedPickupPerson,
+	CheckinSession,
 } from "@/server/db/schema";
 
 // Define extended types for the checkin data with additional properties
 interface ExtendedChildCheckin extends ChildCheckin {
 	guardians?: Guardian[];
 	authorizedPickupPersons?: AuthorizedPickupPerson[];
+	child?: {
+		id: string;
+		firstName: string;
+		lastName: string;
+		dateOfBirth?: Date;
+		allergies?: string;
+		specialNotes?: string;
+		photoUrl?: string;
+	};
 }
 
 // Define the loader data type
 interface LoaderData {
-	sessions: any[];
+	sessions: CheckinSession[];
 	checkins: ExtendedChildCheckin[];
 	error?: string;
 }
@@ -114,7 +132,7 @@ export const loader = createAuthLoader(async ({ params, request }) => {
 interface ActionData {
 	success: boolean;
 	checkins?: ExtendedChildCheckin[];
-
+	sessions?: CheckinSession[];
 	message?: string;
 	error?: string;
 }
@@ -155,9 +173,7 @@ export const action = createAuthLoader(async ({ params, request }) => {
 				const guardians = await childCheckinService.getGuardiansForChild(
 					checkin.childId,
 				);
-				(checkin as ExtendedChildCheckin).guardians = guardians.map(
-					(relation) => relation.guardian,
-				);
+				(checkin as ExtendedChildCheckin).guardians = guardians;
 
 				// Fetch authorized pickup persons
 				const pickupPersons =
@@ -199,9 +215,7 @@ export const action = createAuthLoader(async ({ params, request }) => {
 				const guardians = await childCheckinService.getGuardiansForChild(
 					checkin.childId,
 				);
-				(checkin as ExtendedChildCheckin).guardians = guardians.map(
-					(relation) => relation.guardian,
-				);
+				(checkin as ExtendedChildCheckin).guardians = guardians;
 
 				// Fetch authorized pickup persons
 				const pickupPersons =
@@ -217,6 +231,33 @@ export const action = createAuthLoader(async ({ params, request }) => {
 			});
 		}
 
+		if (action === "renameSession") {
+			const sessionId = formData.get("sessionId");
+			const newName = formData.get("newName");
+
+			if (!sessionId || !newName) {
+				return data(
+					{ success: false, error: "Session ID and new name are required" },
+					{ status: 400 },
+				);
+			}
+
+			await childCheckinService.updateSessionName(
+				sessionId.toString(),
+				newName.toString(),
+			);
+
+			// Fetch updated sessions list
+			const sessions =
+				await childCheckinService.getActiveCheckinSessions(organization);
+
+			return data({
+				success: true,
+				message: "Session has been successfully renamed",
+				sessions,
+			});
+		}
+
 		return data({ success: false, error: "Invalid action" }, { status: 400 });
 	} catch (error) {
 		console.error("Error processing action:", error);
@@ -227,6 +268,86 @@ export const action = createAuthLoader(async ({ params, request }) => {
 	}
 });
 
+// RenameSessionDialog component
+interface RenameSessionDialogProps {
+	isOpen: boolean;
+	onClose: () => void;
+	session: {
+		id: string;
+		name: string;
+	} | null;
+}
+
+function RenameSessionDialog({
+	isOpen,
+	onClose,
+	session,
+}: RenameSessionDialogProps) {
+	const fetcher = useFetcher<ActionData>();
+	const [newName, setNewName] = useState("");
+
+	useEffect(() => {
+		if (session) {
+			setNewName(session.name);
+		}
+	}, [session]);
+
+	useEffect(() => {
+		if (fetcher.data?.success) {
+			onClose();
+		}
+	}, [fetcher.data, onClose]);
+
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+
+		const formData = new FormData();
+		formData.append("_action", "renameSession");
+		formData.append("sessionId", session?.id || "");
+		formData.append("newName", newName);
+
+		fetcher.submit(formData, { method: "post" });
+		// onClose();
+	};
+
+	return (
+		<Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Rename Session</DialogTitle>
+					<DialogDescription>
+						Enter a new name for the session.
+					</DialogDescription>
+				</DialogHeader>
+				<form onSubmit={handleSubmit}>
+					<div className="grid gap-4 py-4">
+						<div className="grid grid-cols-4 items-center gap-4">
+							<Label htmlFor="name" className="text-right">
+								Name
+							</Label>
+							<Input
+								id="name"
+								value={newName}
+								onChange={(e) => setNewName(e.target.value)}
+								className="col-span-3"
+								autoFocus
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={onClose}>
+							Cancel
+						</Button>
+						<Button type="submit" disabled={!newName.trim()}>
+							Save Changes
+						</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
 export default function ChildCheckinList() {
 	const { organization } = useParams();
 	const navigate = useNavigate();
@@ -234,12 +355,24 @@ export default function ChildCheckinList() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const loaderData = useLoaderData<typeof loader>() as LoaderData;
 
-	const { sessions, checkins: initialCheckins, error } = loaderData;
+	const {
+		sessions: initialSessions,
+		checkins: initialCheckins,
+		error,
+	} = loaderData;
 	const fetcher = useFetcher<ActionData>();
-	const checkins = loaderData.checkins;
+
+	const checkins = fetcher.data?.checkins || initialCheckins;
 
 	const [searchTerm, setSearchTerm] = useState("");
 	const loading = fetcher.state === "submitting";
+	const sessions = loaderData.sessions;
+	// State for rename session dialog
+	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+	const [sessionToRename, setSessionToRename] = useState<{
+		id: string;
+		name: string;
+	} | null>(null);
 
 	// Show error toast if there's an error from the loader
 	useEffect(() => {
@@ -286,6 +419,11 @@ export default function ChildCheckinList() {
 		fetcher.submit(formData, { method: "post" });
 	};
 
+	const handleRenameSession = (session: { id: string; name: string }) => {
+		setSessionToRename(session);
+		setIsRenameDialogOpen(true);
+	};
+
 	// Get initials for avatar fallback
 	const getInitials = (firstName?: string, lastName?: string) => {
 		return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
@@ -294,6 +432,8 @@ export default function ChildCheckinList() {
 	const sessionId = searchParams.get("sessionId");
 	const activeSession = sessions.find((s) => s.id === sessionId);
 	const filteredCheckins = checkins.filter((checkin) => {
+		if (!checkin.child) return false;
+
 		const childName =
 			`${checkin.child.firstName} ${checkin.child.lastName}`.toLowerCase();
 		return childName.includes(searchTerm.toLowerCase());
@@ -374,10 +514,22 @@ export default function ChildCheckinList() {
 					{sessionId && (
 						<Card>
 							<CardHeader>
-								<CardTitle>{activeSession.name}</CardTitle>
-								<CardDescription>
-									Started: {new Date(activeSession.startTime).toLocaleString()}
-								</CardDescription>
+								<div className="flex justify-between items-center">
+									<div>
+										<CardTitle>{activeSession.name}</CardTitle>
+										<CardDescription>
+											Started:{" "}
+											{new Date(activeSession.startTime).toLocaleString()}
+										</CardDescription>
+									</div>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => handleRenameSession(activeSession)}
+									>
+										Rename Session
+									</Button>
+								</div>
 							</CardHeader>
 							<CardContent>
 								{filteredCheckins.length === 0 ? (
@@ -391,19 +543,20 @@ export default function ChildCheckinList() {
 												<div className="flex items-center p-4 border-b">
 													<Avatar className="h-16 w-16 mr-4">
 														<AvatarImage
-															src={checkin.child.photoUrl}
-															alt={`${checkin.child.firstName} ${checkin.child.lastName}`}
+															src={checkin.child?.photoUrl}
+															alt={`${checkin.child?.firstName} ${checkin.child?.lastName}`}
 														/>
 														<AvatarFallback>
 															{getInitials(
-																checkin.child.firstName,
-																checkin.child.lastName,
+																checkin.child?.firstName,
+																checkin.child?.lastName,
 															)}
 														</AvatarFallback>
 													</Avatar>
 													<div>
 														<h3 className="font-bold text-lg">
-															{checkin.child.firstName} {checkin.child.lastName}
+															{checkin.child?.firstName}{" "}
+															{checkin.child?.lastName}
 														</h3>
 														<p className="text-sm text-muted-foreground">
 															Checked in:{" "}
@@ -415,16 +568,16 @@ export default function ChildCheckinList() {
 													</div>
 												</div>
 												<CardContent className="p-4">
-													{checkin.child.allergies && (
+													{checkin.child?.allergies && (
 														<div className="mb-2">
 															<span className="font-medium">Allergies:</span>{" "}
-															{checkin.child.allergies}
+															{checkin.child?.allergies}
 														</div>
 													)}
-													{checkin.child.specialNotes && (
+													{checkin.child?.specialNotes && (
 														<div className="mb-2">
 															<span className="font-medium">Notes:</span>{" "}
-															{checkin.child.specialNotes}
+															{checkin.child?.specialNotes}
 														</div>
 													)}
 													<div className="mt-4">
@@ -512,6 +665,16 @@ export default function ChildCheckinList() {
 					)}
 				</>
 			)}
+
+			{/* Rename Session Dialog */}
+			<RenameSessionDialog
+				isOpen={isRenameDialogOpen}
+				onClose={() => {
+					setIsRenameDialogOpen(false);
+					setSessionToRename(null);
+				}}
+				session={sessionToRename}
+			/>
 		</div>
 	);
 }

@@ -119,6 +119,18 @@ export class ChildCheckinService {
 		return sessions;
 	}
 
+	async updateSessionName(sessionId: string, newName: string) {
+		const [updatedSession] = await db
+			.update(checkinSessionsTable)
+			.set({
+				name: newName,
+				updatedAt: new Date(),
+			})
+			.where(eq(checkinSessionsTable.id, sessionId))
+			.returning();
+		return updatedSession;
+	}
+
 	// Child checkin management
 	async checkinChild(checkinData: NewChildCheckin) {
 		const [checkin] = await db
