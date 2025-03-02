@@ -109,6 +109,7 @@ const NAV_ITEMS = [
 	{ name: "Roles", href: "roles" },
 	{ name: "Landing Page", href: "landing" },
 	{ name: "Message Usage", href: "message-usage" },
+	{ name: "Child Check-in", href: "childcheckin" },
 ];
 
 export default function OrganizationLayout() {
