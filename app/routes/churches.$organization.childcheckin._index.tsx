@@ -568,6 +568,10 @@ export default function ChildCheckin() {
 									}
 								}}
 								disabled={!activeSession}
+								variant={!activeSession ? "outline" : "default"}
+								className={
+									!activeSession ? "opacity-50 cursor-not-allowed" : ""
+								}
 							>
 								Next: Child Information
 							</Button>
