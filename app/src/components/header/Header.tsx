@@ -1,36 +1,38 @@
-import { Link, useMatches, useNavigation } from "react-router";
-import { Fragment, useContext, useState } from "react";
+import {
+	ChurchIcon,
+	Globe,
+	Loader2,
+	MenuIcon,
+	PersonStanding,
+	X,
+} from "lucide-react";
+import { useContext, useState } from "react";
+import { Link, useNavigation } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "~/components/ui/sheet";
-import { ChurchIcon, MenuIcon, X, PersonStanding, Globe } from "lucide-react";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
 
-import { ApplicationContext } from "~/src/providers/appContextProvider";
-import tgcIcon from "~/src/assets/images/tgcIcon.png";
+import {
+	SignedIn,
+	SignedOut,
+	SignInButton,
+	UserButton,
+} from "@clerk/react-router";
+import tgcIcon from "~/src/assets/images/tgc_background.png";
+import { Sidenav } from "~/src/components/sidenav/Sidenav";
 import useIsLoggedIn from "~/src/hooks/useIsLoggedIn";
-import { UserAvatar } from "../avatar/UserAvatar";
+import { ApplicationContext } from "~/src/providers/appContextProvider";
 import LoginModal from "./LoginModal";
 import SearchBar from "./SearchBar";
-import { Sidenav } from "~/src/components/sidenav/Sidenav";
-import { UserButton } from "@clerk/react-router";
-import { SignInButton } from "@clerk/react-router";
-import { SignedOut } from "@clerk/react-router";
-import { SignedIn } from "@clerk/react-router";
 
 export const navigation = [
 	{ name: "Churches", href: "/churches", current: true, icon: ChurchIcon },
-	{
-		name: "Missionaries",
-		href: "/missionaries",
-		current: false,
-		icon: PersonStanding,
-	},
-	{ name: "Missions", href: "/missions", current: false, icon: Globe },
+	// {
+	// 	name: "Missionaries",
+	// 	href: "/missionaries",
+	// 	current: false,
+	// 	icon: PersonStanding,
+	// },
+	// { name: "Missions", href: "/missions", current: false, icon: Globe },
 ];
 
 export default function Header() {
@@ -47,7 +49,7 @@ export default function Header() {
 	}
 
 	return (
-		<nav className="bg-white">
+		<nav className="bg-white pb-2">
 			<div className="mx-auto px-2 sm:px-6 lg:px-8">
 				<div className="relative flex h-16 items-center justify-between">
 					<div className="inset-y-0 left-0 items-center lg:hidden">
@@ -76,12 +78,12 @@ export default function Header() {
 					>
 						<div>
 							{loading || searchLoading ? (
-								<div className="animate-spin h-10 w-10" />
+								<Loader2 className="animate-spin h-10 w-10 text-gray-700" />
 							) : (
 								<Link to="/">
 									<img
 										src={tgcIcon}
-										className="xs:w-10 xs:h-10 sm:w-10 sm:h-10 md:w-full md:h-full"
+										className="xs:w-10 xs:h-10 sm:w-10 sm:h-10 md:w-full md:h-full rounded-full"
 										alt="The Great Commission Logo"
 									/>
 								</Link>
@@ -96,7 +98,7 @@ export default function Header() {
 					</div>
 					<div>
 						<SignedOut>
-							<SignInButton />
+							<SignInButton style={{ color: "black" }} mode="modal" />
 						</SignedOut>
 						<SignedIn>
 							<UserButton showName />

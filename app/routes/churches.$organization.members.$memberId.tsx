@@ -6,7 +6,7 @@ import {
 import { eq } from "drizzle-orm";
 import { data } from "react-router";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { AuthorizationService } from "~/services/AuthorizationService";
 
 export const action = createAuthLoader(

@@ -1,17 +1,9 @@
 import { eq } from "drizzle-orm";
 import { organizationRoles, usersToOrganizationRoles } from "server/db/schema";
-import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { db } from "~/server/dbConnection";
-import type { Route } from "../+types/root";
+import { createAuthLoader } from "~/server/auth/authLoader";
+import { db } from "@/server/db/dbConnection";
 
-export const loader = async ({ request, params }: Route.LoaderArgs) => {
-	const user = await authenticator.isAuthenticated(request);
-	if (!user) {
-		return new Response(JSON.stringify({ message: "Unauthorized" }), {
-			status: 401,
-		});
-	}
-
+export const loader = createAuthLoader(async ({ request, params }) => {
 	// Get all roles for the organization
 	const roles = await db
 		.select()
@@ -37,4 +29,4 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			},
 		},
 	);
-};
+}, true);

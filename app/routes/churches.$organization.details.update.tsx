@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Sheet, SheetContent } from "~/components/ui/sheet";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { ChurchService } from "~/services/ChurchService";
 import CreateChurchForm from "~/src/components/forms/createChurch/CreateChurchForm";
 import { PageLayout } from "~/src/components/layout/PageLayout";
@@ -99,16 +99,16 @@ const Update = () => {
 
 	return (
 		<Sheet open={isOpen} onOpenChange={handleOpenChange}>
-			<SheetContent>
-				<div className="overflow-auto">
-					<PageLayout title="Update" className="mt-3">
+			<SheetContent className="p-3">
+				<PageLayout title="Update">
+					<div className="overflow-auto">
 						<Form method="put" className="space-y-4" onSubmit={handleSubmit}>
 							<CreateChurchForm initialValues={loaderData?.organization} />
 
 							<Button type="submit">Update</Button>
 						</Form>
-					</PageLayout>
-				</div>
+					</div>
+				</PageLayout>
 			</SheetContent>
 		</Sheet>
 	);

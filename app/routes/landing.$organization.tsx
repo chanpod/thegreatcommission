@@ -1,6 +1,6 @@
 import { useLoaderData } from "react-router";
 import LandingPage from "~/src/components/churchLandingPage/LandingPage";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import {
 	churchOrganization,
 	events,
@@ -27,6 +27,32 @@ export const loader = async ({ params }: Route.LoaderArgs) => {
 		.where(eq(landingPageConfig.churchOrganizationId, params.organization))
 		.then((res) => res[0]);
 
+	// Debug logging to check what config data is being loaded
+	console.log(
+		"Landing page loader - organization:",
+		organization.id,
+		organization.name,
+	);
+	console.log("Landing page loader - config found:", !!config);
+
+	if (config) {
+		// Log specific fields that might be causing issues
+		console.log("Landing page loader - config details:", {
+			aboutSection: config.aboutSection
+				? config.aboutSection.substring(0, 100) + "..."
+				: null,
+			aboutButtons: config.aboutButtons
+				? config.aboutButtons.substring(0, 100) + "..."
+				: null,
+			customSections: config.customSections
+				? config.customSections.substring(0, 100) + "..."
+				: null,
+			socialLinks: config.socialLinks
+				? config.socialLinks.substring(0, 100) + "..."
+				: null,
+		});
+	}
+
 	// Get recurring service times
 	const serviceTimes = await db
 		.select()
@@ -46,11 +72,13 @@ export const loader = async ({ params }: Route.LoaderArgs) => {
 		.where(
 			and(
 				eq(events.churchOrganizationId, params.organization),
-				eq(events.type, "local"),
 				gte(events.startDate, now),
+				// Exclude recurring service events
+				eq(events.type, "local"),
 			),
 		)
-		.limit(3);
+		.orderBy(events.startDate)
+		.limit(4);
 
 	let isLive = false;
 	if (organization.liveStreamUrl) {
@@ -75,14 +103,12 @@ export default function PublicLanding() {
 		useLoaderData<typeof loader>();
 
 	return (
-		<div className="min-h-screen">
-			<LandingPage
-				organization={organization}
-				config={config}
-				serviceTimes={serviceTimes}
-				upcomingEvents={upcomingEvents}
-				isLive={isLive}
-			/>
-		</div>
+		<LandingPage
+			organization={organization}
+			config={config}
+			serviceTimes={serviceTimes}
+			upcomingEvents={upcomingEvents}
+			isLive={isLive}
+		/>
 	);
 }

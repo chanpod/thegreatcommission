@@ -48,6 +48,7 @@
 ## Database
 - PostgreSQL with Drizzle ORM
 - Uses migrations for schema changes
+- Do NOT attempt to create or run migrations unless asked
 - Includes relations for:
   - Organizations
   - Users

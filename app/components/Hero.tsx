@@ -2,15 +2,58 @@ interface HeroProps {
 	imageUrl: string;
 	headline: string;
 	subheadline: string;
+	imagePosition?: "center" | "top" | "bottom" | "left" | "right";
+	imageObjectFit?: "cover" | "contain" | "fill";
+	overlayOpacity?: number;
+	height?: string;
 }
 
-export default function Hero({ imageUrl, headline, subheadline }: HeroProps) {
+export default function Hero({
+	imageUrl,
+	headline,
+	subheadline,
+	imagePosition = "center",
+	imageObjectFit = "cover",
+	overlayOpacity = 0.5,
+	height = "500px",
+}: HeroProps) {
+	// Create object-position string based on imagePosition
+	const getObjectPosition = () => {
+		switch (imagePosition) {
+			case "top":
+				return "center top";
+			case "bottom":
+				return "center bottom";
+			case "left":
+				return "left center";
+			case "right":
+				return "right center";
+			default:
+				return "center center";
+		}
+	};
+
 	return (
-		<div className="relative h-96 max-h-[500px] overflow-hidden">
-			<img src={imageUrl} alt="Church banner" style={{ objectFit: "cover" }} />
-			<div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col justify-center items-center text-white">
-				<h2 className="text-4xl font-bold mb-2">{headline}</h2>
-				<p className="text-xl">{subheadline}</p>
+		<div className="relative overflow-hidden" style={{ height }}>
+			<div className="absolute inset-0">
+				<img
+					src={imageUrl}
+					alt="Church banner"
+					className="w-full h-full"
+					style={{
+						objectFit: imageObjectFit,
+						objectPosition: getObjectPosition(),
+					}}
+				/>
+			</div>
+			<div
+				className="absolute inset-0 flex flex-col justify-center items-center text-white px-4 text-center"
+				style={{ backgroundColor: `rgba(0, 0, 0, ${overlayOpacity})` }}
+			>
+				<h2 className="text-4xl md:text-5xl font-bold mb-4 max-w-3xl">
+					{headline}
+				</h2>
+				<p className="text-xl md:text-2xl max-w-2xl">{subheadline}</p>
 			</div>
 		</div>
 	);

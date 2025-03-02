@@ -4,25 +4,25 @@
 
 @layer base {
 	:root {
-		--background: 222 47% 11%;
-		--foreground: 214 32% 91%;
-		--card: 222 47% 11%;
-		--card-foreground: 214 32% 91%;
-		--popover: 222 47% 11%;
-		--popover-foreground: 214 32% 91%;
-		--primary: 217 91% 60%;
-		--primary-foreground: 0 0% 100%;
-		--secondary: 217 32% 17%;
-		--secondary-foreground: 214 32% 91%;
-		--muted: 217 32% 17%;
-		--muted-foreground: 215 20.2% 65.1%;
-		--accent: 217 32% 17%;
-		--accent-foreground: 214 32% 91%;
-		--destructive: 0 62.8% 30.6%;
-		--destructive-foreground: 214 32% 91%;
-		--border: 217 32% 17%;
-		--input: 217 32% 25%;
-		--ring: 217 91% 60%;
+		--background: 0 0% 100%;
+		--foreground: 224 71% 4%;
+		--card: 0 0% 100%;
+		--card-foreground: 224 71% 4%;
+		--popover: 0 0% 100%;
+		--popover-foreground: 224 71% 4%;
+		--primary: 221 83% 53%;
+		--primary-foreground: 210 40% 98%;
+		--secondary: 210 40% 96%;
+		--secondary-foreground: 222 47% 11%;
+		--muted: 220 14% 96%;
+		--muted-foreground: 220 8% 46%;
+		--accent: 210 40% 96%;
+		--accent-foreground: 222 47% 11%;
+		--destructive: 0 84% 60%;
+		--destructive-foreground: 210 40% 98%;
+		--border: 220 13% 91%;
+		--input: 220 13% 91%;
+		--ring: 221 83% 53%;
 		--radius: 0.5rem;
 
 		/* Theme color classes */
@@ -31,14 +31,52 @@
 		--theme-accent: var(--accent);
 
 		/* Update ghost variant colors */
-		--ghost: 210 40% 98%;
-		--ghost-foreground: 222 47% 11%;
+		--ghost: 220 14% 96%;
+		--ghost-foreground: 224 71% 4%;
 
 		/* Button colors */
-		--btn-background: 222 47% 11%;
-		--btn-foreground: 214 32% 91%;
-		--btn-ghost: 210 40% 98%;
-		--btn-ghost-foreground: 222 47% 11%;
+		--btn-background: 0 0% 100%;
+		--btn-foreground: 224 71% 4%;
+		--btn-ghost: 220 14% 96%;
+		--btn-ghost-foreground: 224 71% 4%;
+	}
+
+	.dark {
+		--background: 224 71% 4%;
+		--foreground: 210 40% 98%;
+		--card: 224 71% 4%;
+		--card-foreground: 210 40% 98%;
+		--popover: 224 71% 4%;
+		--popover-foreground: 210 40% 98%;
+		--primary: 217 91% 60%;
+		--primary-foreground: 210 40% 98%;
+		--secondary: 217 32% 17%;
+		--secondary-foreground: 210 40% 98%;
+		--muted: 217 32% 17%;
+		--muted-foreground: 215 20% 65%;
+		--accent: 217 32% 17%;
+		--accent-foreground: 210 40% 98%;
+		--destructive: 0 62% 30%;
+		--destructive-foreground: 210 40% 98%;
+		--border: 217 32% 17%;
+		--input: 217 32% 17%;
+		--ring: 224 76% 48%;
+		--radius: 1rem;
+
+		/* Theme color classes */
+		--theme-primary: var(--primary);
+		--theme-secondary: var(--secondary);
+		--theme-accent: var(--accent);
+
+		/* Ghost variant colors */
+		--ghost: 217 32% 17%;
+		--ghost-foreground: 210 40% 98%;
+
+		/* Button colors */
+		--btn-background: 224 71% 4%;
+		--btn-foreground: 210 40% 98%;
+		--btn-ghost: 217 32% 17%;
+		--btn-ghost-foreground: 210 40% 98%;
 	}
 }
 
@@ -78,4 +116,27 @@
 
 .accent-border {
 	border-color: var(--theme-accent);
+}
+
+/* Explicit button styles to ensure rounded corners */
+@layer components {
+	.btn,
+	button,
+	[type="button"],
+	[type="reset"],
+	[type="submit"] {
+		border-radius: var(--radius) !important;
+	}
+
+	/* Input styles for rounded corners */
+	input,
+	textarea,
+	select {
+		border-radius: var(--radius) !important;
+	}
+
+	/* Enhanced card shadow for better separation from white backgrounds */
+	.card-shadow {
+		box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1), 0 4px 15px rgba(0, 0, 0, 0.15);
+	}
 }

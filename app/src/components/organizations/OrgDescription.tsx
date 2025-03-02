@@ -83,7 +83,7 @@ export const OrgDescription = ({
 			</div>
 
 			{/* Stats Grid */}
-			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 dark">
 				{stats.map((stat) => (
 					<Card key={stat.title}>
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

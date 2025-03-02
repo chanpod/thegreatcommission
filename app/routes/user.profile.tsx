@@ -3,7 +3,7 @@ import { Form, useFetcher, useLoaderData } from "react-router";
 import { useContext, useState } from "react";
 import { UserContext } from "~/src/providers/userProvider";
 import { authenticator } from "~/server/auth/strategies/authenticaiton";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { UserService } from "~/services/UserService";
 import { UserAvatar } from "~/src/components/avatar/UserAvatar";
 import { Input } from "~/components/ui/input";
@@ -140,7 +140,7 @@ const UserProfilePage = () => {
 									endpoint="imageUploader"
 									onClientUploadComplete={(res) => {
 										if (res?.[0]) {
-											handleAvatarUpload(res[0].url);
+											handleAvatarUpload(res[0].ufsUrl);
 											toast.success("Profile picture updated successfully");
 										}
 									}}
@@ -176,7 +176,7 @@ const UserProfilePage = () => {
 									endpoint="imageUploader"
 									onClientUploadComplete={(res) => {
 										if (res?.[0]) {
-											handleAvatarUpload(res[0].url);
+											handleAvatarUpload(res[0].ufsUrl);
 											toast.success("Profile picture updated successfully");
 										}
 									}}

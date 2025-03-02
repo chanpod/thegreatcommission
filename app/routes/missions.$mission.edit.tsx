@@ -1,7 +1,7 @@
 import { CheckCircle as CheckCircleIcon } from "lucide-react";
 import { Form, useLoaderData, useNavigate } from "react-router";
 import { events, missions } from "server/db/schema";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { eq } from "drizzle-orm";
 import type { Route } from "./+types";
 import CreateMissionForm from "~/src/components/forms/createMission/CreateMissionForm";
@@ -12,39 +12,43 @@ import { PageLayout } from "~/src/components/layout/PageLayout";
 import { EventDialog } from "~/components/events/EventDialog";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
-    const mission = await db.select().from(events).where(eq(events.id, params.mission as string)).then((res) => res[0]);
+	const mission = await db
+		.select()
+		.from(events)
+		.where(eq(events.id, params.mission as string))
+		.then((res) => res[0]);
 
-    return {
-        mission,
-    };
+	return {
+		mission,
+	};
 };
 
 const SubRoute = () => {
-    const loaderData = useLoaderData();
-    const navigate = useNavigate();
+	const loaderData = useLoaderData();
+	const navigate = useNavigate();
 
-    const handleClose = () => {
-        navigate(`/missions/${loaderData.mission.id}`);
-    };
+	const handleClose = () => {
+		navigate(`/missions/${loaderData.mission.id}`);
+	};
 
-    const handleSubmit = () => {
-        console.log("submit");
-    };
+	const handleSubmit = () => {
+		console.log("submit");
+	};
 
-    const handleDelete = () => {
-        console.log("delete");
-    };
+	const handleDelete = () => {
+		console.log("delete");
+	};
 
-    return (
-        <EventDialog
-            open={true}
-            onOpenChange={(open) => !open && handleClose()}
-            event={loaderData.mission}
-            onSubmit={handleSubmit}
-            onDelete={handleDelete}
-            mode="edit"
-        />
-    );
+	return (
+		<EventDialog
+			open={true}
+			onOpenChange={(open) => !open && handleClose()}
+			event={loaderData.mission}
+			onSubmit={handleSubmit}
+			onDelete={handleDelete}
+			mode="edit"
+		/>
+	);
 };
 
 export default SubRoute;

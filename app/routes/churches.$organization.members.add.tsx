@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Sheet, SheetContent } from "~/components/ui/sheet";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import UsersForm from "~/src/components/forms/users/UsersForm";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 
@@ -149,8 +149,8 @@ const AddMember = () => {
 
 	return (
 		<Sheet open={isOpen} onOpenChange={handleOpenChange}>
-			<SheetContent>
-				<PageLayout title="Add Member" className="mt-3">
+			<SheetContent className="p-3">
+				<PageLayout title="Add Member">
 					<Form method="post" className="space-y-4">
 						<UsersForm defaultValues={{}} />
 						<Button type="submit">Add Member</Button>

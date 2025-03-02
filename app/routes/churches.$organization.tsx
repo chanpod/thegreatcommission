@@ -15,7 +15,7 @@ import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import { churchOrganization } from "server/db/schema";
 import { Button } from "~/components/ui/button";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import type { Route } from "./+types";
 import { Bell, Settings } from "lucide-react";
 import stylesheet from "~/components/messaging/styles.css?url";
@@ -26,6 +26,7 @@ import { PermissionsService } from "@/server/services/PermissionsService";
 import { format } from "date-fns";
 import { GuidedMessageComposer } from "~/components/messaging/GuidedMessageComposer";
 import { useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 
 export const links: Route.LinksFunction = () => [
 	{ rel: "stylesheet", href: stylesheet },
@@ -101,12 +102,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 };
 
 const NAV_ITEMS = [
-	{ name: "Overview", href: "" },
+	{ name: "Overview", href: "details" },
 	{ name: "Members", href: "members" },
 	{ name: "Teams", href: "teams" },
 	{ name: "Events", href: "events" },
 	{ name: "Roles", href: "roles" },
 	{ name: "Landing Page", href: "landing" },
+	{ name: "Message Usage", href: "message-usage" },
+	{ name: "Child Check-in", href: "childcheckin" },
 ];
 
 export default function OrganizationLayout() {
@@ -122,7 +125,11 @@ export default function OrganizationLayout() {
 			<header className="bg-white shadow">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
 					<div className="flex items-center">
-						<h1 className="text-2xl font-bold text-gray-900">
+						<h1 className="text-2xl flex items-center gap-2 font-bold text-gray-900">
+							<Avatar>
+								<AvatarImage src={organization.logoUrl} />
+								<AvatarFallback>{organization.name.slice(0, 2)}</AvatarFallback>
+							</Avatar>
 							{organization.name}
 						</h1>
 					</div>
@@ -199,7 +206,12 @@ export default function OrganizationLayout() {
 				</nav>
 
 				{/* Content Area */}
-				<div className="bg-white shadow overflow-hidden sm:rounded-lg">
+				<div
+					className="bg-white shadow overflow-hidden rounded-lg"
+					style={{
+						borderRadius: "1rem",
+					}}
+				>
 					<Outlet />
 				</div>
 			</main>

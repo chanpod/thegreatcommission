@@ -3,10 +3,11 @@ import {
 	type AuthObject,
 } from "@clerk/react-router/api.server";
 
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import {
 	organizationRoles,
 	roles,
+	users,
 	usersToOrganizationRoles,
 	usersToRoles,
 } from "@/server/db/schema";
@@ -21,6 +22,7 @@ export interface AuthenticatedUser {
 	userToOrgRoles: Array<typeof usersToOrganizationRoles.$inferSelect>;
 }
 
+// biome-ignore lint/complexity/noStaticOnlyClass: <explanation>
 export class AuthService {
 	static async getAuthenticatedUser(
 		auth: AuthObject,
@@ -29,10 +31,12 @@ export class AuthService {
 		if (!clerkUserId) return null;
 
 		try {
-			const clerkUser = await createClerkClient({
+			const clerkUserClient = createClerkClient({
 				secretKey: process.env.CLERK_SECRET_KEY,
 				publishableKey: process.env.VITE_CLERK_PUBLISHABLE_KEY,
-			}).users.getUser(clerkUserId);
+			});
+
+			const clerkUser = await clerkUserClient.users.getUser(clerkUserId);
 
 			const userEmail = clerkUser.emailAddresses[0].emailAddress;
 
@@ -42,7 +46,37 @@ export class AuthService {
 				churches: false,
 			});
 
-			const user = getUserQuery.users;
+			let user = getUserQuery?.users;
+
+			// If user doesn't exist in our database, create a new user
+			if (!user) {
+				console.log("Creating new user for first-time login:", userEmail);
+
+				// Extract user info from Clerk
+				const firstName = clerkUser.firstName || "";
+				const lastName = clerkUser.lastName || "";
+				const imageUrl = clerkUser.imageUrl;
+
+				// Create the new user in our database
+				const newUsers = await db
+					.insert(users)
+					.values({
+						email: userEmail,
+						firstName,
+						lastName,
+						avatarUrl: imageUrl,
+					})
+					.returning();
+
+				if (newUsers && newUsers.length > 0) {
+					user = newUsers[0];
+					console.log("Created new user:", user);
+				} else {
+					console.error("Failed to create new user");
+					return null;
+				}
+			}
+
 			const userId = user.id;
 
 			// Get all organization roles and user-to-role assignments
@@ -74,7 +108,7 @@ export class AuthService {
 	}
 
 	static async requireAuth(auth: AuthObject): Promise<AuthenticatedUser> {
-		const user = await this.getAuthenticatedUser(auth);
+		const user = await AuthService.getAuthenticatedUser(auth);
 		if (!user) {
 			throw new Response("Unauthorized", { status: 401 });
 		}

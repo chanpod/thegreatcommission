@@ -1,11 +1,4 @@
-import {
-	churchOrganization,
-	teams as teamsTable,
-	userPreferences,
-	users,
-	usersToTeams,
-	usersTochurchOrganization,
-} from "@/server/db/schema";
+import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { useContext } from "react";
 import {
@@ -18,12 +11,14 @@ import {
 	useSubmit,
 } from "react-router";
 
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import { UserContext } from "~/src/providers/userProvider";
 
+import { OrganizationDataService } from "@/server/dataServices/OrganizationDataService";
+import { OrganizationRolesDataService } from "@/server/dataServices/OrganizationRolesDataService";
+import { TeamsDataService } from "@/server/dataServices/TeamsDataService";
 import { PermissionsService } from "@/server/services/PermissionsService";
-import sgMail from "@sendgrid/mail";
 import {
 	flexRender,
 	getCoreRowModel,
@@ -38,7 +33,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import twilio from "twilio";
 import { MessageComposer } from "~/components/messaging/MessageComposer";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -71,11 +65,13 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
-import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
-import { TeamsDataService } from "@/server/dataServices/TeamsDataService";
-import { OrganizationRolesDataService } from "@/server/dataServices/OrganizationRolesDataService";
-import { OrganizationDataService } from "@/server/dataServices/OrganizationDataService";
 import { createAuthLoader } from "~/server/auth/authLoader";
+import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
+
+import {
+	type MessageRecipient,
+	MessagingService,
+} from "@/server/services/MessagingService";
 
 export const loader = createAuthLoader(
 	async ({ request, auth, params, userContext }) => {
@@ -112,144 +108,116 @@ export const loader = createAuthLoader(
 	true,
 );
 
-const formatPhoneNumber = (phone: string) => {
-	// Remove any non-digit characters
-	const cleaned = phone.replace(/\D/g, "");
+// Helper function for formatting phone numbers
+function formatPhoneNumber(phone) {
+	if (!phone) return null;
+	return phone.startsWith("+") ? phone : `+1${phone}`;
+}
 
-	// Ensure it starts with 1 for US numbers
-	const withCountry = cleaned.startsWith("1") ? cleaned : `1${cleaned}`;
+export const action = createAuthLoader(
+	async ({ request, params, userContext }) => {
+		const formData = await request.formData();
+		const message = formData.get("message") as string;
+		const messageType = formData.get("type") as
+			| "email"
+			| "sms"
+			| "phone"
+			| "alert";
+		const userIds = formData.getAll("userIds[]") as string[];
+		const format = formData.get("format")
+			? JSON.parse(formData.get("format") as string)
+			: undefined;
+		const templateId = formData.get("templateId") as string;
+		const subject = formData.get("subject") as string;
 
-	// Add + prefix if not present
-	return withCountry.startsWith("+") ? withCountry : `+${withCountry}`;
-};
+		// Get the sender's user ID (if available)
+		const senderUserId = userContext.user.id;
 
-export const action = async ({ request, params }) => {
-	const accountSid = process.env.TWILIO_ACCOUNT_SID;
-	const authToken = process.env.TWILIO_AUTH_TOKEN;
+		// Prepare message data
+		const messageData = {
+			churchOrganizationId: params.organization,
+			messageType: messageType === "alert" ? "email" : messageType, // Default for alert is email, but will be ignored
+			message,
+			subject,
+			templateId,
+			format,
+			senderUserId,
+		};
 
-	const twilioClient = twilio(accountSid, authToken);
-	const formData = await request.formData();
-	sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+		const results = [];
+		let successCount = 0;
+		let failedCount = 0;
 
-	const message = formData.get("message");
-	const messageType = formData.get("type");
-	const userIds = formData.getAll("userIds[]");
-	const format = formData.get("format")
-		? JSON.parse(formData.get("format"))
-		: undefined;
-	const templateId = formData.get("templateId");
-	const subject = formData.get("subject");
-	const messagesSent = [];
+		// Get recipient data for each user ID
+		for (const userId of userIds) {
+			// Get user data and preferences
+			const [user, userPreferences] = await Promise.all([
+				db
+					.select()
+					.from(users)
+					.where(eq(users.id, userId))
+					.then((res) => res[0]),
+				db
+					.select()
+					.from(userPreferences)
+					.where(eq(userPreferences.userId, userId))
+					.then((res) => res[0]),
+			]);
 
-	// Get the organization details for template personalization
-	const organization = await db
-		.select()
-		.from(churchOrganization)
-		.where(eq(churchOrganization.id, params.organization))
-		.then((res) => res[0]);
+			if (!user) continue;
 
-	for (const userId of userIds) {
-		const user = await db
-			.select()
-			.from(users)
-			.where(eq(users.id, userId))
-			.then((res) => res[0]);
-		const userPreferencesResponse = await db
-			.select()
-			.from(userPreferences)
-			.where(eq(userPreferences.userId, userId))
-			.then((res) => res[0]);
+			const recipient: MessageRecipient & { preferences?: any } = {
+				userId,
+				email: user.email,
+				phone: user.phone,
+				firstName: user.firstName,
+				lastName: user.lastName,
+			};
 
-		if (messageType === "alert") {
-			// Send using user's preferred method
-			if (userPreferencesResponse.phoneNotifications) {
-				const usersPhone = user.phone?.startsWith("1")
-					? user.phone
-					: `1${user.phone}`;
-				await twilioClient.calls.create({
-					twiml: `<Response><Say>Hello, ${user.firstName}! ${message}</Say></Response>`,
-					to: `+${usersPhone}`,
-					from: "+18445479466",
-				});
-				messagesSent.push(`call to ${user.firstName}`);
-			}
-			if (userPreferencesResponse.emailNotifications) {
-				const email = {
-					to: user.email,
-					from: "gracecommunitybrunswick@gmail.com",
-					subject: "Church App Message",
-					text: message,
+			if (userPreferences) {
+				recipient.preferences = {
+					emailNotifications: userPreferences.emailNotifications,
+					smsNotifications: userPreferences.smsNotifications,
+					phoneNotifications: userPreferences.phoneNotifications,
 				};
-				await sgMail.send(email);
-				messagesSent.push(`email to ${user.firstName}`);
 			}
-			if (userPreferencesResponse.smsNotifications) {
-				const formattedPhone = formatPhoneNumber(user.phone);
-				await twilioClient.messages.create({
-					to: formattedPhone,
-					from: "+18445479466",
-					body: message,
-				});
-				messagesSent.push(`text to ${user.firstName}`);
-			}
-		} else {
-			// Send using specified method
-			if (messageType === "phone") {
-				const usersPhone = formatPhoneNumber(user.phone);
-				await twilioClient.calls.create({
-					twiml: `<Response><Say>Hello, ${user.firstName}! ${message}</Say></Response>`,
-					to: usersPhone,
-					from: "+18445479466",
-				});
-				messagesSent.push(`call to ${user.firstName}`);
-			} else if (messageType === "email") {
-				let personalizedSubject = subject;
-				let personalizedMessage = message;
 
-				if (templateId) {
-					// Replace template variables
-					const replacements = {
-						"{first_name}": user.firstName,
-						"{church_name}": organization.name,
-					};
-
-					personalizedSubject = subject.replace(
-						/{first_name}|{church_name}/g,
-						(match) => replacements[match],
-					);
-
-					personalizedMessage = message.replace(
-						/{first_name}|{church_name}/g,
-						(match) => replacements[match],
-					);
+			// Send message based on type
+			let result;
+			if (messageType === "alert") {
+				// If alert type, send based on user preferences
+				if (recipient.preferences) {
+					result = await MessagingService.sendAlert(messageData, recipient);
+					successCount += result.summary.success;
+					failedCount += result.summary.failed;
 				}
+			} else {
+				// Send a single message of specified type
+				result = await MessagingService.sendMessage(messageData, recipient);
+				if (result.success) {
+					successCount++;
+				} else {
+					failedCount++;
+				}
+			}
 
-				const email = {
-					to: user.email,
-					from: "gracecommunitybrunswick@gmail.com",
-					subject: personalizedSubject,
-					text: personalizedMessage.replace(/<[^>]*>/g, ""), // Strip HTML for plain text version
-					html: personalizedMessage, // TinyMCE output is already HTML
-				};
-				await sgMail.send(email);
-				messagesSent.push(`email to ${user.firstName}`);
-			} else if (messageType === "sms") {
-				const formattedPhone = formatPhoneNumber(user.phone);
-				await twilioClient.messages.create({
-					to: formattedPhone,
-					from: "+18445479466",
-					body: message,
+			if (result) {
+				results.push({
+					userId,
+					recipient: `${user.firstName} ${user.lastName}`,
+					result,
 				});
-				messagesSent.push(`text to ${user.firstName}`);
 			}
 		}
-	}
 
-	return {
-		success: true,
-		message: `Messages sent: ${messagesSent.join(", ")}`,
-	};
-};
+		return {
+			success: true,
+			message: `Messages sent: ${successCount} successful, ${failedCount} failed`,
+			details: results,
+		};
+	},
+	true,
+);
 
 export default function MembersList() {
 	const { members, roles, teams, permissions } = useLoaderData<typeof loader>();

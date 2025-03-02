@@ -189,7 +189,7 @@ export function RichTextEditor({
 			editor
 				?.chain()
 				.focus()
-				.setImage({ src: res[0].url, alt: imageAlt })
+				.setImage({ src: res[0].ufsUrl, alt: imageAlt })
 				.run();
 			setShowImageDialog(false);
 			setImageUrl("");

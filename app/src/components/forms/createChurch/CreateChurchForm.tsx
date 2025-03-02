@@ -3,8 +3,10 @@ import { fromAddress } from "react-geocode";
 import { churchOrganization } from "server/db/schema";
 import { Stack } from "../../layout/Stack";
 import { Input } from "../input/Input";
-import { Video } from "lucide-react";
+import { Video, Image } from "lucide-react";
 import { ColorPicker } from "~/components/forms/ColorPicker";
+import { UploadButton } from "~/utils/uploadthing";
+import { toast } from "sonner";
 
 export interface IChurchFormData {
 	name: string;
@@ -16,6 +18,7 @@ export interface IChurchFormData {
 	mainChurchWebsite: string | null;
 	liveStreamUrl: string | null;
 	themeColors?: string;
+	logoUrl?: string | null;
 }
 
 interface Props {
@@ -52,6 +55,7 @@ const CreateChurchForm = (props: Props) => {
 	const [liveStreamUrl, setLiveStreamUrl] = useState(
 		props?.initialValues?.liveStreamUrl ?? "",
 	);
+	const [logoUrl, setLogoUrl] = useState(props?.initialValues?.logoUrl ?? "");
 	const [themeColors, setThemeColors] = useState<Record<string, string>>(() => {
 		try {
 			return JSON.parse(
@@ -113,6 +117,38 @@ const CreateChurchForm = (props: Props) => {
 				label="Zip Code"
 				defaultValue={props?.initialValues?.zip ?? ""}
 			/>
+
+			<div className="space-y-4">
+				<h3 className="text-gray-900">Church Logo</h3>
+				{logoUrl && (
+					<div className="relative w-40 h-40 rounded-lg overflow-hidden mb-2 bg-gray-100 flex items-center justify-center p-2 border">
+						<img
+							src={logoUrl}
+							alt="Church Logo"
+							className="max-w-full max-h-full object-contain"
+						/>
+					</div>
+				)}
+
+				{!props.readOnly && (
+					<>
+						<UploadButton
+							endpoint="imageUploader"
+							onClientUploadComplete={(res) => {
+								if (res?.[0]) {
+									console.log("res", res);
+									setLogoUrl(res[0].ufsUrl);
+									toast.success("Logo uploaded successfully");
+								}
+							}}
+							onUploadError={(error: Error) => {
+								toast.error(`Upload failed: ${error.message}`);
+							}}
+						/>
+						<Input type="hidden" name="logoUrl" value={logoUrl} />
+					</>
+				)}
+			</div>
 
 			<div className="space-y-4">
 				<h3 className="text-gray-900">Online Presence</h3>

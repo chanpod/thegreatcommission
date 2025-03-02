@@ -1,6 +1,6 @@
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { OrganizationDataService } from "@/server/dataServices/OrganizationDataService";
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { teams, events, usersToTeams } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { Outlet, useLoaderData } from "react-router";

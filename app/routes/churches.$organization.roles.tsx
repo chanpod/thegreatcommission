@@ -33,7 +33,7 @@ import {
 } from "~/lib/permissions";
 import { createAuthLoader } from "~/server/auth/authLoader";
 
-import { db } from "~/server/dbConnection";
+import { db } from "@/server/db/dbConnection";
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
 import { Input } from "~/src/components/forms/input/Input";
 import { PageLayout } from "~/src/components/layout/PageLayout";
@@ -288,9 +288,12 @@ export default function RolesList() {
 				)
 			}
 		>
-			<div className="grid grid-cols-1 mt-4 md:grid-cols-2 lg:grid-cols-3 gap-4">
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				{roles.map((role) => (
-					<Card key={role.role.id} className="p-4 rounded-lg space-y-4">
+					<Card
+						key={role.role.id}
+						className="p-4 rounded-lg space-y-4 shadow-xl"
+					>
 						<div className="flex items-start justify-between">
 							<div>
 								<h3 className="text-lg font-semibold flex items-center gap-2">
