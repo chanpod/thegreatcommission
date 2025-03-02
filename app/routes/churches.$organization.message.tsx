@@ -58,7 +58,7 @@ export const action = createAuthLoader(
 				if (!guardian) continue;
 
 				recipients.push({
-					userId: guardian.userId || entry.id, // Use linked userId if it exists
+					guardianId: guardian.userId,
 					email: guardian.email,
 					phone: guardian.phone,
 					firstName: guardian.firstName,
