@@ -80,9 +80,16 @@ export class ChildCheckinService {
 	}
 
 	async getGuardiansForChild(childId: string) {
-		const relations = await db.query.childrenToGuardiansTable.findMany({
-			where: eq(childrenToGuardiansTable.childId, childId),
-		});
+		const relations = await db
+			.select()
+			.from(childrenToGuardiansTable)
+			.innerJoin(
+				guardiansTable,
+				eq(childrenToGuardiansTable.guardianId, guardiansTable.id),
+			)
+			.where(eq(childrenToGuardiansTable.childId, childId))
+			.then((res) => res.map((r) => r.guardians));
+
 		return relations;
 	}
 
@@ -141,7 +148,7 @@ export class ChildCheckinService {
 
 		// Transform the joined results to match expected format
 		const formattedCheckins = checkins.map((row) => ({
-			...row.childCheckins,
+			...row.child_checkins,
 			child: row.children,
 		}));
 

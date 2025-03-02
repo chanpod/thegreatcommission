@@ -5,6 +5,7 @@ import {
 	Link,
 	useLoaderData,
 	useFetcher,
+	useSearchParams,
 } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
@@ -47,13 +48,14 @@ interface ExtendedChildCheckin extends ChildCheckin {
 interface LoaderData {
 	sessions: any[];
 	checkins: ExtendedChildCheckin[];
-	activeSessionId: string | null;
 	error?: string;
 }
 
 // Loader to fetch sessions and checkins
 export const loader = createAuthLoader(async ({ params, request }) => {
 	const { organization } = params;
+	const searchParams = new URLSearchParams(request.url.split("?")[1]);
+	const sessionId = searchParams.get("sessionId");
 
 	if (!organization) {
 		return data(
@@ -72,32 +74,28 @@ export const loader = createAuthLoader(async ({ params, request }) => {
 
 		// If there are sessions, fetch checkins for the first session
 		let checkins = [];
-		if (sessions.length > 0) {
-			checkins = await childCheckinService.getActiveCheckins(sessions[0].id);
-
-			console.log(checkins);
+		if (sessions.length > 0 && sessionId) {
+			checkins = await childCheckinService.getActiveCheckins(sessionId);
 
 			// For each checkin, fetch the guardian information
 			for (const checkin of checkins) {
 				const guardians = await childCheckinService.getGuardiansForChild(
 					checkin.childId,
 				);
-				(checkin as ExtendedChildCheckin).guardians = guardians.map(
-					(relation) => relation.guardian,
-				);
+
+				(checkin as ExtendedChildCheckin).guardians = guardians || [];
 
 				// Fetch authorized pickup persons
 				const pickupPersons =
 					await childCheckinService.getAuthorizedPickupPersons(checkin.id);
 				(checkin as ExtendedChildCheckin).authorizedPickupPersons =
-					pickupPersons;
+					pickupPersons || [];
 			}
 		}
 
 		return data({
 			sessions,
 			checkins,
-			activeSessionId: sessions.length > 0 ? sessions[0].id : null,
 		});
 	} catch (error) {
 		console.error("Error loading data:", error);
@@ -116,7 +114,7 @@ export const loader = createAuthLoader(async ({ params, request }) => {
 interface ActionData {
 	success: boolean;
 	checkins?: ExtendedChildCheckin[];
-	activeSessionId?: string;
+
 	message?: string;
 	error?: string;
 }
@@ -124,6 +122,8 @@ interface ActionData {
 // Action to handle form submissions
 export const action = createAuthLoader(async ({ params, request }) => {
 	const { organization } = params;
+	const searchParams = new URLSearchParams(request.url.split("?")[1]);
+	const sessionId = searchParams.get("sessionId");
 
 	if (!organization) {
 		return data(
@@ -150,7 +150,6 @@ export const action = createAuthLoader(async ({ params, request }) => {
 				sessionId.toString(),
 			);
 
-			console.log("checkins: ", checkins);
 			// For each checkin, fetch the guardian information
 			for (const checkin of checkins) {
 				const guardians = await childCheckinService.getGuardiansForChild(
@@ -170,7 +169,6 @@ export const action = createAuthLoader(async ({ params, request }) => {
 			return data({
 				success: true,
 				checkins,
-				activeSessionId: sessionId.toString(),
 			});
 		}
 
@@ -216,7 +214,6 @@ export const action = createAuthLoader(async ({ params, request }) => {
 				success: true,
 				message: "Child has been successfully checked out",
 				checkins,
-				activeSessionId: sessionId.toString(),
 			});
 		}
 
@@ -234,22 +231,15 @@ export default function ChildCheckinList() {
 	const { organization } = useParams();
 	const navigate = useNavigate();
 	const { toast } = useToast();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const loaderData = useLoaderData<typeof loader>() as LoaderData;
-	console.log(loaderData);
-	const {
-		sessions,
-		checkins: initialCheckins,
-		activeSessionId: initialSessionId,
-		error,
-	} = loaderData;
-	const fetcher = useFetcher<ActionData>();
 
-	const [activeSessionId, setActiveSessionId] = useState(initialSessionId);
-	const [checkins, setCheckins] = useState<ExtendedChildCheckin[]>(
-		initialCheckins || [],
-	);
-	const [loading, setLoading] = useState(false);
+	const { sessions, checkins: initialCheckins, error } = loaderData;
+	const fetcher = useFetcher<ActionData>();
+	const checkins = loaderData.checkins;
+
 	const [searchTerm, setSearchTerm] = useState("");
+	const loading = fetcher.state === "submitting";
 
 	// Show error toast if there's an error from the loader
 	useEffect(() => {
@@ -265,10 +255,6 @@ export default function ChildCheckinList() {
 	// Update checkins when fetcher returns data
 	useEffect(() => {
 		if (fetcher.data?.success) {
-			setCheckins(fetcher.data.checkins || []);
-			setActiveSessionId(fetcher.data.activeSessionId || null);
-			setLoading(false);
-
 			// Show success message if available
 			if (fetcher.data.message) {
 				toast({
@@ -282,23 +268,13 @@ export default function ChildCheckinList() {
 				description: fetcher.data.error,
 				variant: "destructive",
 			});
-			setLoading(false);
 		}
 	}, [fetcher.data, toast]);
 
-	// Set loading state when fetcher is submitting
-	useEffect(() => {
-		if (fetcher.state === "submitting") {
-			setLoading(true);
-		}
-	}, [fetcher.state]);
-
 	const handleSessionChange = (sessionId: string) => {
-		setLoading(true);
-		const formData = new FormData();
-		formData.append("_action", "getCheckins");
-		formData.append("sessionId", sessionId);
-		fetcher.submit(formData, { method: "post" });
+		const urlSearchParams = new URLSearchParams(searchParams);
+		urlSearchParams.set("sessionId", sessionId);
+		setSearchParams(urlSearchParams);
 	};
 
 	const handleCheckout = (checkinId: string, guardianId: string) => {
@@ -306,7 +282,7 @@ export default function ChildCheckinList() {
 		formData.append("_action", "checkout");
 		formData.append("checkinId", checkinId);
 		formData.append("guardianId", guardianId);
-		formData.append("sessionId", activeSessionId as string);
+
 		fetcher.submit(formData, { method: "post" });
 	};
 
@@ -315,7 +291,8 @@ export default function ChildCheckinList() {
 		return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
 	};
 
-	const activeSession = sessions.find((s) => s.id === activeSessionId);
+	const sessionId = searchParams.get("sessionId");
+	const activeSession = sessions.find((s) => s.id === sessionId);
 	const filteredCheckins = checkins.filter((checkin) => {
 		const childName =
 			`${checkin.child.firstName} ${checkin.child.lastName}`.toLowerCase();
@@ -366,7 +343,7 @@ export default function ChildCheckinList() {
 								<div>
 									<Label htmlFor="session-select">Select Session</Label>
 									<Select
-										value={activeSessionId}
+										value={sessionId || ""}
 										onValueChange={handleSessionChange}
 									>
 										<SelectTrigger id="session-select" className="w-full">
@@ -394,7 +371,7 @@ export default function ChildCheckinList() {
 						</CardContent>
 					</Card>
 
-					{activeSession && (
+					{sessionId && (
 						<Card>
 							<CardHeader>
 								<CardTitle>{activeSession.name}</CardTitle>
@@ -403,9 +380,7 @@ export default function ChildCheckinList() {
 								</CardDescription>
 							</CardHeader>
 							<CardContent>
-								{loading ? (
-									<div className="text-center py-8">Loading...</div>
-								) : filteredCheckins.length === 0 ? (
+								{filteredCheckins.length === 0 ? (
 									<div className="text-center py-8">
 										No children checked in for this session.
 									</div>
