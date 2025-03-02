@@ -82,9 +82,6 @@ export class ChildCheckinService {
 	async getGuardiansForChild(childId: string) {
 		const relations = await db.query.childrenToGuardiansTable.findMany({
 			where: eq(childrenToGuardiansTable.childId, childId),
-			with: {
-				guardian: true,
-			},
 		});
 		return relations;
 	}
@@ -92,9 +89,6 @@ export class ChildCheckinService {
 	async getChildrenForGuardian(guardianId: string) {
 		const relations = await db.query.childrenToGuardiansTable.findMany({
 			where: eq(childrenToGuardiansTable.guardianId, guardianId),
-			with: {
-				child: true,
-			},
 		});
 		return relations;
 	}
@@ -131,16 +125,27 @@ export class ChildCheckinService {
 	}
 
 	async getActiveCheckins(sessionId: string) {
-		const checkins = await db.query.childCheckinsTable.findMany({
-			where: and(
-				eq(childCheckinsTable.sessionId, sessionId),
-				isNull(childCheckinsTable.checkoutTime),
-			),
-			with: {
-				child: true,
-			},
-		});
-		return checkins;
+		const checkins = await db
+			.select()
+			.from(childCheckinsTable)
+			.innerJoin(
+				childrenTable,
+				eq(childCheckinsTable.childId, childrenTable.id),
+			)
+			.where(
+				and(
+					eq(childCheckinsTable.sessionId, sessionId),
+					isNull(childCheckinsTable.checkoutTime),
+				),
+			);
+
+		// Transform the joined results to match expected format
+		const formattedCheckins = checkins.map((row) => ({
+			...row.childCheckins,
+			child: row.children,
+		}));
+
+		return formattedCheckins;
 	}
 
 	async checkoutChild(checkinId: string, guardianId: string) {
@@ -177,9 +182,6 @@ export class ChildCheckinService {
 	async verifyCheckinBySecureId(secureId: string) {
 		const checkin = await db.query.childCheckinsTable.findFirst({
 			where: eq(childCheckinsTable.secureId, secureId),
-			with: {
-				child: true,
-			},
 		});
 		return checkin;
 	}

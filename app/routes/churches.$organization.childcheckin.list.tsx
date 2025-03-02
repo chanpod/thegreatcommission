@@ -11,6 +11,7 @@ import {
 	Card,
 	CardContent,
 	CardDescription,
+	CardFooter,
 	CardHeader,
 	CardTitle,
 } from "~/components/ui/card";
@@ -21,6 +22,34 @@ import { childCheckinService } from "~/services/ChildCheckinService";
 import { useToast } from "~/hooks/use-toast";
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { data } from "react-router";
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import { Badge } from "~/components/ui/badge";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "~/components/ui/select";
+import type {
+	ChildCheckin,
+	Guardian,
+	AuthorizedPickupPerson,
+} from "@/server/db/schema";
+
+// Define extended types for the checkin data with additional properties
+interface ExtendedChildCheckin extends ChildCheckin {
+	guardians?: Guardian[];
+	authorizedPickupPersons?: AuthorizedPickupPerson[];
+}
+
+// Define the loader data type
+interface LoaderData {
+	sessions: any[];
+	checkins: ExtendedChildCheckin[];
+	activeSessionId: string | null;
+	error?: string;
+}
 
 // Loader to fetch sessions and checkins
 export const loader = createAuthLoader(async ({ params, request }) => {
@@ -45,6 +74,24 @@ export const loader = createAuthLoader(async ({ params, request }) => {
 		let checkins = [];
 		if (sessions.length > 0) {
 			checkins = await childCheckinService.getActiveCheckins(sessions[0].id);
+
+			console.log(checkins);
+
+			// For each checkin, fetch the guardian information
+			for (const checkin of checkins) {
+				const guardians = await childCheckinService.getGuardiansForChild(
+					checkin.childId,
+				);
+				(checkin as ExtendedChildCheckin).guardians = guardians.map(
+					(relation) => relation.guardian,
+				);
+
+				// Fetch authorized pickup persons
+				const pickupPersons =
+					await childCheckinService.getAuthorizedPickupPersons(checkin.id);
+				(checkin as ExtendedChildCheckin).authorizedPickupPersons =
+					pickupPersons;
+			}
 		}
 
 		return data({
@@ -64,6 +111,15 @@ export const loader = createAuthLoader(async ({ params, request }) => {
 		);
 	}
 });
+
+// Define the action data type
+interface ActionData {
+	success: boolean;
+	checkins?: ExtendedChildCheckin[];
+	activeSessionId?: string;
+	message?: string;
+	error?: string;
+}
 
 // Action to handle form submissions
 export const action = createAuthLoader(async ({ params, request }) => {
@@ -93,6 +149,24 @@ export const action = createAuthLoader(async ({ params, request }) => {
 			const checkins = await childCheckinService.getActiveCheckins(
 				sessionId.toString(),
 			);
+
+			console.log("checkins: ", checkins);
+			// For each checkin, fetch the guardian information
+			for (const checkin of checkins) {
+				const guardians = await childCheckinService.getGuardiansForChild(
+					checkin.childId,
+				);
+				(checkin as ExtendedChildCheckin).guardians = guardians.map(
+					(relation) => relation.guardian,
+				);
+
+				// Fetch authorized pickup persons
+				const pickupPersons =
+					await childCheckinService.getAuthorizedPickupPersons(checkin.id);
+				(checkin as ExtendedChildCheckin).authorizedPickupPersons =
+					pickupPersons;
+			}
+
 			return data({
 				success: true,
 				checkins,
@@ -122,6 +196,22 @@ export const action = createAuthLoader(async ({ params, request }) => {
 				sessionId.toString(),
 			);
 
+			// For each checkin, fetch the guardian information
+			for (const checkin of checkins) {
+				const guardians = await childCheckinService.getGuardiansForChild(
+					checkin.childId,
+				);
+				(checkin as ExtendedChildCheckin).guardians = guardians.map(
+					(relation) => relation.guardian,
+				);
+
+				// Fetch authorized pickup persons
+				const pickupPersons =
+					await childCheckinService.getAuthorizedPickupPersons(checkin.id);
+				(checkin as ExtendedChildCheckin).authorizedPickupPersons =
+					pickupPersons;
+			}
+
 			return data({
 				success: true,
 				message: "Child has been successfully checked out",
@@ -144,16 +234,20 @@ export default function ChildCheckinList() {
 	const { organization } = useParams();
 	const navigate = useNavigate();
 	const { toast } = useToast();
+	const loaderData = useLoaderData<typeof loader>() as LoaderData;
+	console.log(loaderData);
 	const {
 		sessions,
 		checkins: initialCheckins,
 		activeSessionId: initialSessionId,
 		error,
-	} = useLoaderData<typeof loader>();
-	const fetcher = useFetcher();
+	} = loaderData;
+	const fetcher = useFetcher<ActionData>();
 
 	const [activeSessionId, setActiveSessionId] = useState(initialSessionId);
-	const [checkins, setCheckins] = useState(initialCheckins);
+	const [checkins, setCheckins] = useState<ExtendedChildCheckin[]>(
+		initialCheckins || [],
+	);
 	const [loading, setLoading] = useState(false);
 	const [searchTerm, setSearchTerm] = useState("");
 
@@ -170,9 +264,9 @@ export default function ChildCheckinList() {
 
 	// Update checkins when fetcher returns data
 	useEffect(() => {
-		if (fetcher.data && fetcher.data.success) {
-			setCheckins(fetcher.data.checkins);
-			setActiveSessionId(fetcher.data.activeSessionId);
+		if (fetcher.data?.success) {
+			setCheckins(fetcher.data.checkins || []);
+			setActiveSessionId(fetcher.data.activeSessionId || null);
 			setLoading(false);
 
 			// Show success message if available
@@ -199,7 +293,7 @@ export default function ChildCheckinList() {
 		}
 	}, [fetcher.state]);
 
-	const handleSessionChange = (sessionId) => {
+	const handleSessionChange = (sessionId: string) => {
 		setLoading(true);
 		const formData = new FormData();
 		formData.append("_action", "getCheckins");
@@ -207,13 +301,18 @@ export default function ChildCheckinList() {
 		fetcher.submit(formData, { method: "post" });
 	};
 
-	const handleCheckout = (checkinId, guardianId) => {
+	const handleCheckout = (checkinId: string, guardianId: string) => {
 		const formData = new FormData();
 		formData.append("_action", "checkout");
 		formData.append("checkinId", checkinId);
 		formData.append("guardianId", guardianId);
-		formData.append("sessionId", activeSessionId);
+		formData.append("sessionId", activeSessionId as string);
 		fetcher.submit(formData, { method: "post" });
+	};
+
+	// Get initials for avatar fallback
+	const getInitials = (firstName?: string, lastName?: string) => {
+		return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
 	};
 
 	const activeSession = sessions.find((s) => s.id === activeSessionId);
@@ -255,131 +354,187 @@ export default function ChildCheckinList() {
 				</Card>
 			) : (
 				<>
-					<div className="mb-6">
-						<Label htmlFor="session-select">Select Session</Label>
-						<select
-							id="session-select"
-							className="w-full p-2 border rounded-md mt-1"
-							value={activeSessionId || ""}
-							onChange={(e) => handleSessionChange(e.target.value)}
-							disabled={loading}
-						>
-							{sessions.map((session) => (
-								<option key={session.id} value={session.id}>
-									{session.name} -{" "}
-									{new Date(session.startTime).toLocaleDateString()}
-								</option>
-							))}
-						</select>
-					</div>
-
-					<div className="mb-6">
-						<Label htmlFor="search">Search Children</Label>
-						<Input
-							id="search"
-							type="text"
-							placeholder="Search by name..."
-							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
-							className="mt-1"
-						/>
-					</div>
-
-					<Tabs defaultValue="checked-in">
-						<TabsList className="mb-4">
-							<TabsTrigger value="checked-in">Checked In</TabsTrigger>
-							<TabsTrigger value="all">All</TabsTrigger>
-						</TabsList>
-
-						<TabsContent value="checked-in">
-							{loading ? (
-								<div className="flex justify-center py-12">
-									<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+					<Card className="mb-6">
+						<CardHeader>
+							<CardTitle>Session Information</CardTitle>
+							<CardDescription>
+								Select a session to view checked-in children.
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div>
+									<Label htmlFor="session-select">Select Session</Label>
+									<Select
+										value={activeSessionId}
+										onValueChange={handleSessionChange}
+									>
+										<SelectTrigger id="session-select" className="w-full">
+											<SelectValue placeholder="Select a session" />
+										</SelectTrigger>
+										<SelectContent>
+											{sessions.map((session) => (
+												<SelectItem key={session.id} value={session.id}>
+													{session.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
 								</div>
-							) : filteredCheckins.length === 0 ? (
-								<Card>
-									<CardContent className="pt-6">
-										<p className="text-center text-muted-foreground">
-											No children currently checked in.
-										</p>
-									</CardContent>
-								</Card>
-							) : (
-								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-									{filteredCheckins.map((checkin) => (
-										<Card key={checkin.id}>
-											<CardHeader className="pb-2">
-												<CardTitle>
-													{checkin.child.firstName} {checkin.child.lastName}
-												</CardTitle>
-												<CardDescription>
-													Checked in:{" "}
-													{new Date(checkin.checkinTime).toLocaleTimeString()}
-												</CardDescription>
-											</CardHeader>
-											<CardContent>
-												<div className="flex items-center space-x-4 mb-4">
-													{checkin.child.photoUrl && (
-														<img
+								<div>
+									<Label htmlFor="search">Search Children</Label>
+									<Input
+										id="search"
+										placeholder="Search by name..."
+										value={searchTerm}
+										onChange={(e) => setSearchTerm(e.target.value)}
+									/>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					{activeSession && (
+						<Card>
+							<CardHeader>
+								<CardTitle>{activeSession.name}</CardTitle>
+								<CardDescription>
+									Started: {new Date(activeSession.startTime).toLocaleString()}
+								</CardDescription>
+							</CardHeader>
+							<CardContent>
+								{loading ? (
+									<div className="text-center py-8">Loading...</div>
+								) : filteredCheckins.length === 0 ? (
+									<div className="text-center py-8">
+										No children checked in for this session.
+									</div>
+								) : (
+									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+										{filteredCheckins.map((checkin) => (
+											<Card key={checkin.id} className="overflow-hidden">
+												<div className="flex items-center p-4 border-b">
+													<Avatar className="h-16 w-16 mr-4">
+														<AvatarImage
 															src={checkin.child.photoUrl}
 															alt={`${checkin.child.firstName} ${checkin.child.lastName}`}
-															className="w-16 h-16 rounded-full object-cover"
 														/>
-													)}
+														<AvatarFallback>
+															{getInitials(
+																checkin.child.firstName,
+																checkin.child.lastName,
+															)}
+														</AvatarFallback>
+													</Avatar>
 													<div>
-														{checkin.child.allergies && (
-															<p className="text-sm text-destructive">
-																<span className="font-medium">Allergies:</span>{" "}
-																{checkin.child.allergies}
-															</p>
-														)}
-														{checkin.child.specialNotes && (
-															<p className="text-sm">
-																<span className="font-medium">Notes:</span>{" "}
-																{checkin.child.specialNotes}
-															</p>
-														)}
+														<h3 className="font-bold text-lg">
+															{checkin.child.firstName} {checkin.child.lastName}
+														</h3>
+														<p className="text-sm text-muted-foreground">
+															Checked in:{" "}
+															{new Date(
+																checkin.checkinTime,
+															).toLocaleTimeString()}
+														</p>
+														<Badge className="mt-1">Checked In</Badge>
 													</div>
 												</div>
+												<CardContent className="p-4">
+													{checkin.child.allergies && (
+														<div className="mb-2">
+															<span className="font-medium">Allergies:</span>{" "}
+															{checkin.child.allergies}
+														</div>
+													)}
+													{checkin.child.specialNotes && (
+														<div className="mb-2">
+															<span className="font-medium">Notes:</span>{" "}
+															{checkin.child.specialNotes}
+														</div>
+													)}
+													<div className="mt-4">
+														<h4 className="font-medium mb-2">Guardian:</h4>
+														{checkin.guardians &&
+														checkin.guardians.length > 0 ? (
+															<div className="flex items-center">
+																<Avatar className="h-10 w-10 mr-2">
+																	<AvatarImage
+																		src={checkin.guardians[0].photoUrl}
+																		alt={`${checkin.guardians[0].firstName} ${checkin.guardians[0].lastName}`}
+																	/>
+																	<AvatarFallback>
+																		{getInitials(
+																			checkin.guardians[0].firstName,
+																			checkin.guardians[0].lastName,
+																		)}
+																	</AvatarFallback>
+																</Avatar>
+																<div>
+																	{checkin.guardians[0].firstName}{" "}
+																	{checkin.guardians[0].lastName}
+																	{checkin.guardians[0].phone && (
+																		<div className="text-sm text-muted-foreground">
+																			{checkin.guardians[0].phone}
+																		</div>
+																	)}
+																</div>
+															</div>
+														) : (
+															<div>No guardian information available</div>
+														)}
+													</div>
 
-												<div className="flex justify-between">
-													<Button variant="outline" size="sm" asChild>
-														<Link
-															to={`/churches/${organization}/childcheckin/verify/${checkin.secureId}`}
-														>
-															View Details
-														</Link>
-													</Button>
+													{checkin.authorizedPickupPersons &&
+														checkin.authorizedPickupPersons.length > 0 && (
+															<div className="mt-4">
+																<h4 className="font-medium mb-2">
+																	Authorized for Pickup:
+																</h4>
+																<ul className="text-sm">
+																	{checkin.authorizedPickupPersons.map(
+																		(person) => (
+																			<li key={person.id}>
+																				{person.firstName} {person.lastName} (
+																				{person.relationship})
+																			</li>
+																		),
+																	)}
+																</ul>
+															</div>
+														)}
+												</CardContent>
+												<CardFooter className="bg-muted/20 p-4">
 													<Button
-														size="sm"
-														onClick={() =>
-															handleCheckout(
-																checkin.id,
-																checkin.checkedInByGuardianId,
-															)
-														}
-														disabled={loading}
+														className="w-full"
+														onClick={() => {
+															if (
+																checkin.guardians &&
+																checkin.guardians.length > 0
+															) {
+																handleCheckout(
+																	checkin.id,
+																	checkin.guardians[0].id,
+																);
+															} else {
+																toast({
+																	title: "Error",
+																	description:
+																		"No guardian information available for checkout",
+																	variant: "destructive",
+																});
+															}
+														}}
 													>
 														Check Out
 													</Button>
-												</div>
-											</CardContent>
-										</Card>
-									))}
-								</div>
-							)}
-						</TabsContent>
-
-						<TabsContent value="all">
-							<Card>
-								<CardContent className="pt-6">
-									<p className="text-center text-muted-foreground">
-										All check-ins view will be implemented soon.
-									</p>
-								</CardContent>
-							</Card>
-						</TabsContent>
-					</Tabs>
+												</CardFooter>
+											</Card>
+										))}
+									</div>
+								)}
+							</CardContent>
+						</Card>
+					)}
 				</>
 			)}
 		</div>
