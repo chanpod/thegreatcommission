@@ -1,0 +1,832 @@
+import { useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router";
+import { Button } from "~/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardFooter,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { Textarea } from "~/components/ui/textarea";
+import { useToast } from "~/hooks/use-toast";
+import { childCheckinService } from "../services/ChildCheckinService";
+import { QRCodeSVG } from "qrcode.react";
+
+export default function ChildCheckin() {
+	const { organization } = useParams();
+	const navigate = useNavigate();
+	const { toast } = useToast();
+	const [activeTab, setActiveTab] = useState("session");
+	const [sessions, setSessions] = useState([]);
+	const [activeSession, setActiveSession] = useState(null);
+	const [childInfo, setChildInfo] = useState({
+		firstName: "",
+		lastName: "",
+		dateOfBirth: "",
+		allergies: "",
+		specialNotes: "",
+		photoUrl: "",
+	});
+	const [guardianInfo, setGuardianInfo] = useState({
+		firstName: "",
+		lastName: "",
+		phone: "",
+		email: "",
+		photoUrl: "",
+	});
+	const [authorizedPickups, setAuthorizedPickups] = useState([]);
+	const [childPhoto, setChildPhoto] = useState(null);
+	const [guardianPhoto, setGuardianPhoto] = useState(null);
+	const [qrCodeUrl, setQrCodeUrl] = useState("");
+	const [checkinComplete, setCheckinComplete] = useState(false);
+
+	// Refs for camera elements
+	const childVideoRef = useRef(null);
+	const childCanvasRef = useRef(null);
+	const guardianVideoRef = useRef(null);
+	const guardianCanvasRef = useRef(null);
+
+	// Function to handle session creation
+	const handleCreateSession = async (e) => {
+		e.preventDefault();
+		try {
+			const sessionData = {
+				name: e.target.sessionName.value,
+				churchOrganizationId: organization,
+				startTime: new Date(),
+				updatedAt: new Date(),
+			};
+			const newSession =
+				await childCheckinService.createCheckinSession(sessionData);
+			setSessions([...sessions, newSession]);
+			setActiveSession(newSession);
+			toast({
+				title: "Session Created",
+				description: `Session "${newSession.name}" has been created successfully.`,
+			});
+			setActiveTab("child");
+		} catch (error) {
+			toast({
+				title: "Error",
+				description: "Failed to create session. Please try again.",
+				variant: "destructive",
+			});
+		}
+	};
+
+	// Function to handle child info update
+	const handleChildInfoChange = (e) => {
+		const { name, value } = e.target;
+		setChildInfo({
+			...childInfo,
+			[name]: value,
+		});
+	};
+
+	// Function to handle guardian info update
+	const handleGuardianInfoChange = (e) => {
+		const { name, value } = e.target;
+		setGuardianInfo({
+			...guardianInfo,
+			[name]: value,
+		});
+	};
+
+	// Function to start camera for child
+	const startChildCamera = async () => {
+		try {
+			if (childVideoRef.current) {
+				const stream = await navigator.mediaDevices.getUserMedia({
+					video: true,
+				});
+				childVideoRef.current.srcObject = stream;
+			}
+		} catch (err) {
+			console.error("Error accessing camera:", err);
+			toast({
+				title: "Camera Error",
+				description: "Could not access camera. Please check permissions.",
+				variant: "destructive",
+			});
+		}
+	};
+
+	// Function to start camera for guardian
+	const startGuardianCamera = async () => {
+		try {
+			if (guardianVideoRef.current) {
+				const stream = await navigator.mediaDevices.getUserMedia({
+					video: true,
+				});
+				guardianVideoRef.current.srcObject = stream;
+			}
+		} catch (err) {
+			console.error("Error accessing camera:", err);
+			toast({
+				title: "Camera Error",
+				description: "Could not access camera. Please check permissions.",
+				variant: "destructive",
+			});
+		}
+	};
+
+	// Function to capture child photo
+	const captureChildPhoto = () => {
+		if (childVideoRef.current && childCanvasRef.current) {
+			const video = childVideoRef.current;
+			const canvas = childCanvasRef.current;
+			const context = canvas.getContext("2d");
+
+			// Set canvas dimensions to match video
+			canvas.width = video.videoWidth;
+			canvas.height = video.videoHeight;
+
+			// Draw video frame to canvas
+			context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+			// Get data URL from canvas
+			const photoDataUrl = canvas.toDataURL("image/jpeg");
+			setChildPhoto(photoDataUrl);
+			setChildInfo({
+				...childInfo,
+				photoUrl: photoDataUrl,
+			});
+
+			// Stop the camera stream
+			const stream = video.srcObject;
+			if (stream) {
+				const tracks = stream.getTracks();
+				tracks.forEach((track) => track.stop());
+				video.srcObject = null;
+			}
+		}
+	};
+
+	// Function to capture guardian photo
+	const captureGuardianPhoto = () => {
+		if (guardianVideoRef.current && guardianCanvasRef.current) {
+			const video = guardianVideoRef.current;
+			const canvas = guardianCanvasRef.current;
+			const context = canvas.getContext("2d");
+
+			// Set canvas dimensions to match video
+			canvas.width = video.videoWidth;
+			canvas.height = video.videoHeight;
+
+			// Draw video frame to canvas
+			context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+			// Get data URL from canvas
+			const photoDataUrl = canvas.toDataURL("image/jpeg");
+			setGuardianPhoto(photoDataUrl);
+			setGuardianInfo({
+				...guardianInfo,
+				photoUrl: photoDataUrl,
+			});
+
+			// Stop the camera stream
+			const stream = video.srcObject;
+			if (stream) {
+				const tracks = stream.getTracks();
+				tracks.forEach((track) => track.stop());
+				video.srcObject = null;
+			}
+		}
+	};
+
+	// Function to add authorized pickup person
+	const handleAddAuthorizedPickup = (e) => {
+		e.preventDefault();
+		const newPickup = {
+			firstName: e.target.firstName.value,
+			lastName: e.target.lastName.value,
+			relationship: e.target.relationship.value,
+			id: Date.now().toString(), // Add unique ID for key prop
+		};
+		setAuthorizedPickups([...authorizedPickups, newPickup]);
+		e.target.reset();
+	};
+
+	// Function to complete checkin process
+	const handleCompleteCheckin = async () => {
+		try {
+			// Create child record
+			const childData = {
+				...childInfo,
+				churchOrganizationId: organization,
+				updatedAt: new Date(),
+			};
+			const newChild = await childCheckinService.createChild(childData);
+
+			// Create guardian record
+			const guardianData = {
+				...guardianInfo,
+				churchOrganizationId: organization,
+				updatedAt: new Date(),
+			};
+			const newGuardian =
+				await childCheckinService.createGuardian(guardianData);
+
+			// Link child to guardian
+			await childCheckinService.linkChildToGuardian({
+				childId: newChild.id,
+				guardianId: newGuardian.id,
+				relationship: "parent",
+				updatedAt: new Date(),
+			});
+
+			// Create checkin record
+			const checkinData = {
+				childId: newChild.id,
+				sessionId: activeSession.id,
+				checkedInByGuardianId: newGuardian.id,
+				updatedAt: new Date(),
+			};
+			const newCheckin = await childCheckinService.checkinChild(checkinData);
+
+			// Add authorized pickup persons if any
+			for (const pickup of authorizedPickups) {
+				await childCheckinService.addAuthorizedPickupPerson({
+					firstName: pickup.firstName,
+					lastName: pickup.lastName,
+					relationship: pickup.relationship,
+					childCheckinId: newCheckin.id,
+					updatedAt: new Date(),
+				});
+			}
+
+			// Generate QR code URL
+			const qrUrl = `${window.location.origin}/churches/${organization}/childcheckin/verify/${newCheckin.secureId}`;
+			setQrCodeUrl(qrUrl);
+
+			// Send text message with QR code if phone number provided
+			if (guardianInfo.phone) {
+				// This would be implemented with a messaging service
+				console.log(`Sending QR code to ${guardianInfo.phone}: ${qrUrl}`);
+			}
+
+			setCheckinComplete(true);
+			setActiveTab("complete");
+
+			toast({
+				title: "Check-in Complete",
+				description: "Child has been successfully checked in.",
+			});
+		} catch (error) {
+			toast({
+				title: "Error",
+				description: "Failed to complete check-in. Please try again.",
+				variant: "destructive",
+			});
+		}
+	};
+
+	return (
+		<div className="container mx-auto py-8">
+			<h1 className="text-3xl font-bold mb-6">Child Check-in</h1>
+
+			<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+				<TabsList className="grid w-full grid-cols-4">
+					<TabsTrigger value="session">Session</TabsTrigger>
+					<TabsTrigger value="child" disabled={!activeSession}>
+						Child Info
+					</TabsTrigger>
+					<TabsTrigger value="guardian" disabled={!childInfo.firstName}>
+						Guardian Info
+					</TabsTrigger>
+					<TabsTrigger value="complete" disabled={!checkinComplete}>
+						Complete
+					</TabsTrigger>
+				</TabsList>
+
+				{/* Session Tab */}
+				<TabsContent value="session">
+					<Card>
+						<CardHeader>
+							<CardTitle>Check-in Session</CardTitle>
+							<CardDescription>
+								Create a new check-in session or select an existing one.
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<form onSubmit={handleCreateSession} className="space-y-4">
+								<div className="space-y-2">
+									<Label htmlFor="sessionName">Session Name</Label>
+									<Input
+										id="sessionName"
+										name="sessionName"
+										placeholder="e.g., Sunday School - June 2, 2024"
+										required
+									/>
+								</div>
+								<Button type="submit">Create Session</Button>
+							</form>
+
+							{sessions.length > 0 && (
+								<div className="mt-6">
+									<h3 className="text-lg font-medium mb-2">Active Sessions</h3>
+									<div className="space-y-2">
+										{sessions.map((session) => (
+											<Card
+												key={session.id}
+												className={`p-4 cursor-pointer ${activeSession?.id === session.id ? "border-primary" : ""}`}
+												onClick={() => setActiveSession(session)}
+											>
+												<div className="font-medium">{session.name}</div>
+												<div className="text-sm text-muted-foreground">
+													Started:{" "}
+													{new Date(session.startTime).toLocaleString()}
+												</div>
+											</Card>
+										))}
+									</div>
+								</div>
+							)}
+						</CardContent>
+						<CardFooter>
+							<Button
+								onClick={() => activeSession && setActiveTab("child")}
+								disabled={!activeSession}
+							>
+								Next: Child Information
+							</Button>
+						</CardFooter>
+					</Card>
+				</TabsContent>
+
+				{/* Child Info Tab */}
+				<TabsContent value="child">
+					<Card>
+						<CardHeader>
+							<CardTitle>Child Information</CardTitle>
+							<CardDescription>
+								Enter the child's details and take a photo.
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+								<div className="space-y-4">
+									<div className="space-y-2">
+										<Label htmlFor="firstName">First Name</Label>
+										<Input
+											id="firstName"
+											name="firstName"
+											value={childInfo.firstName}
+											onChange={handleChildInfoChange}
+											required
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="lastName">Last Name</Label>
+										<Input
+											id="lastName"
+											name="lastName"
+											value={childInfo.lastName}
+											onChange={handleChildInfoChange}
+											required
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="dateOfBirth">Date of Birth</Label>
+										<Input
+											id="dateOfBirth"
+											name="dateOfBirth"
+											type="date"
+											value={childInfo.dateOfBirth}
+											onChange={handleChildInfoChange}
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="allergies">Allergies</Label>
+										<Input
+											id="allergies"
+											name="allergies"
+											value={childInfo.allergies}
+											onChange={handleChildInfoChange}
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="specialNotes">Special Notes</Label>
+										<Textarea
+											id="specialNotes"
+											name="specialNotes"
+											value={childInfo.specialNotes}
+											onChange={handleChildInfoChange}
+										/>
+									</div>
+								</div>
+								<div className="space-y-4">
+									<div className="space-y-2">
+										<Label>Child's Photo</Label>
+										{childPhoto ? (
+											<div className="relative">
+												<img
+													src={childPhoto}
+													alt="Child"
+													className="w-full h-64 object-cover rounded-md"
+												/>
+												<Button
+													variant="outline"
+													size="sm"
+													className="absolute top-2 right-2"
+													onClick={() => setChildPhoto(null)}
+												>
+													Retake
+												</Button>
+											</div>
+										) : (
+											<div className="border rounded-md p-4">
+												<video
+													ref={childVideoRef}
+													autoPlay
+													playsInline
+													className="w-full h-64 object-cover"
+													onLoadedMetadata={() => console.log("Camera ready")}
+												/>
+												<canvas
+													ref={childCanvasRef}
+													style={{ display: "none" }}
+												/>
+												<div className="flex space-x-2 mt-2">
+													<Button className="flex-1" onClick={startChildCamera}>
+														Start Camera
+													</Button>
+													<Button
+														className="flex-1"
+														onClick={captureChildPhoto}
+													>
+														Take Photo
+													</Button>
+												</div>
+											</div>
+										)}
+									</div>
+								</div>
+							</div>
+						</CardContent>
+						<CardFooter className="flex justify-between">
+							<Button variant="outline" onClick={() => setActiveTab("session")}>
+								Back
+							</Button>
+							<Button
+								onClick={() => {
+									if (childInfo.firstName && childInfo.lastName) {
+										setActiveTab("guardian");
+									} else {
+										toast({
+											title: "Required Fields",
+											description:
+												"Please enter the child's first and last name.",
+											variant: "destructive",
+										});
+									}
+								}}
+							>
+								Next: Guardian Information
+							</Button>
+						</CardFooter>
+					</Card>
+				</TabsContent>
+
+				{/* Guardian Info Tab */}
+				<TabsContent value="guardian">
+					<Card>
+						<CardHeader>
+							<CardTitle>Guardian Information</CardTitle>
+							<CardDescription>
+								Enter the guardian's details and take a photo.
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+								<div className="space-y-4">
+									<div className="space-y-2">
+										<Label htmlFor="guardianFirstName">First Name</Label>
+										<Input
+											id="guardianFirstName"
+											name="firstName"
+											value={guardianInfo.firstName}
+											onChange={handleGuardianInfoChange}
+											required
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="guardianLastName">Last Name</Label>
+										<Input
+											id="guardianLastName"
+											name="lastName"
+											value={guardianInfo.lastName}
+											onChange={handleGuardianInfoChange}
+											required
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="phone">Phone Number</Label>
+										<Input
+											id="phone"
+											name="phone"
+											type="tel"
+											value={guardianInfo.phone}
+											onChange={handleGuardianInfoChange}
+											placeholder="For QR code text message"
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="email">Email</Label>
+										<Input
+											id="email"
+											name="email"
+											type="email"
+											value={guardianInfo.email}
+											onChange={handleGuardianInfoChange}
+										/>
+									</div>
+								</div>
+								<div className="space-y-4">
+									<div className="space-y-2">
+										<Label>Guardian's Photo</Label>
+										{guardianPhoto ? (
+											<div className="relative">
+												<img
+													src={guardianPhoto}
+													alt="Guardian"
+													className="w-full h-64 object-cover rounded-md"
+												/>
+												<Button
+													variant="outline"
+													size="sm"
+													className="absolute top-2 right-2"
+													onClick={() => setGuardianPhoto(null)}
+												>
+													Retake
+												</Button>
+											</div>
+										) : (
+											<div className="border rounded-md p-4">
+												<video
+													ref={guardianVideoRef}
+													autoPlay
+													playsInline
+													className="w-full h-64 object-cover"
+													onLoadedMetadata={() => console.log("Camera ready")}
+												/>
+												<canvas
+													ref={guardianCanvasRef}
+													style={{ display: "none" }}
+												/>
+												<div className="flex space-x-2 mt-2">
+													<Button
+														className="flex-1"
+														onClick={startGuardianCamera}
+													>
+														Start Camera
+													</Button>
+													<Button
+														className="flex-1"
+														onClick={captureGuardianPhoto}
+													>
+														Take Photo
+													</Button>
+												</div>
+											</div>
+										)}
+									</div>
+								</div>
+							</div>
+
+							<div className="mt-8">
+								<h3 className="text-lg font-medium mb-4">
+									Authorized Pickup Persons (Optional)
+								</h3>
+								<form
+									onSubmit={handleAddAuthorizedPickup}
+									className="grid grid-cols-1 md:grid-cols-3 gap-4"
+								>
+									<div className="space-y-2">
+										<Label htmlFor="pickupFirstName">First Name</Label>
+										<Input id="pickupFirstName" name="firstName" required />
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="pickupLastName">Last Name</Label>
+										<Input id="pickupLastName" name="lastName" required />
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="relationship">Relationship</Label>
+										<Input
+											id="relationship"
+											name="relationship"
+											placeholder="e.g., Grandparent"
+											required
+										/>
+									</div>
+									<Button type="submit" className="md:col-span-3">
+										Add Pickup Person
+									</Button>
+								</form>
+
+								{authorizedPickups.length > 0 && (
+									<div className="mt-4">
+										<h4 className="font-medium mb-2">Added Pickup Persons:</h4>
+										<ul className="space-y-2">
+											{authorizedPickups.map((person) => (
+												<li
+													key={person.id}
+													className="flex justify-between items-center p-2 border rounded-md"
+												>
+													<span>
+														{person.firstName} {person.lastName} (
+														{person.relationship})
+													</span>
+													<Button
+														variant="ghost"
+														size="sm"
+														onClick={() => {
+															const updatedPickups = authorizedPickups.filter(
+																(p) => p.id !== person.id,
+															);
+															setAuthorizedPickups(updatedPickups);
+														}}
+													>
+														Remove
+													</Button>
+												</li>
+											))}
+										</ul>
+									</div>
+								)}
+							</div>
+						</CardContent>
+						<CardFooter className="flex justify-between">
+							<Button variant="outline" onClick={() => setActiveTab("child")}>
+								Back
+							</Button>
+							<Button
+								onClick={() => {
+									if (guardianInfo.firstName && guardianInfo.lastName) {
+										handleCompleteCheckin();
+									} else {
+										toast({
+											title: "Required Fields",
+											description:
+												"Please enter the guardian's first and last name.",
+											variant: "destructive",
+										});
+									}
+								}}
+							>
+								Complete Check-in
+							</Button>
+						</CardFooter>
+					</Card>
+				</TabsContent>
+
+				{/* Complete Tab */}
+				<TabsContent value="complete">
+					<Card>
+						<CardHeader>
+							<CardTitle>Check-in Complete</CardTitle>
+							<CardDescription>
+								The child has been successfully checked in.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="flex flex-col items-center">
+							<div className="text-center mb-6">
+								<h2 className="text-2xl font-bold">
+									{childInfo.firstName} {childInfo.lastName}
+								</h2>
+								<p className="text-muted-foreground">
+									Checked in by: {guardianInfo.firstName}{" "}
+									{guardianInfo.lastName}
+								</p>
+							</div>
+
+							<div className="bg-white p-4 rounded-md shadow-md mb-6">
+								<QRCodeSVG value={qrCodeUrl} size={200} />
+							</div>
+
+							<div className="text-center mb-6">
+								<p>Scan this QR code for easy check-out.</p>
+								{guardianInfo.phone && (
+									<p className="text-sm text-muted-foreground mt-2">
+										A link to this QR code has been sent to {guardianInfo.phone}
+										.
+									</p>
+								)}
+							</div>
+
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+								<div>
+									<h3 className="font-medium mb-2">Child Information:</h3>
+									<div className="space-y-1 text-sm">
+										<p>
+											<span className="font-medium">Name:</span>{" "}
+											{childInfo.firstName} {childInfo.lastName}
+										</p>
+										{childInfo.dateOfBirth && (
+											<p>
+												<span className="font-medium">Date of Birth:</span>{" "}
+												{childInfo.dateOfBirth}
+											</p>
+										)}
+										{childInfo.allergies && (
+											<p>
+												<span className="font-medium">Allergies:</span>{" "}
+												{childInfo.allergies}
+											</p>
+										)}
+										{childInfo.specialNotes && (
+											<p>
+												<span className="font-medium">Special Notes:</span>{" "}
+												{childInfo.specialNotes}
+											</p>
+										)}
+									</div>
+								</div>
+								<div>
+									<h3 className="font-medium mb-2">Guardian Information:</h3>
+									<div className="space-y-1 text-sm">
+										<p>
+											<span className="font-medium">Name:</span>{" "}
+											{guardianInfo.firstName} {guardianInfo.lastName}
+										</p>
+										{guardianInfo.phone && (
+											<p>
+												<span className="font-medium">Phone:</span>{" "}
+												{guardianInfo.phone}
+											</p>
+										)}
+										{guardianInfo.email && (
+											<p>
+												<span className="font-medium">Email:</span>{" "}
+												{guardianInfo.email}
+											</p>
+										)}
+									</div>
+
+									{authorizedPickups.length > 0 && (
+										<div className="mt-4">
+											<h3 className="font-medium mb-2">
+												Authorized Pickup Persons:
+											</h3>
+											<ul className="space-y-1 text-sm">
+												{authorizedPickups.map((person) => (
+													<li key={person.id}>
+														{person.firstName} {person.lastName} (
+														{person.relationship})
+													</li>
+												))}
+											</ul>
+										</div>
+									)}
+								</div>
+							</div>
+						</CardContent>
+						<CardFooter className="flex justify-between">
+							<Button
+								variant="outline"
+								onClick={() => {
+									// Reset form for a new check-in
+									setChildInfo({
+										firstName: "",
+										lastName: "",
+										dateOfBirth: "",
+										allergies: "",
+										specialNotes: "",
+										photoUrl: "",
+									});
+									setGuardianInfo({
+										firstName: "",
+										lastName: "",
+										phone: "",
+										email: "",
+										photoUrl: "",
+									});
+									setChildPhoto(null);
+									setGuardianPhoto(null);
+									setAuthorizedPickups([]);
+									setQrCodeUrl("");
+									setCheckinComplete(false);
+									setActiveTab("child");
+								}}
+							>
+								Check in Another Child
+							</Button>
+							<Button
+								onClick={() =>
+									navigate(`/churches/${organization}/childcheckin/list`)
+								}
+							>
+								View All Check-ins
+							</Button>
+						</CardFooter>
+					</Card>
+				</TabsContent>
+			</Tabs>
+		</div>
+	);
+}
