@@ -26,13 +26,13 @@ import SearchBar from "./SearchBar";
 
 export const navigation = [
 	{ name: "Churches", href: "/churches", current: true, icon: ChurchIcon },
-	{
-		name: "Missionaries",
-		href: "/missionaries",
-		current: false,
-		icon: PersonStanding,
-	},
-	{ name: "Missions", href: "/missions", current: false, icon: Globe },
+	// {
+	// 	name: "Missionaries",
+	// 	href: "/missionaries",
+	// 	current: false,
+	// 	icon: PersonStanding,
+	// },
+	// { name: "Missions", href: "/missions", current: false, icon: Globe },
 ];
 
 export default function Header() {

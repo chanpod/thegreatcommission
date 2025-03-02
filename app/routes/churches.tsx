@@ -50,14 +50,8 @@ const Churches = () => {
 						/>
 						<Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
 
-						<button
-							type="button"
-							className="p-2 rounded-full hover:bg-gray-200"
-						>
-							<Bell className="h-5 w-5 text-gray-600" />
-						</button>
 						{isLoggedIn && (
-							<Link to="/churches/create">
+							<Link to="/getting-started">
 								<Button className="flex items-center gap-1">
 									<Plus className="h-4 w-4" />
 									<span>Create</span>
