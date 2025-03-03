@@ -348,6 +348,7 @@ export const messageTracker = pgTable("message_tracker", {
 		.references(() => churchOrganization.id),
 	messageType: text("message_type").notNull(), // "sms", "phone", "email"
 	recipientId: text("recipient_id").references(() => users.id),
+	guardianId: text("guardian_id").references(() => guardiansTable.id),
 	recipientPhone: text("recipient_phone"),
 	recipientEmail: text("recipient_email"),
 	sentByUserId: text("sent_by_user_id").references(() => users.id),

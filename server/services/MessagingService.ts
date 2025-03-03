@@ -1,13 +1,14 @@
 import sgMail from "@sendgrid/mail";
 import twilio from "twilio";
 import { db } from "@/server/db/dbConnection";
-import { users, churchOrganization } from "@/server/db/schema";
+import { users, churchOrganization, guardiansTable } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { MessageTrackerService } from "./MessageTrackerService";
 
 // Interface for recipient data
 export interface MessageRecipient {
-	userId: string;
+	userId?: string;
+	guardianId?: string;
 	email?: string;
 	phone?: string;
 	firstName?: string;
@@ -73,8 +74,8 @@ export const MessagingService = {
 	},
 
 	/**
-	 * Fetch user data if only userId is provided
-	 * @param recipient Recipient with at least userId
+	 * Fetch user data if only userId is provided, or guardian data if only guardianId is provided
+	 * @param recipient Recipient with at least userId or guardianId
 	 */
 	async enrichRecipientData(
 		recipient: MessageRecipient,
@@ -83,24 +84,51 @@ export const MessagingService = {
 			return recipient; // Already has all needed data
 		}
 
-		// Fetch user data
-		const user = await db
-			.select()
-			.from(users)
-			.where(eq(users.id, recipient.userId))
-			.then((res) => res[0]);
+		// First check if we have a userId
+		if (recipient.userId) {
+			// Fetch user data
+			const user = await db
+				.select()
+				.from(users)
+				.where(eq(users.id, recipient.userId))
+				.then((res) => res[0]);
 
-		if (!user) {
-			throw new Error(`User with ID ${recipient.userId} not found`);
+			if (!user) {
+				throw new Error(`User with ID ${recipient.userId} not found`);
+			}
+
+			return {
+				userId: recipient.userId,
+				email: recipient.email || user.email,
+				phone: recipient.phone || user.phone,
+				firstName: recipient.firstName || user.firstName,
+				lastName: recipient.lastName || user.lastName,
+			};
 		}
 
-		return {
-			userId: recipient.userId,
-			email: recipient.email || user.email,
-			phone: recipient.phone || user.phone,
-			firstName: recipient.firstName || user.firstName,
-			lastName: recipient.lastName || user.lastName,
-		};
+		// Then check if we have a guardianId
+		if (recipient.guardianId) {
+			// Fetch guardian data
+			const guardian = await db
+				.select()
+				.from(guardiansTable)
+				.where(eq(guardiansTable.id, recipient.guardianId))
+				.then((res) => res[0]);
+
+			if (!guardian) {
+				throw new Error(`Guardian with ID ${recipient.guardianId} not found`);
+			}
+
+			return {
+				guardianId: recipient.guardianId,
+				email: recipient.email || guardian.email,
+				phone: recipient.phone || guardian.phone,
+				firstName: recipient.firstName || guardian.firstName,
+				lastName: recipient.lastName || guardian.lastName,
+			};
+		}
+
+		throw new Error("Either userId or guardianId must be provided");
 	},
 
 	/**
@@ -168,6 +196,7 @@ export const MessagingService = {
 				churchOrganizationId: data.churchOrganizationId,
 				messageType: "email",
 				recipientId: recipient.userId,
+				guardianId: recipient.guardianId,
 				recipientEmail: recipient.email,
 				sentByUserId: data.senderUserId,
 				messageContent: personalizedMessage,
@@ -189,6 +218,7 @@ export const MessagingService = {
 				churchOrganizationId: data.churchOrganizationId,
 				messageType: "email",
 				recipientId: recipient.userId,
+				guardianId: recipient.guardianId,
 				recipientEmail: recipient.email,
 				sentByUserId: data.senderUserId,
 				messageContent: data.message,
@@ -243,6 +273,7 @@ export const MessagingService = {
 				churchOrganizationId: data.churchOrganizationId,
 				messageType: "sms",
 				recipientId: recipient.userId,
+				guardianId: recipient.guardianId,
 				recipientPhone: formattedPhone,
 				sentByUserId: data.senderUserId,
 				messageContent: personalizedMessage,
@@ -264,6 +295,7 @@ export const MessagingService = {
 				churchOrganizationId: data.churchOrganizationId,
 				messageType: "sms",
 				recipientId: recipient.userId,
+				guardianId: recipient.guardianId,
 				recipientPhone: recipient.phone,
 				sentByUserId: data.senderUserId,
 				messageContent: data.message,
@@ -321,6 +353,7 @@ export const MessagingService = {
 				churchOrganizationId: data.churchOrganizationId,
 				messageType: "phone",
 				recipientId: recipient.userId,
+				guardianId: recipient.guardianId,
 				recipientPhone: formattedPhone,
 				sentByUserId: data.senderUserId,
 				messageContent: personalizedMessage,
@@ -341,6 +374,7 @@ export const MessagingService = {
 				churchOrganizationId: data.churchOrganizationId,
 				messageType: "phone",
 				recipientId: recipient.userId,
+				guardianId: recipient.guardianId,
 				recipientPhone: recipient.phone,
 				sentByUserId: data.senderUserId,
 				messageContent: data.message,

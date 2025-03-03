@@ -13,16 +13,20 @@ import {
 	type NewChildCheckin,
 	type NewAuthorizedPickupPerson,
 } from "../../server/db/childCheckin";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 
 export class ChildCheckinService {
 	// Child management
 	async createChild(childData: NewChild) {
-		const [child] = await db
+		const child = await db
 			.insert(childrenTable)
-			.values(childData)
+			.values({
+				...childData,
+				updatedAt: new Date(),
+			})
 			.returning();
-		return child;
+
+		return child[0];
 	}
 
 	async getChildById(childId: string) {
@@ -72,21 +76,22 @@ export class ChildCheckinService {
 	}
 
 	async getGuardiansForChild(childId: string) {
-		const relations = await db.query.childrenToGuardiansTable.findMany({
-			where: eq(childrenToGuardiansTable.childId, childId),
-			with: {
-				guardian: true,
-			},
-		});
+		const relations = await db
+			.select()
+			.from(childrenToGuardiansTable)
+			.innerJoin(
+				guardiansTable,
+				eq(childrenToGuardiansTable.guardianId, guardiansTable.id),
+			)
+			.where(eq(childrenToGuardiansTable.childId, childId))
+			.then((res) => res.map((r) => r.guardians));
+
 		return relations;
 	}
 
 	async getChildrenForGuardian(guardianId: string) {
 		const relations = await db.query.childrenToGuardiansTable.findMany({
 			where: eq(childrenToGuardiansTable.guardianId, guardianId),
-			with: {
-				child: true,
-			},
 		});
 		return relations;
 	}
@@ -110,6 +115,18 @@ export class ChildCheckinService {
 		return sessions;
 	}
 
+	async updateSessionName(sessionId: string, newName: string) {
+		const [updatedSession] = await db
+			.update(checkinSessionsTable)
+			.set({
+				name: newName,
+				updatedAt: new Date(),
+			})
+			.where(eq(checkinSessionsTable.id, sessionId))
+			.returning();
+		return updatedSession;
+	}
+
 	// Child checkin management
 	async checkinChild(checkinData: NewChildCheckin) {
 		const [checkin] = await db
@@ -123,16 +140,125 @@ export class ChildCheckinService {
 	}
 
 	async getActiveCheckins(sessionId: string) {
-		const checkins = await db.query.childCheckinsTable.findMany({
-			where: and(
-				eq(childCheckinsTable.sessionId, sessionId),
-				isNull(childCheckinsTable.checkoutTime),
-			),
-			with: {
-				child: true,
-			},
-		});
-		return checkins;
+		const checkins = await db
+			.select()
+			.from(childCheckinsTable)
+			.innerJoin(
+				childrenTable,
+				eq(childCheckinsTable.childId, childrenTable.id),
+			)
+			.where(
+				and(
+					eq(childCheckinsTable.sessionId, sessionId),
+					isNull(childCheckinsTable.checkoutTime),
+				),
+			);
+
+		// Transform the joined results to match expected format
+		const formattedCheckins = checkins.map((row) => ({
+			...row.child_checkins,
+			child: row.children,
+		}));
+
+		return formattedCheckins;
+	}
+
+	async getCheckedOutChildrenToday(sessionId: string) {
+		// Create start of today date
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		const checkins = await db
+			.select()
+			.from(childCheckinsTable)
+			.innerJoin(
+				childrenTable,
+				eq(childCheckinsTable.childId, childrenTable.id),
+			)
+			.where(
+				and(
+					eq(childCheckinsTable.sessionId, sessionId),
+					eq(childCheckinsTable.status, "checked-out"),
+					// Only get checkins from today
+					sql`${childCheckinsTable.checkoutTime} >= ${today}`,
+				),
+			);
+
+		// Transform the joined results to match expected format
+		const formattedCheckins = checkins.map((row) => ({
+			...row.child_checkins,
+			child: row.children,
+		}));
+
+		return formattedCheckins;
+	}
+
+	async getActiveCheckinsCount(sessionId: string) {
+		const count = await db
+			.select({ count: sql`count(*)` })
+			.from(childCheckinsTable)
+			.where(
+				and(
+					eq(childCheckinsTable.sessionId, sessionId),
+					isNull(childCheckinsTable.checkoutTime),
+				),
+			);
+
+		return Number(count[0]?.count || 0);
+	}
+
+	async getTotalActiveCheckinsForOrganization(churchOrganizationId: string) {
+		// First get all active sessions for this organization
+		const activeSessions =
+			await this.getActiveCheckinSessions(churchOrganizationId);
+
+		// If no active sessions, return 0
+		if (activeSessions.length === 0) {
+			return 0;
+		}
+
+		// Get the count of active check-ins across all sessions
+		const count = await db
+			.select({ count: sql`count(*)` })
+			.from(childCheckinsTable)
+			.innerJoin(
+				checkinSessionsTable,
+				eq(childCheckinsTable.sessionId, checkinSessionsTable.id),
+			)
+			.where(
+				and(
+					eq(checkinSessionsTable.churchOrganizationId, churchOrganizationId),
+					eq(checkinSessionsTable.isActive, true),
+					isNull(childCheckinsTable.checkoutTime),
+				),
+			);
+
+		return Number(count[0]?.count || 0);
+	}
+
+	async getWeeklyChildrenCount(churchOrganizationId: string) {
+		// Create date for 7 days ago
+		const weekAgo = new Date();
+		weekAgo.setDate(weekAgo.getDate() - 7);
+
+		// Get all check-ins from the past week (unique children)
+		const result = await db
+			.select({
+				uniqueChildrenCount: sql`COUNT(DISTINCT ${childCheckinsTable.childId})`,
+			})
+			.from(childCheckinsTable)
+			.innerJoin(
+				checkinSessionsTable,
+				eq(childCheckinsTable.sessionId, checkinSessionsTable.id),
+			)
+			.where(
+				and(
+					eq(checkinSessionsTable.churchOrganizationId, churchOrganizationId),
+					sql`${childCheckinsTable.checkinTime} >= ${weekAgo}`,
+				),
+			);
+
+		return Number(result[0]?.uniqueChildrenCount || 0);
 	}
 
 	async checkoutChild(checkinId: string, guardianId: string) {
@@ -169,9 +295,6 @@ export class ChildCheckinService {
 	async verifyCheckinBySecureId(secureId: string) {
 		const checkin = await db.query.childCheckinsTable.findFirst({
 			where: eq(childCheckinsTable.secureId, secureId),
-			with: {
-				child: true,
-			},
 		});
 		return checkin;
 	}

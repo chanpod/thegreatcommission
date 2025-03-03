@@ -60,6 +60,8 @@
 ## Important Notes
 - All route imports should use 'react-router' instead of '@remix-run/react'
 - Uses React Router 7's new Data APIs and patterns
+- Use react router framework mode.
+- never use remix-run
 - Uses modern React patterns (hooks, context, etc.)
 - Implements a permission-based access control system
 - Supports nested layouts and dynamic routes
@@ -71,3 +73,4 @@
 - TypeScript for type checking
 - ESLint for code linting
 - Prettier for code formatting
+- Assume the dev server is already running if you want to check a route

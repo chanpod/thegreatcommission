@@ -6,6 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { Outlet, useLoaderData } from "react-router";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import { OrgDescription } from "~/src/components/organizations/OrgDescription";
+import { childCheckinService } from "~/services/ChildCheckinService";
 
 export const loader = createAuthLoader(async ({ params }) => {
 	const organizationDataService = new OrganizationDataService();
@@ -35,6 +36,17 @@ export const loader = createAuthLoader(async ({ params }) => {
 		.innerJoin(teams, eq(teams.id, usersToTeams.teamId))
 		.where(eq(teams.churchOrganizationId, params.organization));
 
+	// Get total active check-ins for this organization
+	const checkedInChildren =
+		await childCheckinService.getTotalActiveCheckinsForOrganization(
+			params.organization,
+		);
+
+	// Get total unique children checked in this week
+	const weeklyChildrenCount = await childCheckinService.getWeeklyChildrenCount(
+		params.organization,
+	);
+
 	const analytics = {
 		totalMembers: members.length,
 		totalTeams: orgTeams.length,
@@ -43,6 +55,8 @@ export const loader = createAuthLoader(async ({ params }) => {
 		membersInTeams: new Set(
 			teamMemberships.map((tm) => tm.users_to_teams.userId),
 		).size,
+		checkedInChildren,
+		weeklyChildrenCount,
 	};
 
 	return {

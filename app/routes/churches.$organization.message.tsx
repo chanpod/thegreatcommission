@@ -1,10 +1,10 @@
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { churchOrganization, users } from "@/server/db/schema";
+import { churchOrganization, users, guardiansTable } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db/dbConnection";
 import {
 	MessagingService,
-	MessageRecipient,
+	type MessageRecipient,
 } from "@/server/services/MessagingService";
 
 export const action = createAuthLoader(
@@ -19,31 +19,52 @@ export const action = createAuthLoader(
 			? JSON.parse(formData.get("format") as string)
 			: undefined;
 
-		// Get all recipientIds entries and extract just the IDs
-		const recipientIds = formData.getAll("recipientIds[]").map((id) => {
-			// Extract just the ID portion after "user:" or "team:"
+		// Get all recipientIds entries and extract the type and ID
+		const recipientEntries = formData.getAll("recipientIds[]").map((id) => {
+			// Extract the type (user/guardian) and ID
 			const [type, actualId] = (id as string).split(":");
-			return actualId;
+			return { type, id: actualId };
 		});
 
 		// Prepare recipients array
 		const recipients: MessageRecipient[] = [];
-		for (const userId of recipientIds) {
-			const user = await db
-				.select()
-				.from(users)
-				.where(eq(users.id, userId))
-				.then((res) => res[0]);
 
-			if (!user) continue;
+		for (const entry of recipientEntries) {
+			if (entry.type === "user") {
+				// Handle users
+				const user = await db
+					.select()
+					.from(users)
+					.where(eq(users.id, entry.id))
+					.then((res) => res[0]);
 
-			recipients.push({
-				userId,
-				email: user.email,
-				phone: user.phone,
-				firstName: user.firstName,
-				lastName: user.lastName,
-			});
+				if (!user) continue;
+
+				recipients.push({
+					userId: entry.id,
+					email: user.email,
+					phone: user.phone,
+					firstName: user.firstName,
+					lastName: user.lastName,
+				});
+			} else if (entry.type === "guardian") {
+				// Handle guardians
+				const guardian = await db
+					.select()
+					.from(guardiansTable)
+					.where(eq(guardiansTable.id, entry.id))
+					.then((res) => res[0]);
+
+				if (!guardian) continue;
+
+				recipients.push({
+					guardianId: guardian.userId,
+					email: guardian.email,
+					phone: guardian.phone,
+					firstName: guardian.firstName,
+					lastName: guardian.lastName,
+				});
+			}
 		}
 
 		// Prepare message data
@@ -54,7 +75,7 @@ export const action = createAuthLoader(
 			subject,
 			templateId,
 			format,
-			senderUserId: userContext.user.id,
+			senderUserId: String(userContext.user.id),
 		};
 
 		// Send the message
