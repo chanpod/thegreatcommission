@@ -37,11 +37,6 @@ export default function Index() {
 	const [isLocating, setIsLocating] = useState(false);
 	const [showMap, setShowMap] = useState(false);
 
-	useEffect(() => {
-		// Request user's location when component mounts
-		getUserLocation();
-	}, []);
-
 	const getUserLocation = () => {
 		if (!("geolocation" in navigator)) {
 			setLocationError("Geolocation is not supported by your browser");
@@ -61,6 +56,7 @@ export default function Index() {
 				});
 				// Set zoom level appropriate for town/city view (typically 11-13)
 				setMapZoom(12);
+				setShowMap(true);
 				setIsLocating(false);
 			},
 			// Error callback
@@ -265,7 +261,9 @@ export default function Index() {
 							<button
 								type="button"
 								className="flex flex-col items-center justify-center p-10 bg-gray-100 rounded-lg w-full cursor-pointer"
-								onClick={() => setShowMap(true)}
+								onClick={() => {
+									getUserLocation();
+								}}
 								aria-label="View missions map"
 							>
 								<MapPin className="h-16 w-16 text-blue-600 mb-4" />
