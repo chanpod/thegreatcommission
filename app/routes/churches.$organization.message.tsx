@@ -6,6 +6,9 @@ import {
 	MessagingService,
 	type MessageRecipient,
 } from "@/server/services/MessagingService";
+import { getUser } from "@/server/dataServices/UserDataService";
+import { getGuardian } from "@/server/dataServices/GuardianDataService";
+import { getUserPreferences } from "@/server/dataServices/UserPreferences";
 
 export const action = createAuthLoader(
 	async ({ request, auth, params, userContext }) => {
@@ -32,11 +35,8 @@ export const action = createAuthLoader(
 		for (const entry of recipientEntries) {
 			if (entry.type === "user") {
 				// Handle users
-				const user = await db
-					.select()
-					.from(users)
-					.where(eq(users.id, entry.id))
-					.then((res) => res[0]);
+				const user = (await getUser({ userId: entry.id })).users;
+				const userPreferences = await getUserPreferences(entry.id);
 
 				if (!user) continue;
 
@@ -46,14 +46,11 @@ export const action = createAuthLoader(
 					phone: user.phone,
 					firstName: user.firstName,
 					lastName: user.lastName,
+					preferences: userPreferences
 				});
 			} else if (entry.type === "guardian") {
 				// Handle guardians
-				const guardian = await db
-					.select()
-					.from(guardiansTable)
-					.where(eq(guardiansTable.id, entry.id))
-					.then((res) => res[0]);
+				const guardian = await getGuardian(entry.id);
 
 				if (!guardian) continue;
 
@@ -86,7 +83,7 @@ export const action = createAuthLoader(
 
 		return {
 			success: true,
-			message: `Messages sent: ${result.summary.success} successful, ${result.summary.failed} failed`,
+			message: `Messages sent: ${result.summary.success} successful, ${result.summary.failed} failed, ${result.summary.skipped} skipped`,
 			details: result,
 		};
 	},

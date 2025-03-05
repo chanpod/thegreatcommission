@@ -13,6 +13,15 @@ export interface MessageRecipient {
 	phone?: string;
 	firstName?: string;
 	lastName?: string;
+	preferences?: {
+		emailNotifications?: boolean;
+		smsNotifications?: boolean;
+		phoneNotifications?: boolean;
+		emailFrequency?: string;
+		smsFrequency?: string;
+		phoneFrequency?: string;
+		notificationTypes?: string[];
+	};
 }
 
 // Interface for message data
@@ -415,13 +424,30 @@ export const MessagingService = {
 		recipients: MessageRecipient[],
 	): Promise<{
 		results: MessageResult[];
-		summary: { success: number; failed: number };
+		summary: { success: number; failed: number; skipped: number };
+		skippedRecipients: Array<{ recipient: MessageRecipient; reason: string }>;
 	}> {
 		const results: MessageResult[] = [];
 		let success = 0;
 		let failed = 0;
+		let skipped = 0;
+		const skippedRecipients: Array<{ recipient: MessageRecipient; reason: string }> = [];
 
 		for (const recipient of recipients) {
+			// Validate if we can send this type of message to this recipient
+			const validationResult = await this.canSendMessageToUser(data.messageType, recipient);
+			
+			if (!validationResult.isAllowed) {
+				console.log(`Skipping message to ${recipient.email || recipient.phone}: ${validationResult.reason}`);
+				skipped++;
+				skippedRecipients.push({
+					recipient,
+					reason: validationResult.reason || 'Unknown reason'
+				});
+				continue;
+			}
+			
+			// Send the message if validation passed
 			const result = await this.sendMessage(data, recipient);
 			results.push(result);
 
@@ -437,7 +463,9 @@ export const MessagingService = {
 			summary: {
 				success,
 				failed,
+				skipped
 			},
+			skippedRecipients
 		};
 	},
 
@@ -527,5 +555,84 @@ export const MessagingService = {
 				failed,
 			},
 		};
+	},
+
+	/**
+	 * Validates if a message of a specific type can be sent to a user based on their preferences
+	 * @param messageType The type of message to send (email, sms, phone)
+	 * @param recipient The recipient with optional preferences
+	 * @param userPreferences The user preferences if not included in the recipient
+	 * @returns An object with isAllowed flag and reason if not allowed
+	 */
+	async canSendMessageToUser(
+		messageType: "email" | "sms" | "phone",
+		recipient: MessageRecipient,
+		userPreferences?: any
+	): Promise<{ isAllowed: boolean; reason?: string }> {
+		// If no preferences provided in recipient and no separate userPreferences, assume allowed
+		const preferences = recipient.preferences || userPreferences;
+		
+		// If no preferences at all, default to allowed (legacy behavior)
+		if (!preferences) {
+			console.log(`No preferences found for recipient, defaulting to allowed`);
+			return { isAllowed: true };
+		}
+
+		// Check if the user has enabled notifications for this message type
+		switch (messageType) {
+			case "email":
+				if (preferences.emailNotifications === false) {
+					return { 
+						isAllowed: false, 
+						reason: "User has disabled email notifications" 
+					};
+				}
+				
+				// Check if recipient has an email
+				if (!recipient.email) {
+					return { 
+						isAllowed: false, 
+						reason: "Recipient has no email address" 
+					};
+				}
+				break;
+				
+			case "sms":
+				if (preferences.smsNotifications === false) {
+					return { 
+						isAllowed: false, 
+						reason: "User has disabled SMS notifications" 
+					};
+				}
+				
+				// Check if recipient has a phone number
+				if (!recipient.phone) {
+					return { 
+						isAllowed: false, 
+						reason: "Recipient has no phone number" 
+					};
+				}
+				break;
+				
+			case "phone":
+				if (preferences.phoneNotifications === false) {
+					return { 
+						isAllowed: false, 
+						reason: "User has disabled phone call notifications" 
+					};
+				}
+				
+				// Check if recipient has a phone number
+				if (!recipient.phone) {
+					return { 
+						isAllowed: false, 
+						reason: "Recipient has no phone number" 
+					};
+				}
+				break;
+		}
+
+		// All checks passed, user can receive this type of message
+		return { isAllowed: true };
 	},
 };

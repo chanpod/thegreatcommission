@@ -41,7 +41,7 @@ export class AuthService {
 			const userEmail = clerkUser.emailAddresses[0].emailAddress;
 
 			// Get user data with site-wide roles
-			const getUserQuery = await getUser(userEmail, {
+			const getUserQuery = await getUser(	{email: userEmail}, {
 				roles: true,
 				churches: false,
 			});

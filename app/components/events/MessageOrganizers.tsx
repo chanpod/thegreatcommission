@@ -4,7 +4,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "~/components/ui/card";
-import { useToast } from "~/hooks/use-toast";
+import { toast } from "sonner"
 import { Loader2 } from "lucide-react";
 import { useFetcher } from "react-router";
 import type { Organizer } from "./EventOrganizers";
@@ -19,7 +19,7 @@ interface MessageOrganizersProps {
 export function MessageOrganizers({ eventId, organizerCount, organizers, churchOrganizationId }: MessageOrganizersProps) {
     const [subject, setSubject] = useState("");
     const [message, setMessage] = useState("");
-    const { toast } = useToast();
+
     const fetcher = useFetcher();
     const isSubmitting = fetcher.state === "submitting";
 
@@ -27,20 +27,12 @@ export function MessageOrganizers({ eventId, organizerCount, organizers, churchO
         e.preventDefault();
 
         if (!subject.trim()) {
-            toast({
-                title: "Subject Required",
-                description: "Please enter a subject for your message.",
-                variant: "destructive",
-            });
+            toast.error("Please enter a subject for your message.");
             return;
         }
 
         if (!message.trim()) {
-            toast({
-                title: "Message Required",
-                description: "Please enter a message to send to the organizers.",
-                variant: "destructive",
-            });
+            toast.error("Please enter a message to send to the organizers.");
             return;
         }
 
@@ -55,31 +47,25 @@ export function MessageOrganizers({ eventId, organizerCount, organizers, churchO
             formData.append("recipientIds[]", `user:${organizer.id}`);
         });
 
-        fetcher.submit(formData, {
+        const response = await fetch(`/churches/${churchOrganizationId}/message`, {
             method: "post",
-            action: `/churches/${churchOrganizationId}/message`
+            body: formData
         });
-    };
 
-    // Handle response
-    useEffect(() => {
-        if (fetcher.data && fetcher.state === "idle") {
-            if (fetcher.data.success) {
-                toast({
-                    title: "Message Sent",
-                    description: fetcher.data.message || `Successfully sent message to ${organizerCount} organizer${organizerCount !== 1 ? 's' : ''}.`,
-                });
-                setSubject("");
-                setMessage("");
-            } else {
-                toast({
-                    title: "Error",
-                    description: fetcher.data.error || "Failed to send message to organizers.",
-                    variant: "destructive",
-                });
-            }
+        const data = await response.json();
+
+        if (response.ok && data.details.summary.success > 0) {
+            toast.success(`Successfully sent message to ${data.details.summary.success} organizer${organizerCount !== 1 ? 's' : ''}.`);
+        } else {
+            toast.error(data.error || "Failed to send message to organizers.");
         }
-    }, [fetcher.data, fetcher.state, organizerCount, toast]);
+
+        if (data.details.skippedRecipients.length > 0) {
+            data.details.skippedRecipients.forEach(recipient => {
+                toast.warning(`Skipped ${recipient.recipient.firstName} ${recipient.recipient.lastName} because ${recipient.reason}.`);
+            });
+        }
+    };
 
     return (
         <Card className="w-full">
