@@ -433,13 +433,8 @@ export function EventDialog({
 								>
 									Cancel
 								</Button>
-								<Button type="submit" disabled={isSubmitting}>
-									{isSubmitting ? (
-										<>
-											<span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-foreground" />
-											{mode === "create" ? "Creating..." : "Updating..."}
-										</>
-									) : mode === "create" ? (
+								<Button type="submit" loading={isSubmitting}>
+									{mode === "create" ? (
 										"Create Event"
 									) : (
 										"Update Event"

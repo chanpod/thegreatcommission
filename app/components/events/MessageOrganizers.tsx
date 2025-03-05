@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { Loader2 } from "lucide-react";
 import { useFetcher } from "react-router";
 import type { Organizer } from "./EventOrganizers";
+import useFetch from "~/hooks/useFetch";
 
 interface MessageOrganizersProps {
     eventId: string;
@@ -19,9 +20,37 @@ interface MessageOrganizersProps {
 export function MessageOrganizers({ eventId, organizerCount, organizers, churchOrganizationId }: MessageOrganizersProps) {
     const [subject, setSubject] = useState("");
     const [message, setMessage] = useState("");
+    const { data, error, loading, callFetch } = useFetch(async (formData: FormData) => {
+        const response = await fetch(`/churches/${churchOrganizationId}/message`, {
+            method: "post",
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to send message to organizers.");
+        }
+
+        return response.json();
+    });
 
     const fetcher = useFetcher();
     const isSubmitting = fetcher.state === "submitting";
+
+    useEffect(() => {
+        if (data) {
+            if (data.details.summary.success > 0) {
+                toast.success(`Successfully sent message to ${data.details.summary.success} organizer${organizerCount !== 1 ? 's' : ''}.`);
+            } else {
+                toast.error(data.error || "Failed to send message to organizers.");
+            }
+
+            if (data.details.skippedRecipients.length > 0) {
+                data.details.skippedRecipients.forEach(recipient => {
+                    toast.warning(`Skipped ${recipient.recipient.firstName} ${recipient.recipient.lastName} because ${recipient.reason}.`);
+                });
+            }
+        }
+    }, [data]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,24 +76,7 @@ export function MessageOrganizers({ eventId, organizerCount, organizers, churchO
             formData.append("recipientIds[]", `user:${organizer.id}`);
         });
 
-        const response = await fetch(`/churches/${churchOrganizationId}/message`, {
-            method: "post",
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.details.summary.success > 0) {
-            toast.success(`Successfully sent message to ${data.details.summary.success} organizer${organizerCount !== 1 ? 's' : ''}.`);
-        } else {
-            toast.error(data.error || "Failed to send message to organizers.");
-        }
-
-        if (data.details.skippedRecipients.length > 0) {
-            data.details.skippedRecipients.forEach(recipient => {
-                toast.warning(`Skipped ${recipient.recipient.firstName} ${recipient.recipient.lastName} because ${recipient.reason}.`);
-            });
-        }
+        callFetch(formData);
     };
 
     return (
@@ -77,6 +89,7 @@ export function MessageOrganizers({ eventId, organizerCount, organizers, churchO
             </CardHeader>
             <fetcher.Form onSubmit={handleSubmit}>
                 <CardContent className="space-y-4">
+
                     <div className="space-y-2">
                         <Label htmlFor="subject">Subject</Label>
                         <Input
@@ -100,7 +113,7 @@ export function MessageOrganizers({ eventId, organizerCount, organizers, churchO
                     </div>
                 </CardContent>
                 <CardFooter>
-                    <Button type="submit" disabled={isSubmitting}>
+                    <Button loading={loading} type="submit" disabled={isSubmitting}>
                         {isSubmitting ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

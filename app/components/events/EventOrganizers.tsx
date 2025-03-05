@@ -132,7 +132,7 @@ export function EventOrganizers({
         <Card>
             <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
                 <CardTitle className="text-lg">Event Organizers</CardTitle>
-                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap justify-end gap-2 pl-3 w-full sm:w-auto">
                     {isAdmin && (
                         <Button
                             variant="outline"

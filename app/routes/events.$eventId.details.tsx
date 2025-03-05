@@ -190,8 +190,7 @@ export default function EventDetails() {
 										<Button
 											variant="secondary"
 											size="sm"
-											asChild
-											className="gap-2"
+											className="shadow-md"
 										>
 											<Link
 												to={`/churches/${event.churchOrganizationId}/events/${event.id}/edit`}
@@ -235,19 +234,18 @@ export default function EventDetails() {
 												: "Manage Photos"}
 										</Button>
 									)}
-									<Button
-										variant="secondary"
-										size="sm"
-										asChild
-										className="gap-2"
+									<Link
+										to={`/churches/${event.churchOrganizationId}/events/${event.id}/edit`}
 									>
-										<Link
-											to={`/churches/${event.churchOrganizationId}/events/${event.id}/edit`}
+										<Button
+											variant="secondary"
+											size="sm"
+											className="shadow-md"
 										>
 											<Edit className="h-4 w-4" />
 											Edit Event
-										</Link>
-									</Button>
+										</Button>
+									</Link>
 								</div>
 							)}
 						</div>
@@ -257,20 +255,18 @@ export default function EventDetails() {
 
 			{/* Navigation Bar */}
 			<div className="container mx-auto px-4 -mt-4 relative z-30 flex justify-between items-center">
-				<Button
-					variant="outline"
-					size="sm"
-					asChild
-					className="bg-white shadow-sm"
+				<Link
+					to={`/churches/${event.churchOrganizationId}/events`}
 				>
-					<Link
-						className="text-black"
-						to={`/churches/${event.churchOrganizationId}/events`}
+					<Button
+						variant="secondary"
+						size="sm"
+						className="shadow-md"
 					>
 						<ArrowLeft className="w-4 h-4 mr-2" />
 						Back to Events
-					</Link>
-				</Button>
+					</Button>
+				</Link>
 			</div>
 
 			{/* Main Content */}
