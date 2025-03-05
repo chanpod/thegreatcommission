@@ -1,7 +1,7 @@
 import { useLoaderData, useSubmit } from "react-router";
 import { db } from "@/server/db/dbConnection";
-import { events, eventPhotos } from "server/db/schema";
-import { eq } from "drizzle-orm";
+import { events, eventPhotos, usersToEvents, users } from "server/db/schema";
+import { eq, and } from "drizzle-orm";
 import type { Route } from "../+types/root";
 import { Card, CardHeader, CardTitle, CardContent } from "~/components/ui/card";
 import {
@@ -29,6 +29,8 @@ import {
 	CarouselNext,
 	CarouselPrevious,
 } from "~/components/ui/carousel";
+import { EventOrganizers } from "~/components/events/EventOrganizers";
+import type { EventPhoto } from "~/components/events/EventPhotoUploader";
 
 export const loader = async ({ params }: Route.LoaderArgs) => {
 	const event = await db
@@ -47,7 +49,25 @@ export const loader = async ({ params }: Route.LoaderArgs) => {
 		.from(eventPhotos)
 		.where(eq(eventPhotos.eventId, params.eventId));
 
-	return { event, photos };
+	// Load event organizers
+	const organizers = await db
+		.select({
+			id: users.id,
+			firstName: users.firstName,
+			lastName: users.lastName,
+			email: users.email,
+			avatarUrl: users.avatarUrl,
+		})
+		.from(usersToEvents)
+		.innerJoin(users, eq(usersToEvents.userId, users.id))
+		.where(
+			and(
+				eq(usersToEvents.eventId, params.eventId),
+				eq(usersToEvents.role, "organizer")
+			)
+		);
+
+	return { event, photos, organizers };
 };
 
 export const action = async ({ request, params }: Route.ActionArgs) => {
@@ -93,7 +113,7 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
 };
 
 export default function EventDetails() {
-	const { event, photos } = useLoaderData<typeof loader>();
+	const { event, photos, organizers } = useLoaderData<typeof loader>();
 	const { hasPermission } = usePermissions();
 	const canEditEvents = hasPermission(
 		"events.edit",
@@ -104,7 +124,11 @@ export default function EventDetails() {
 	const isEventPast = isPast(endDate);
 
 	const [showPhotoUploader, setShowPhotoUploader] = useState(false);
-	const [eventPhotos, setEventPhotos] = useState(photos);
+	const [eventPhotos, setEventPhotos] = useState<EventPhoto[]>(photos.map(photo => ({
+		id: photo.id,
+		photoUrl: photo.photoUrl,
+		caption: photo.caption || ""
+	})));
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const submit = useSubmit();
 
@@ -141,9 +165,8 @@ export default function EventDetails() {
 								<div>
 									<h1 className="text-4xl font-bold mb-2">{event.title}</h1>
 									<span
-										className={`inline-block px-3 py-1 rounded-full text-sm font-medium w-fit ${
-											typeColors[event.type as keyof typeof typeColors]
-										}`}
+										className={`inline-block px-3 py-1 rounded-full text-sm font-medium w-fit ${typeColors[event.type as keyof typeof typeColors]
+											}`}
 									>
 										{event.type.charAt(0).toUpperCase() + event.type.slice(1)}{" "}
 										Event
@@ -190,9 +213,8 @@ export default function EventDetails() {
 									{event.title}
 								</h1>
 								<span
-									className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-										typeColors[event.type as keyof typeof typeColors]
-									}`}
+									className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${typeColors[event.type as keyof typeof typeColors]
+										}`}
 								>
 									{event.type.charAt(0).toUpperCase() + event.type.slice(1)}{" "}
 									Event
@@ -252,117 +274,56 @@ export default function EventDetails() {
 			</div>
 
 			{/* Main Content */}
-			<div className="container mx-auto p-4 max-w-4xl">
-				{/* Photo Uploader for Past Events */}
-				{showPhotoUploader && isEventPast && canEditEvents && (
-					<Card className="mb-6">
-						<CardHeader>
-							<CardTitle className="text-lg">Event Photos</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<EventPhotoUploader
-								eventId={event.id}
-								existingPhotos={eventPhotos}
-								onPhotosChange={setEventPhotos}
-								onSavePhotos={handleSavePhotos}
-								isSubmitting={isSubmitting}
-							/>
-						</CardContent>
-					</Card>
-				)}
+			<div className="container mx-auto px-4 py-8">
+				<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-				{/* Event Photos Carousel (only show if there are photos) */}
-				{!showPhotoUploader && eventPhotos.length > 0 && (
-					<Card className="mb-6 p-3">
-						<CardHeader>
-							<CardTitle className="text-lg">Event Photos</CardTitle>
-						</CardHeader>
-						<CardContent className="m-5">
-							<Carousel>
-								<CarouselContent>
-									{eventPhotos.map((photo) => (
-										<CarouselItem key={photo.id}>
-											<img
-												src={photo.photoUrl}
-												alt={photo.caption || "Event Photo"}
-											/>
-										</CarouselItem>
-									))}
-								</CarouselContent>
-								<CarouselPrevious />
-								<CarouselNext />
-							</Carousel>
-						</CardContent>
-					</Card>
-				)}
-
-				<div className="grid gap-6 md:grid-cols-3">
-					{/* Event Details Sidebar */}
-					<div className="md:col-span-1 space-y-4">
-						<Card>
+					{/* Photo Uploader for Past Events */}
+					{showPhotoUploader && isEventPast && canEditEvents && (
+						<Card className="mb-6 lg:col-span-3">
 							<CardHeader>
-								<CardTitle className="text-lg">Event Details</CardTitle>
+								<CardTitle className="text-lg">Event Photos</CardTitle>
 							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="space-y-2">
-									<div className="flex items-center text-gray-500">
-										<Calendar className="w-5 h-5 mr-2" />
-										<span>
-											{format(startDate, "MMMM d, yyyy")}
-											{!isSameDay(startDate, endDate) &&
-												` - ${format(endDate, "MMMM d, yyyy")}`}
-										</span>
-									</div>
-									<div className="flex items-center text-gray-500">
-										<Clock className="w-5 h-5 mr-2" />
-										<span>
-											{format(startDate, "h:mm a")} -{" "}
-											{format(endDate, "h:mm a")}
-										</span>
-									</div>
-									{event.location && (
-										<div className="flex items-center text-gray-500">
-											<MapPin className="w-5 h-5 mr-2" />
-											<span>{event.location}</span>
-										</div>
-									)}
-								</div>
-
-								{event.type === "mission" && (
-									<div className="space-y-2 pt-4 border-t">
-										{event.volunteersNeeded && (
-											<div className="flex items-center text-gray-500">
-												<Users className="w-5 h-5 mr-2" />
-												<span>
-													{event.volunteersNeeded} Volunteer
-													{event.volunteersNeeded !== 1 ? "s" : ""} Needed
-												</span>
-											</div>
-										)}
-										{event.investment && (
-											<div className="flex items-center text-gray-500">
-												<DollarSign className="w-5 h-5 mr-2" />
-												<span>
-													Investment Goal: ${event.investment.toLocaleString()}
-												</span>
-											</div>
-										)}
-										{event.fundingRaised && (
-											<div className="flex items-center text-gray-500">
-												<DollarSign className="w-5 h-5 mr-2" />
-												<span>
-													Raised: ${event.fundingRaised.toLocaleString()}
-												</span>
-											</div>
-										)}
-									</div>
-								)}
+							<CardContent>
+								<EventPhotoUploader
+									eventId={event.id}
+									existingPhotos={eventPhotos}
+									onPhotosChange={setEventPhotos}
+									onSavePhotos={handleSavePhotos}
+									isSubmitting={isSubmitting}
+								/>
 							</CardContent>
 						</Card>
-					</div>
+					)}
 
-					{/* Event Description */}
-					<div className="md:col-span-2">
+					{/* Event Photos Carousel (only show if there are photos) */}
+					{!showPhotoUploader && eventPhotos.length > 0 && (
+						<Card className="mb-6 lg:col-span-3">
+							<CardHeader>
+								<CardTitle className="text-lg">Event Photos</CardTitle>
+							</CardHeader>
+							<CardContent className="m-5">
+								<Carousel>
+									<CarouselContent>
+										{eventPhotos.map((photo) => (
+											<CarouselItem key={photo.id}>
+												<img
+													src={photo.photoUrl}
+													alt={photo.caption || "Event Photo"}
+													className="max-h-[500px] object-contain mx-auto"
+												/>
+											</CarouselItem>
+										))}
+									</CarouselContent>
+									<CarouselPrevious />
+									<CarouselNext />
+								</Carousel>
+							</CardContent>
+						</Card>
+					)}
+
+					{/* On mobile, show description first, then details and organizers */}
+					<div className="lg:col-span-2 lg:order-2">
+						{/* Event Description */}
 						<Card>
 							<CardHeader>
 								<CardTitle className="text-lg">About This Event</CardTitle>
@@ -377,12 +338,82 @@ export default function EventDetails() {
 										/>
 									</div>
 								) : (
-									<p className="text-gray-500 italic">
-										No description provided.
-									</p>
+									<p className="text-gray-500">No description provided.</p>
 								)}
 							</CardContent>
 						</Card>
+					</div>
+
+					{/* Event Details Sidebar */}
+					<div className="space-y-4 lg:order-1">
+						<Card>
+							<CardHeader>
+								<CardTitle className="text-lg">Event Details</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div className="space-y-2">
+									<div className="flex items-center text-gray-500">
+										<Calendar className="w-5 h-5 mr-2 flex-shrink-0" />
+										<span className="break-words">
+											{format(startDate, "MMMM d, yyyy")}
+											{!isSameDay(startDate, endDate) &&
+												` - ${format(endDate, "MMMM d, yyyy")}`}
+										</span>
+									</div>
+									<div className="flex items-center text-gray-500">
+										<Clock className="w-5 h-5 mr-2 flex-shrink-0" />
+										<span>
+											{format(startDate, "h:mm a")} -{" "}
+											{format(endDate, "h:mm a")}
+										</span>
+									</div>
+									{event.location && (
+										<div className="flex items-start text-gray-500">
+											<MapPin className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+											<span className="break-words">{event.location}</span>
+										</div>
+									)}
+								</div>
+
+								{(event.volunteersNeeded || event.investment || event.fundingRaised) && (
+									<div className="space-y-2 pt-4 border-t">
+										{event.volunteersNeeded && (
+											<div className="flex items-center text-gray-500">
+												<Users className="w-5 h-5 mr-2 flex-shrink-0" />
+												<span>
+													{event.volunteersNeeded} Volunteer
+													{event.volunteersNeeded !== 1 ? "s" : ""} Needed
+												</span>
+											</div>
+										)}
+										{event.investment && (
+											<div className="flex items-center text-gray-500">
+												<DollarSign className="w-5 h-5 mr-2 flex-shrink-0" />
+												<span>
+													Investment Goal: ${event.investment.toLocaleString()}
+												</span>
+											</div>
+										)}
+										{event.fundingRaised && (
+											<div className="flex items-center text-gray-500">
+												<DollarSign className="w-5 h-5 mr-2 flex-shrink-0" />
+												<span>
+													Raised: ${event.fundingRaised.toLocaleString()}
+												</span>
+											</div>
+										)}
+									</div>
+								)}
+							</CardContent>
+						</Card>
+
+						{/* Event Organizers */}
+						<EventOrganizers
+							eventId={event.id}
+							churchOrganizationId={event.churchOrganizationId}
+							organizers={organizers}
+							isAdmin={canEditEvents}
+						/>
 					</div>
 				</div>
 			</div>

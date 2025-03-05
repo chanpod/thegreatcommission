@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { X, ImagePlus } from "lucide-react";
 import { Card, CardContent } from "~/components/ui/card";
 
-interface EventPhoto {
+export interface EventPhoto {
 	id: string;
 	photoUrl: string;
 	caption?: string;

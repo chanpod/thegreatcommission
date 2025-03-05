@@ -6,7 +6,7 @@ import { eq, gte, lte, desc, sql, count } from "drizzle-orm";
 const MESSAGE_COSTS = {
 	sms: 1, // $0.01 per SMS
 	phone: 10, // $0.10 per phone call
-	email: 0.5, // $0.005 per email
+	email: 0.5, // $0.005 per email - not used anymore as we don't track emails
 };
 
 // Interface for message tracking data
@@ -34,6 +34,12 @@ export class MessageTrackerService {
 	 * @returns The tracked message record
 	 */
 	static async trackMessage(data: MessageTrackingData) {
+		// Skip tracking for email messages
+		if (data.messageType === "email") {
+			console.log("Skipping tracking for email message");
+			return null;
+		}
+
 		// Calculate cost based on message type
 		const cost = MESSAGE_COSTS[data.messageType] || 0;
 

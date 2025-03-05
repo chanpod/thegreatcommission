@@ -4,8 +4,10 @@ node_modules
 .env
 .vercel
 .output
+.react-router
 
 /build/
 /public/build
 /api/index.js
 /api/index.js.map
+.react-router

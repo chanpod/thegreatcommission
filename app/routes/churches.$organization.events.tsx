@@ -1,7 +1,7 @@
 import type { DateSelectArg } from "@fullcalendar/core";
 import { format, isSameDay, parseISO, addHours } from "date-fns";
 import { enUS } from "date-fns/locale";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import {
 	Calendar,
 	CalendarDays,
@@ -23,7 +23,7 @@ import {
 	useSubmit,
 	useActionData,
 } from "react-router";
-import { events } from "server/db/schema";
+import { events, usersToEvents, users } from "server/db/schema";
 import { EventDialog } from "~/components/events/EventDialog";
 import EventCalendar from "~/components/events/EventCalendar";
 import { Button } from "~/components/ui/button";
@@ -44,6 +44,7 @@ import {
 } from "@/server/services/PermissionsService";
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { toast } from "sonner";
+import type { Organizer } from "~/components/events/EventOrganizerSelector";
 
 const locales = {
 	"en-US": enUS,
@@ -155,6 +156,27 @@ export const action = createAuthLoader(
 				};
 
 				const newEvent = await db.insert(events).values(eventData).returning();
+
+				// Handle organizers
+				const organizersJson = formData.get("organizers") as string;
+				if (organizersJson) {
+					const organizers = JSON.parse(organizersJson) as Organizer[];
+
+					// Add organizers if there are any
+					if (organizers.length > 0) {
+						const organizerValues = organizers.map(organizer => ({
+							userId: organizer.id,
+							eventId: newEvent[0].id,
+							role: "organizer",
+							status: null,
+							createdAt: new Date(),
+							updatedAt: new Date(),
+						}));
+
+						await db.insert(usersToEvents).values(organizerValues);
+					}
+				}
+
 				return { success: true, event: newEvent[0] };
 			}
 
@@ -396,27 +418,32 @@ export default function EventsLayout() {
 		}
 	}, [actionData, searchParams, setSearchParams]);
 
-	const handleCreateEvent = (event: DbEvent) => {
+	const handleCreateEvent = (eventData: any) => {
 		setIsSubmitting(true);
 		const formData = new FormData();
 		formData.append("action", "create");
-		formData.append("title", event.title);
-		formData.append("description", event.description || "");
-		formData.append("startDate", event.startDate.toISOString());
-		formData.append("endDate", event.endDate.toISOString());
-		formData.append("allDay", String(event.allDay));
-		formData.append("type", event.type);
-		formData.append("location", event.location || "");
+		formData.append("title", eventData.title);
+		formData.append("description", eventData.description || "");
+		formData.append("startDate", eventData.startDate.toISOString());
+		formData.append("endDate", eventData.endDate.toISOString());
+		formData.append("allDay", String(eventData.allDay));
+		formData.append("type", eventData.type);
+		formData.append("location", eventData.location || "");
 		formData.append("churchOrganizationId", organization || "");
 
 		// Add other fields if they exist
-		if (event.heroImageUrl) formData.append("heroImageUrl", event.heroImageUrl);
-		if (event.volunteersNeeded)
-			formData.append("volunteersNeeded", String(event.volunteersNeeded));
-		if (event.investment)
-			formData.append("investment", String(event.investment));
-		if (event.fundingRaised)
-			formData.append("fundingRaised", String(event.fundingRaised));
+		if (eventData.heroImageUrl) formData.append("heroImageUrl", eventData.heroImageUrl);
+		if (eventData.volunteersNeeded)
+			formData.append("volunteersNeeded", String(eventData.volunteersNeeded));
+		if (eventData.investment)
+			formData.append("investment", String(eventData.investment));
+		if (eventData.fundingRaised)
+			formData.append("fundingRaised", String(eventData.fundingRaised));
+
+		// Include organizers
+		if (eventData.organizers) {
+			formData.append("organizers", JSON.stringify(eventData.organizers));
+		}
 
 		submit(formData, { method: "post" });
 		// Dialog will be closed in the useEffect after successful submission
@@ -578,11 +605,10 @@ export default function EventsLayout() {
 			</div>
 			<EventDialog
 				open={isCreateDialogOpen}
-				onOpenChange={(open) => {
+				onOpenChange={(isOpen) => {
 					if (!isSubmitting) {
-						setIsCreateDialogOpen(open);
-						// Clean up the newEventDate parameter when dialog is closed
-						if (!open && searchParams.has("newEventDate")) {
+						setIsCreateDialogOpen(isOpen);
+						if (!isOpen && searchParams.has("newEventDate")) {
 							searchParams.delete("newEventDate");
 							setSearchParams(searchParams, { preventScrollReset: true });
 						}
@@ -591,35 +617,12 @@ export default function EventsLayout() {
 				onSubmit={handleCreateEvent}
 				mode="create"
 				isSubmitting={isSubmitting}
-				event={
+				initialDate={
 					searchParams.get("newEventDate")
-						? {
-								id: "", // Add empty ID for type compatibility
-								title: "",
-								description: "",
-								type: "local",
-								location: "",
-								allDay: false,
-								startDate: new Date(searchParams.get("newEventDate")!),
-								endDate: addHours(
-									new Date(searchParams.get("newEventDate")!),
-									1,
-								),
-								churchOrganizationId: organization || "",
-								createdAt: new Date(),
-								updatedAt: new Date(),
-								// Add missing required fields with default values
-								heroImageUrl: null,
-								recurrence: null,
-								lat: null,
-								lng: null,
-								volunteersNeeded: null,
-								investment: null,
-								fundingRaised: null,
-								parentEventId: null,
-							}
-						: undefined
+						? new Date(searchParams.get("newEventDate") as string)
+						: new Date()
 				}
+				churchOrganizationId={organization}
 			/>
 			<Outlet />
 		</div>

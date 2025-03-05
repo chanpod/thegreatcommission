@@ -7,14 +7,16 @@ import {
 	useActionData,
 } from "react-router";
 import { db } from "@/server/db/dbConnection";
-import { events } from "server/db/schema";
-import { eq } from "drizzle-orm";
+import { events, usersToEvents, users } from "server/db/schema";
+import { eq, and } from "drizzle-orm";
 import { EventDialog } from "~/components/events/EventDialog";
 import type { Route } from "../+types/root";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import type { Organizer } from "~/components/events/EventOrganizerSelector";
 
 export const loader = async ({ params }: Route.LoaderArgs) => {
+	// Get the event
 	const event = await db
 		.select()
 		.from(events)
@@ -25,7 +27,30 @@ export const loader = async ({ params }: Route.LoaderArgs) => {
 		throw new Error("Event not found");
 	}
 
-	return { event };
+	// Get event organizers
+	const organizers = await db
+		.select({
+			id: users.id,
+			firstName: users.firstName,
+			lastName: users.lastName,
+			email: users.email,
+			avatarUrl: users.avatarUrl,
+		})
+		.from(usersToEvents)
+		.innerJoin(users, eq(usersToEvents.userId, users.id))
+		.where(
+			and(
+				eq(usersToEvents.eventId, params.eventId),
+				eq(usersToEvents.role, "organizer")
+			)
+		);
+
+	return {
+		event: {
+			...event,
+			organizers
+		}
+	};
 };
 
 export const action = async ({ request, params }: Route.ActionArgs) => {
@@ -50,16 +75,54 @@ export const action = async ({ request, params }: Route.ActionArgs) => {
 					updatedAt: new Date(),
 				};
 
+				// Update the event
 				const updatedEvent = await db
 					.update(events)
 					.set(eventData)
 					.where(eq(events.id, params.eventId))
 					.returning();
 
+				// Handle organizers
+				const organizersJson = formData.get("organizers") as string;
+				if (organizersJson) {
+					const organizers = JSON.parse(organizersJson) as Organizer[];
+
+					// First, remove all existing organizers
+					await db
+						.delete(usersToEvents)
+						.where(
+							and(
+								eq(usersToEvents.eventId, params.eventId),
+								eq(usersToEvents.role, "organizer")
+							)
+						);
+
+					// Then add the new organizers
+					if (organizers.length > 0) {
+						const organizerValues = organizers.map(organizer => ({
+							userId: organizer.id,
+							eventId: params.eventId,
+							role: "organizer",
+							status: null,
+							createdAt: new Date(),
+							updatedAt: new Date(),
+						}));
+
+						await db.insert(usersToEvents).values(organizerValues);
+					}
+				}
+
 				return { success: true, event: updatedEvent[0] };
 			}
 			case "delete": {
+				// First delete all user-to-event relationships
+				await db
+					.delete(usersToEvents)
+					.where(eq(usersToEvents.eventId, params.eventId));
+
+				// Then delete the event
 				await db.delete(events).where(eq(events.id, params.eventId));
+
 				return { success: true };
 			}
 			default:
@@ -124,7 +187,7 @@ export function EditEvent() {
 		}
 	};
 
-	const handleUpdateEvent = (updatedEvent: typeof events.$inferSelect) => {
+	const handleUpdateEvent = (updatedEvent: typeof events.$inferSelect & { organizers?: Organizer[] }) => {
 		setIsSubmitting(true);
 		const formData = new FormData();
 		formData.append("action", "update");
@@ -151,6 +214,11 @@ export function EditEvent() {
 		}
 		if (updatedEvent.fundingRaised) {
 			formData.append("fundingRaised", String(updatedEvent.fundingRaised));
+		}
+
+		// Include organizers
+		if (updatedEvent.organizers) {
+			formData.append("organizers", JSON.stringify(updatedEvent.organizers));
 		}
 
 		submit(formData, { method: "post" });
@@ -189,6 +257,7 @@ export function EditEvent() {
 				isSubmitting={isSubmitting}
 				showDeleteConfirm={showDeleteConfirm}
 				setShowDeleteConfirm={setShowDeleteConfirm}
+				churchOrganizationId={event.churchOrganizationId}
 			/>
 		</>
 	);

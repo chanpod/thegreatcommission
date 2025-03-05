@@ -165,6 +165,7 @@ export const MessagingService = {
 		recipient: MessageRecipient,
 		organizationName?: string,
 	): Promise<MessageResult> {
+		const { sgMail } = this.initClients();
 		try {
 			// Personalize message
 			const personalizedSubject = data.subject
@@ -191,19 +192,9 @@ export const MessagingService = {
 			// Send email
 			const response = await sgMail.send(email);
 
-			// Track the email message
-			await MessageTrackerService.trackMessage({
-				churchOrganizationId: data.churchOrganizationId,
-				messageType: "email",
-				recipientId: recipient.userId,
-				guardianId: recipient.guardianId,
-				recipientEmail: recipient.email,
-				sentByUserId: data.senderUserId,
-				messageContent: personalizedMessage,
-				messageSubject: personalizedSubject,
-				status: "sent",
-				providerMessageId: response[0]?.headers?.["x-message-id"],
-			});
+			// We no longer track email messages
+			// Just log for debugging purposes
+			console.log(`Email sent to ${recipient.email} with subject: ${personalizedSubject}`);
 
 			return {
 				success: true,
@@ -213,18 +204,8 @@ export const MessagingService = {
 		} catch (error) {
 			console.error("Error sending email:", error);
 
-			// Track failed message
-			await MessageTrackerService.trackMessage({
-				churchOrganizationId: data.churchOrganizationId,
-				messageType: "email",
-				recipientId: recipient.userId,
-				guardianId: recipient.guardianId,
-				recipientEmail: recipient.email,
-				sentByUserId: data.senderUserId,
-				messageContent: data.message,
-				messageSubject: data.subject,
-				status: "failed",
-			});
+			// We no longer track failed email messages either
+			console.log(`Failed to send email to ${recipient.email}`);
 
 			return {
 				success: false,
