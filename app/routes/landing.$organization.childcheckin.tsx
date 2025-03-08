@@ -27,6 +27,19 @@ import LandingPage from "~/src/components/churchLandingPage/LandingPage";
 // Import childCheckinService only for server-side code
 import { childCheckinService } from "~/services/ChildCheckinService";
 import { MessagingService } from "@/server/services/MessagingService";
+import {
+	Pencil as PencilIcon,
+	Trash as TrashIcon,
+	Plus as PlusIcon,
+} from "lucide-react";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "~/components/ui/select";
+import { Checkbox } from "~/components/ui/checkbox";
 
 // Create a temporary table in memory to store verification codes
 // In a real implementation, this would be a database table
@@ -416,11 +429,369 @@ export async function action({ params, request }) {
 			});
 		}
 
+		// New action to get guardians for a family
+		if (action === "getGuardians") {
+			const familyId = formData.get("familyId");
+
+			if (!familyId) {
+				return data(
+					{ success: false, error: "Family ID is required" },
+					{ status: 400 },
+				);
+			}
+
+			// Get guardians for this family
+			const guardians = await childCheckinService.getUsersForFamily(
+				familyId.toString(),
+			);
+			const children = await childCheckinService.getChildrenByFamily(
+				familyId.toString(),
+			);
+			const family = await childCheckinService.getFamilyById(
+				familyId.toString(),
+			);
+
+			// Get the primary user
+			let primaryUser = null;
+			for (const relation of await db
+				.select()
+				.from(usersToFamiliesTable)
+				.where(eq(usersToFamiliesTable.familyId, familyId.toString()))) {
+				if (relation.isPrimaryGuardian) {
+					primaryUser = await childCheckinService.getUserById(relation.userId);
+					break;
+				}
+			}
+
+			// If no primary guardian found, use the first user
+			if (!primaryUser && guardians.length > 0) {
+				primaryUser = guardians[0];
+			}
+
+			return data({
+				success: true,
+				family,
+				user: primaryUser,
+				children,
+				guardians,
+			});
+		}
+
+		// New actions for family editing
+		if (action === "addChild") {
+			const familyId = formData.get("familyId");
+			const firstName = formData.get("firstName");
+			const lastName = formData.get("lastName");
+			const dateOfBirth = formData.get("dateOfBirth");
+			const allergies = formData.get("allergies") || "";
+			const specialNotes = formData.get("specialNotes") || "";
+
+			if (!familyId || !firstName || !lastName || !dateOfBirth) {
+				return data(
+					{ success: false, error: "Missing required fields" },
+					{ status: 400 },
+				);
+			}
+
+			// Create new child
+			const newChild = await childCheckinService.createChild({
+				firstName: firstName.toString(),
+				lastName: lastName.toString(),
+				dateOfBirth: new Date(dateOfBirth.toString()),
+				allergies: allergies.toString(),
+				specialNotes: specialNotes.toString(),
+				familyId: familyId.toString(),
+				churchOrganizationId: organization,
+				updatedAt: new Date(),
+			});
+
+			// Get updated children list
+			const children = await childCheckinService.getChildrenByFamily(
+				familyId.toString(),
+			);
+			const family = await childCheckinService.getFamilyById(
+				familyId.toString(),
+			);
+
+			// Get the primary user
+			let primaryUser = null;
+			for (const relation of await db
+				.select()
+				.from(usersToFamiliesTable)
+				.where(eq(usersToFamiliesTable.familyId, familyId.toString()))) {
+				if (relation.isPrimaryGuardian) {
+					primaryUser = await childCheckinService.getUserById(relation.userId);
+					break;
+				}
+			}
+
+			// If no primary guardian found, use the first user from guardians
+			const guardians = await childCheckinService.getUsersForFamily(
+				familyId.toString(),
+			);
+			if (!primaryUser && guardians.length > 0) {
+				primaryUser = guardians[0];
+			}
+
+			return data({
+				success: true,
+				family,
+				user: primaryUser,
+				children,
+				guardians,
+				message: "Child added successfully",
+			});
+		}
+
+		if (action === "updateChild") {
+			const childId = formData.get("childId");
+			const familyId = formData.get("familyId");
+			const firstName = formData.get("firstName");
+			const lastName = formData.get("lastName");
+			const dateOfBirth = formData.get("dateOfBirth");
+			const allergies = formData.get("allergies") || "";
+			const specialNotes = formData.get("specialNotes") || "";
+
+			if (!childId || !familyId || !firstName || !lastName || !dateOfBirth) {
+				return data(
+					{ success: false, error: "Missing required fields" },
+					{ status: 400 },
+				);
+			}
+
+			// Update child
+			await db
+				.update(childrenTable)
+				.set({
+					firstName: firstName.toString(),
+					lastName: lastName.toString(),
+					dateOfBirth: new Date(dateOfBirth.toString()),
+					allergies: allergies.toString(),
+					specialNotes: specialNotes.toString(),
+					updatedAt: new Date(),
+				})
+				.where(eq(childrenTable.id, childId.toString()));
+
+			// Get updated children list
+			const children = await childCheckinService.getChildrenByFamily(
+				familyId.toString(),
+			);
+			const family = await childCheckinService.getFamilyById(
+				familyId.toString(),
+			);
+
+			// Get the primary user
+			let primaryUser = null;
+			for (const relation of await db
+				.select()
+				.from(usersToFamiliesTable)
+				.where(eq(usersToFamiliesTable.familyId, familyId.toString()))) {
+				if (relation.isPrimaryGuardian) {
+					primaryUser = await childCheckinService.getUserById(relation.userId);
+					break;
+				}
+			}
+
+			// If no primary guardian found, use the first user from guardians
+			const guardians = await childCheckinService.getUsersForFamily(
+				familyId.toString(),
+			);
+			if (!primaryUser && guardians.length > 0) {
+				primaryUser = guardians[0];
+			}
+
+			return data({
+				success: true,
+				family,
+				user: primaryUser,
+				children,
+				guardians,
+				message: "Child updated successfully",
+			});
+		}
+
+		if (action === "removeChild") {
+			const childId = formData.get("childId");
+			const familyId = formData.get("familyId");
+
+			if (!childId || !familyId) {
+				return data(
+					{ success: false, error: "Missing required fields" },
+					{ status: 400 },
+				);
+			}
+
+			// Remove child
+			await db
+				.delete(childrenTable)
+				.where(eq(childrenTable.id, childId.toString()));
+
+			// Get updated children list
+			const children = await childCheckinService.getChildrenByFamily(
+				familyId.toString(),
+			);
+			const family = await childCheckinService.getFamilyById(
+				familyId.toString(),
+			);
+
+			// Get the primary user
+			let primaryUser = null;
+			for (const relation of await db
+				.select()
+				.from(usersToFamiliesTable)
+				.where(eq(usersToFamiliesTable.familyId, familyId.toString()))) {
+				if (relation.isPrimaryGuardian) {
+					primaryUser = await childCheckinService.getUserById(relation.userId);
+					break;
+				}
+			}
+
+			// If no primary guardian found, use the first user from guardians
+			const guardians = await childCheckinService.getUsersForFamily(
+				familyId.toString(),
+			);
+			if (!primaryUser && guardians.length > 0) {
+				primaryUser = guardians[0];
+			}
+
+			return data({
+				success: true,
+				family,
+				user: primaryUser,
+				children,
+				guardians,
+				message: "Child removed successfully",
+			});
+		}
+
+		if (action === "addGuardian") {
+			const familyId = formData.get("familyId");
+			const firstName = formData.get("firstName");
+			const lastName = formData.get("lastName");
+			const phone = formData.get("phone");
+			const relationship = formData.get("relationship");
+			const isPrimaryGuardian = formData.get("isPrimaryGuardian") === "true";
+			const canPickup = formData.get("canPickup") === "true";
+
+			if (!familyId || !firstName || !lastName || !phone || !relationship) {
+				return data(
+					{ success: false, error: "Missing required fields" },
+					{ status: 400 },
+				);
+			}
+
+			// Check if user already exists
+			let user = await childCheckinService.getUserByPhone(phone.toString());
+
+			// If not, create new user
+			if (!user) {
+				user = await childCheckinService.createUser({
+					firstName: firstName.toString(),
+					lastName: lastName.toString(),
+					phone: phone.toString(),
+					churchOrganizationId: organization,
+					updatedAt: new Date(),
+				});
+			}
+
+			// Link user to family
+			await db.insert(usersToFamiliesTable).values({
+				userId: user.id,
+				familyId: familyId.toString(),
+				relationship: relationship.toString(),
+				isPrimaryGuardian,
+				canPickup,
+				updatedAt: new Date(),
+			});
+
+			// Get updated guardians list
+			const guardians = await childCheckinService.getUsersForFamily(
+				familyId.toString(),
+			);
+			const children = await childCheckinService.getChildrenByFamily(
+				familyId.toString(),
+			);
+			const family = await childCheckinService.getFamilyById(
+				familyId.toString(),
+			);
+
+			return data({
+				success: true,
+				family,
+				user,
+				children,
+				guardians,
+				message: "Guardian added successfully",
+			});
+		}
+
+		if (action === "removeGuardian") {
+			const familyId = formData.get("familyId");
+			const userId = formData.get("userId");
+
+			if (!familyId || !userId) {
+				return data(
+					{ success: false, error: "Missing required fields" },
+					{ status: 400 },
+				);
+			}
+
+			// Remove guardian link
+			await db
+				.delete(usersToFamiliesTable)
+				.where(
+					and(
+						eq(usersToFamiliesTable.familyId, familyId.toString()),
+						eq(usersToFamiliesTable.userId, userId.toString()),
+					),
+				);
+
+			// Get updated guardians list
+			const guardians = await childCheckinService.getUsersForFamily(
+				familyId.toString(),
+			);
+			const children = await childCheckinService.getChildrenByFamily(
+				familyId.toString(),
+			);
+			const family = await childCheckinService.getFamilyById(
+				familyId.toString(),
+			);
+
+			// Get the primary user
+			let primaryUser = null;
+			for (const relation of await db
+				.select()
+				.from(usersToFamiliesTable)
+				.where(eq(usersToFamiliesTable.familyId, familyId.toString()))) {
+				if (relation.isPrimaryGuardian) {
+					primaryUser = await childCheckinService.getUserById(relation.userId);
+					break;
+				}
+			}
+
+			// If no primary guardian found, use the first user from guardians
+			if (!primaryUser && guardians.length > 0) {
+				primaryUser = guardians[0];
+			}
+
+			return data({
+				success: true,
+				family,
+				user: primaryUser,
+				children,
+				guardians,
+				message: "Guardian removed successfully",
+			});
+		}
+
 		return data({ success: false, error: "Invalid action" }, { status: 400 });
 	} catch (error) {
-		console.error("Error in child check-in action:", error);
+		console.error("Error in child checkin action:", error);
 		return data(
-			{ success: false, error: "An error occurred" },
+			{
+				success: false,
+				error: "An error occurred while processing your request",
+			},
 			{ status: 500 },
 		);
 	}
@@ -432,7 +803,7 @@ function ChildCheckinContent({ organization, rooms }) {
 	const navigate = useNavigate();
 	const fetcher = useFetcher();
 	const [phoneNumber, setPhoneNumber] = useState("");
-	const [step, setStep] = useState("phone"); // phone, verify, family, room, confirm, success
+	const [step, setStep] = useState("phone"); // phone, verify, family, editFamily, room, confirm, success
 	const [familyData, setFamilyData] = useState(null);
 	const [selectedChild, setSelectedChild] = useState(null);
 	const [selectedRoom, setSelectedRoom] = useState(null);
@@ -440,6 +811,9 @@ function ChildCheckinContent({ organization, rooms }) {
 	const [verificationCode, setVerificationCode] = useState("");
 	const [expectedCode, setExpectedCode] = useState("");
 	const [isWorkerMode, setIsWorkerMode] = useState(false);
+	const [guardians, setGuardians] = useState([]);
+	const [editingChild, setEditingChild] = useState(null);
+	const [editingGuardian, setEditingGuardian] = useState(null);
 
 	// Handle phone number search
 	const handlePhoneSearch = (e) => {
@@ -529,6 +903,80 @@ function ChildCheckinContent({ organization, rooms }) {
 		setVerificationCode("");
 	};
 
+	// New function to handle editing family
+	const handleEditFamily = () => {
+		// Load guardians for this family using fetcher
+		const formData = new FormData();
+		formData.append("_action", "getGuardians");
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+		setStep("editFamily");
+	};
+
+	// Handle adding a new child
+	const handleAddChild = (e) => {
+		e.preventDefault();
+		const form = e.target;
+		const formData = new FormData(form);
+		formData.append("_action", "addChild");
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+		form.reset();
+		setEditingChild(null);
+	};
+
+	// Handle updating a child
+	const handleUpdateChild = (e) => {
+		e.preventDefault();
+		const form = e.target;
+		const formData = new FormData(form);
+		formData.append("_action", "updateChild");
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+		form.reset();
+		setEditingChild(null);
+	};
+
+	// Handle removing a child
+	const handleRemoveChild = (childId) => {
+		if (!confirm("Are you sure you want to remove this child?")) return;
+
+		const formData = new FormData();
+		formData.append("_action", "removeChild");
+		formData.append("childId", childId);
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+	};
+
+	// Handle adding a new guardian
+	const handleAddGuardian = (e) => {
+		e.preventDefault();
+		const form = e.target;
+		const formData = new FormData(form);
+		formData.append("_action", "addGuardian");
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+		form.reset();
+		setEditingGuardian(null);
+	};
+
+	// Handle removing a guardian
+	const handleRemoveGuardian = (userId) => {
+		if (!confirm("Are you sure you want to remove this guardian?")) return;
+
+		const formData = new FormData();
+		formData.append("_action", "removeGuardian");
+		formData.append("userId", userId);
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+	};
+
 	// Watch for fetcher results
 	useEffect(() => {
 		if (fetcher.state === "idle" && fetcher.data) {
@@ -556,7 +1004,7 @@ function ChildCheckinContent({ organization, rooms }) {
 				} else if (fetcher.data.message === "Verification code resent") {
 					// Response from resendCode
 					if (fetcher.data.smsSent) {
-						toast.success(`New verification code sent to your phone`);
+						toast.success("New verification code sent to your phone");
 					} else {
 						toast.warning(
 							`Could not send SMS. For demo purposes, the code is: ${fetcher.data.verificationCode}`,
@@ -569,7 +1017,16 @@ function ChildCheckinContent({ organization, rooms }) {
 						user: fetcher.data.user,
 						children: fetcher.data.children,
 					});
-					setStep("family");
+
+					// If we have guardians in the response, update them
+					if (fetcher.data.guardians) {
+						setGuardians(fetcher.data.guardians);
+					}
+
+					// Stay on edit page if we're editing, otherwise go to family selection
+					if (step !== "editFamily") {
+						setStep("family");
+					}
 				} else if (fetcher.data.checkin) {
 					// Response from checkinChild
 					if (selectedChild) {
@@ -579,6 +1036,15 @@ function ChildCheckinContent({ organization, rooms }) {
 					}
 					setQrCodeUrl(fetcher.data.verifyUrl);
 					setStep("success");
+				}
+
+				// Show success message if provided
+				if (
+					fetcher.data.message &&
+					!fetcher.data.requireVerification &&
+					fetcher.data.message !== "Verification code resent"
+				) {
+					toast.success(fetcher.data.message);
 				}
 			} else {
 				// Handle error response
@@ -602,6 +1068,7 @@ function ChildCheckinContent({ organization, rooms }) {
 		phoneNumber,
 		orgId,
 		selectedChild,
+		step,
 	]);
 
 	return (
@@ -721,13 +1188,289 @@ function ChildCheckinContent({ organization, rooms }) {
 									</Button>
 								))}
 							</div>
-							<Button
-								variant="ghost"
-								className="w-full"
-								onClick={() => setStep("phone")}
-							>
-								Back
-							</Button>
+							<div className="flex justify-between">
+								<Button
+									variant="ghost"
+									className="w-1/2"
+									onClick={() => setStep("phone")}
+								>
+									Back
+								</Button>
+								<Button
+									variant="outline"
+									className="w-1/2"
+									onClick={handleEditFamily}
+								>
+									Edit Family
+								</Button>
+							</div>
+						</div>
+					)}
+
+					{step === "editFamily" && familyData && (
+						<div className="space-y-6">
+							<div>
+								<h3 className="font-medium mb-2">Children</h3>
+								<div className="space-y-2">
+									{familyData.children.map((child) => (
+										<div
+											key={child.id}
+											className="flex items-center justify-between border p-2 rounded"
+										>
+											<div>
+												<div className="font-medium">
+													{child.firstName} {child.lastName}
+												</div>
+												<div className="text-xs text-muted-foreground">
+													{new Date(child.dateOfBirth).toLocaleDateString()}
+												</div>
+											</div>
+											<div className="flex gap-2">
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={() => setEditingChild(child)}
+												>
+													<PencilIcon className="h-4 w-4" />
+												</Button>
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={() => handleRemoveChild(child.id)}
+												>
+													<TrashIcon className="h-4 w-4" />
+												</Button>
+											</div>
+										</div>
+									))}
+								</div>
+
+								{!editingChild ? (
+									<Button
+										variant="outline"
+										size="sm"
+										className="mt-2"
+										onClick={() => setEditingChild({})}
+									>
+										<PlusIcon className="h-4 w-4 mr-2" />
+										Add Child
+									</Button>
+								) : (
+									<fetcher.Form
+										method="post"
+										className="mt-4 border p-3 rounded space-y-3"
+										onSubmit={
+											editingChild.id ? handleUpdateChild : handleAddChild
+										}
+									>
+										<h4 className="font-medium">
+											{editingChild.id ? "Edit Child" : "Add Child"}
+										</h4>
+
+										{editingChild.id && (
+											<input
+												type="hidden"
+												name="childId"
+												value={editingChild.id}
+											/>
+										)}
+
+										<div className="grid grid-cols-2 gap-2">
+											<div>
+												<Label htmlFor="firstName">First Name</Label>
+												<Input
+													id="firstName"
+													name="firstName"
+													defaultValue={editingChild.firstName || ""}
+													required
+												/>
+											</div>
+											<div>
+												<Label htmlFor="lastName">Last Name</Label>
+												<Input
+													id="lastName"
+													name="lastName"
+													defaultValue={editingChild.lastName || ""}
+													required
+												/>
+											</div>
+										</div>
+
+										<div>
+											<Label htmlFor="dateOfBirth">Date of Birth</Label>
+											<Input
+												id="dateOfBirth"
+												name="dateOfBirth"
+												type="date"
+												defaultValue={
+													editingChild.dateOfBirth
+														? new Date(editingChild.dateOfBirth)
+																.toISOString()
+																.split("T")[0]
+														: ""
+												}
+												required
+											/>
+										</div>
+
+										<div>
+											<Label htmlFor="allergies">Allergies</Label>
+											<Input
+												id="allergies"
+												name="allergies"
+												defaultValue={editingChild.allergies || ""}
+											/>
+										</div>
+
+										<div>
+											<Label htmlFor="specialNotes">Special Notes</Label>
+											<Textarea
+												id="specialNotes"
+												name="specialNotes"
+												defaultValue={editingChild.specialNotes || ""}
+											/>
+										</div>
+
+										<div className="flex justify-end gap-2">
+											<Button
+												type="button"
+												variant="ghost"
+												onClick={() => setEditingChild(null)}
+											>
+												Cancel
+											</Button>
+											<Button type="submit">
+												{editingChild.id ? "Update" : "Add"}
+											</Button>
+										</div>
+									</fetcher.Form>
+								)}
+							</div>
+
+							<div>
+								<h3 className="font-medium mb-2">Guardians</h3>
+								<div className="space-y-2">
+									{guardians.map((guardian) => (
+										<div
+											key={guardian.id}
+											className="flex items-center justify-between border p-2 rounded"
+										>
+											<div>
+												<div className="font-medium">
+													{guardian.firstName} {guardian.lastName}
+												</div>
+												<div className="text-xs text-muted-foreground">
+													{guardian.phone}
+												</div>
+											</div>
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => handleRemoveGuardian(guardian.id)}
+											>
+												<TrashIcon className="h-4 w-4" />
+											</Button>
+										</div>
+									))}
+								</div>
+
+								{!editingGuardian ? (
+									<Button
+										variant="outline"
+										size="sm"
+										className="mt-2"
+										onClick={() => setEditingGuardian({})}
+									>
+										<PlusIcon className="h-4 w-4 mr-2" />
+										Add Guardian
+									</Button>
+								) : (
+									<fetcher.Form
+										method="post"
+										className="mt-4 border p-3 rounded space-y-3"
+										onSubmit={handleAddGuardian}
+									>
+										<h4 className="font-medium">Add Guardian</h4>
+
+										<div className="grid grid-cols-2 gap-2">
+											<div>
+												<Label htmlFor="firstName">First Name</Label>
+												<Input id="firstName" name="firstName" required />
+											</div>
+											<div>
+												<Label htmlFor="lastName">Last Name</Label>
+												<Input id="lastName" name="lastName" required />
+											</div>
+										</div>
+
+										<div>
+											<Label htmlFor="phone">Phone Number</Label>
+											<Input
+												id="phone"
+												name="phone"
+												placeholder="(555) 123-4567"
+												required
+											/>
+										</div>
+
+										<div>
+											<Label htmlFor="relationship">Relationship</Label>
+											<Select name="relationship" defaultValue="parent">
+												<SelectTrigger>
+													<SelectValue placeholder="Select relationship" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="parent">Parent</SelectItem>
+													<SelectItem value="grandparent">
+														Grandparent
+													</SelectItem>
+													<SelectItem value="aunt/uncle">Aunt/Uncle</SelectItem>
+													<SelectItem value="sibling">Sibling</SelectItem>
+													<SelectItem value="other">Other</SelectItem>
+												</SelectContent>
+											</Select>
+										</div>
+
+										<div className="flex items-center space-x-2">
+											<Checkbox
+												id="isPrimaryGuardian"
+												name="isPrimaryGuardian"
+												value="true"
+											/>
+											<Label htmlFor="isPrimaryGuardian">
+												Primary Guardian
+											</Label>
+										</div>
+
+										<div className="flex items-center space-x-2">
+											<Checkbox
+												id="canPickup"
+												name="canPickup"
+												value="true"
+												defaultChecked
+											/>
+											<Label htmlFor="canPickup">Can Pick Up Children</Label>
+										</div>
+
+										<div className="flex justify-end gap-2">
+											<Button
+												type="button"
+												variant="ghost"
+												onClick={() => setEditingGuardian(null)}
+											>
+												Cancel
+											</Button>
+											<Button type="submit">Add</Button>
+										</div>
+									</fetcher.Form>
+								)}
+							</div>
+
+							<div className="flex justify-between">
+								<Button variant="ghost" onClick={() => setStep("family")}>
+									Back to Check-in
+								</Button>
+							</div>
 						</div>
 					)}
 
@@ -856,7 +1599,7 @@ export default function PublicChildCheckin() {
 	const navigate = useNavigate();
 	const fetcher = useFetcher();
 	const [phoneNumber, setPhoneNumber] = useState("");
-	const [step, setStep] = useState("phone"); // phone, verify, family, room, confirm, success
+	const [step, setStep] = useState("phone"); // phone, verify, family, editFamily, room, confirm, success
 	const [familyData, setFamilyData] = useState(null);
 	const [selectedChild, setSelectedChild] = useState(null);
 	const [selectedRoom, setSelectedRoom] = useState(null);
@@ -864,6 +1607,9 @@ export default function PublicChildCheckin() {
 	const [verificationCode, setVerificationCode] = useState("");
 	const [expectedCode, setExpectedCode] = useState("");
 	const [isWorkerMode, setIsWorkerMode] = useState(false);
+	const [guardians, setGuardians] = useState([]);
+	const [editingChild, setEditingChild] = useState(null);
+	const [editingGuardian, setEditingGuardian] = useState(null);
 
 	// Handle phone number search
 	const handlePhoneSearch = (e) => {
@@ -953,6 +1699,80 @@ export default function PublicChildCheckin() {
 		setVerificationCode("");
 	};
 
+	// New function to handle editing family
+	const handleEditFamily = () => {
+		// Load guardians for this family using fetcher
+		const formData = new FormData();
+		formData.append("_action", "getGuardians");
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+		setStep("editFamily");
+	};
+
+	// Handle adding a new child
+	const handleAddChild = (e) => {
+		e.preventDefault();
+		const form = e.target;
+		const formData = new FormData(form);
+		formData.append("_action", "addChild");
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+		form.reset();
+		setEditingChild(null);
+	};
+
+	// Handle updating a child
+	const handleUpdateChild = (e) => {
+		e.preventDefault();
+		const form = e.target;
+		const formData = new FormData(form);
+		formData.append("_action", "updateChild");
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+		form.reset();
+		setEditingChild(null);
+	};
+
+	// Handle removing a child
+	const handleRemoveChild = (childId) => {
+		if (!confirm("Are you sure you want to remove this child?")) return;
+
+		const formData = new FormData();
+		formData.append("_action", "removeChild");
+		formData.append("childId", childId);
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+	};
+
+	// Handle adding a new guardian
+	const handleAddGuardian = (e) => {
+		e.preventDefault();
+		const form = e.target;
+		const formData = new FormData(form);
+		formData.append("_action", "addGuardian");
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+		form.reset();
+		setEditingGuardian(null);
+	};
+
+	// Handle removing a guardian
+	const handleRemoveGuardian = (userId) => {
+		if (!confirm("Are you sure you want to remove this guardian?")) return;
+
+		const formData = new FormData();
+		formData.append("_action", "removeGuardian");
+		formData.append("userId", userId);
+		formData.append("familyId", familyData.family.id);
+
+		fetcher.submit(formData, { method: "post" });
+	};
+
 	// Watch for fetcher results
 	useEffect(() => {
 		if (fetcher.state === "idle" && fetcher.data) {
@@ -980,7 +1800,7 @@ export default function PublicChildCheckin() {
 				} else if (fetcher.data.message === "Verification code resent") {
 					// Response from resendCode
 					if (fetcher.data.smsSent) {
-						toast.success(`New verification code sent to your phone`);
+						toast.success("New verification code sent to your phone");
 					} else {
 						toast.warning(
 							`Could not send SMS. For demo purposes, the code is: ${fetcher.data.verificationCode}`,
@@ -993,7 +1813,16 @@ export default function PublicChildCheckin() {
 						user: fetcher.data.user,
 						children: fetcher.data.children,
 					});
-					setStep("family");
+
+					// If we have guardians in the response, update them
+					if (fetcher.data.guardians) {
+						setGuardians(fetcher.data.guardians);
+					}
+
+					// Stay on edit page if we're editing, otherwise go to family selection
+					if (step !== "editFamily") {
+						setStep("family");
+					}
 				} else if (fetcher.data.checkin) {
 					// Response from checkinChild
 					if (selectedChild) {
@@ -1003,6 +1832,15 @@ export default function PublicChildCheckin() {
 					}
 					setQrCodeUrl(fetcher.data.verifyUrl);
 					setStep("success");
+				}
+
+				// Show success message if provided
+				if (
+					fetcher.data.message &&
+					!fetcher.data.requireVerification &&
+					fetcher.data.message !== "Verification code resent"
+				) {
+					toast.success(fetcher.data.message);
 				}
 			} else {
 				// Handle error response
@@ -1026,6 +1864,7 @@ export default function PublicChildCheckin() {
 		phoneNumber,
 		orgId,
 		selectedChild,
+		step,
 	]);
 
 	if (!loaderData.success || !loaderData.organization) {
