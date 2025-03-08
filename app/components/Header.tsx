@@ -5,10 +5,12 @@ export default function Header({
 	churchName,
 	logoUrl,
 	organizationId,
+	canViewForms = false,
 }: {
 	churchName: string;
 	logoUrl?: string | null;
 	organizationId?: string;
+	canViewForms?: boolean;
 }) {
 	return (
 		<header className="border-b primary-bg">
@@ -16,7 +18,7 @@ export default function Header({
 				<div className="flex justify-between items-center">
 					<div className="flex items-center gap-3">
 						{logoUrl && (
-							<Avatar alt={`${churchName} logo`}>
+							<Avatar>
 								<AvatarImage src={logoUrl} alt={`${churchName} logo`} />
 								<AvatarFallback>CN</AvatarFallback>
 							</Avatar>
@@ -42,9 +44,9 @@ export default function Header({
 						>
 							About
 						</a>
-						{organizationId && (
+						{organizationId && canViewForms && (
 							<Link
-								to={`/landing/${organizationId}/forms`}
+								to={`/churches/${organizationId}/forms`}
 								className="text-white/80 hover:text-accent transition-colors"
 							>
 								Forms

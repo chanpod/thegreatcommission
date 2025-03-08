@@ -13,6 +13,7 @@ interface LandingPageProps {
 	serviceTimes: Array<typeof events.$inferSelect>;
 	upcomingEvents: Array<typeof events.$inferSelect>;
 	isLive: boolean;
+	canViewForms?: boolean;
 }
 
 interface FooterProps {
@@ -75,6 +76,7 @@ const LandingPage = ({
 	serviceTimes,
 	upcomingEvents,
 	isLive,
+	canViewForms = false,
 }: LandingPageProps) => {
 	// Debug logging to check what config data is being received
 	console.log("LandingPage received config:", config);
@@ -86,6 +88,7 @@ const LandingPage = ({
 					churchName={organization.name}
 					logoUrl={organization.logoUrl}
 					organizationId={organization.id}
+					canViewForms={canViewForms}
 				/>
 
 				{/* Render the nested route content here */}
