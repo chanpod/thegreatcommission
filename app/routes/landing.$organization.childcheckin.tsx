@@ -20,7 +20,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Textarea } from "~/components/ui/textarea";
 import { toast } from "sonner";
 import { db } from "@/server/db/dbConnection";
-import { churchOrganization } from "@/server/db/schema";
+import {
+	churchOrganization,
+	users,
+	childrenTable,
+	usersToFamiliesTable,
+} from "@/server/db/schema";
 import { eq, and, gte } from "drizzle-orm";
 import { data } from "react-router";
 import LandingPage from "~/src/components/churchLandingPage/LandingPage";
@@ -42,10 +47,50 @@ import {
 import { Checkbox } from "~/components/ui/checkbox";
 
 // Create a temporary table in memory to store verification codes
-// In a real implementation, this would be a database table
 const verificationCodes = new Map();
 
-// Helper function to generate a verification code
+// Utility function to get or create a system user for tracking
+async function getSystemUser(organizationId) {
+	try {
+		// Try to find an existing system user
+		const systemUser = await db.query.users.findFirst({
+			where: and(
+				eq(users.churchOrganizationId, organizationId),
+				eq(users.email, "system@thegreatcommission.org"),
+			),
+		});
+
+		// If found, return it
+		if (systemUser) {
+			return systemUser;
+		}
+
+		// Otherwise, create a new system user
+		const [newSystemUser] = await db
+			.insert(users)
+			.values({
+				firstName: "System",
+				lastName: "User",
+				email: "system@thegreatcommission.org",
+				churchOrganizationId: organizationId,
+				updatedAt: new Date(),
+			})
+			.returning();
+
+		return newSystemUser;
+	} catch (error) {
+		console.error("Error getting/creating system user:", error);
+		// Return a minimal user object if we can't create one
+		return {
+			id: "system",
+			firstName: "System",
+			lastName: "User",
+			email: "system@thegreatcommission.org",
+		};
+	}
+}
+
+// Generate a random 6-digit verification code
 function generateVerificationCode() {
 	return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
 }
@@ -99,7 +144,7 @@ function verifyCode(phone, organizationId, inputCode) {
 	return { valid: true };
 }
 
-// Helper function to send verification code via SMS
+// Send verification code via SMS
 async function sendVerificationCodeSMS(
 	phone,
 	code,
@@ -107,16 +152,19 @@ async function sendVerificationCodeSMS(
 	organizationName,
 ) {
 	try {
-		// Format the message
-		const message = `Your verification code for ${organizationName} Child Check-in is: ${code}. This code will expire in 10 minutes.`;
+		// Get the system user for tracking
+		const systemUser = await getSystemUser(organizationId);
 
-		// Send the SMS
+		// Create message content
+		const message = `Your verification code for ${organizationName} Child Check-in is: ${code}`;
+
+		// Send SMS via MessagingService
 		const result = await MessagingService.sendSMS(
 			{
 				churchOrganizationId: organizationId,
 				messageType: "sms",
 				message,
-				senderUserId: "system", // Using "system" as the sender ID for automated messages
+				senderUserId: systemUser.id, // Use system user ID for tracking
 			},
 			{
 				phone,
@@ -129,6 +177,7 @@ async function sendVerificationCodeSMS(
 			organizationName,
 		);
 
+		console.log(`SMS sent to ${phone}: ${result.success}`);
 		return result.success;
 	} catch (error) {
 		console.error("Error sending verification SMS:", error);
@@ -392,9 +441,9 @@ export async function action({ params, request }) {
 			const phone = formData.get("phone");
 			const familyId = formData.get("familyId");
 
-			if (!phone || !familyId) {
+			if (!phone) {
 				return data(
-					{ success: false, error: "Missing required fields" },
+					{ success: false, error: "Phone number is required" },
 					{ status: 400 },
 				);
 			}
@@ -418,13 +467,13 @@ export async function action({ params, request }) {
 			);
 
 			// For demo purposes, log the code
-			console.log(`New verification code for ${phone}: ${verificationCode}`);
+			console.log(`Verification code for ${phone}: ${verificationCode}`);
 
 			return data({
 				success: true,
 				message: "Verification code resent",
 				smsSent, // Indicate if SMS was sent successfully
-				// For demo purposes only
+				// For demo purposes only - in production, don't send the code to the client
 				verificationCode,
 			});
 		}
