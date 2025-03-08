@@ -84,32 +84,6 @@ export const loader = createAuthLoader(async ({ params, userContext }) => {
 		.where(eq(landingPageConfig.churchOrganizationId, params.organization))
 		.then((res) => res[0]);
 
-	// Debug logging to check what config data is being loaded
-	console.log(
-		"Landing page loader - organization:",
-		organization.id,
-		organization.name,
-	);
-	console.log("Landing page loader - config found:", !!config);
-
-	if (config) {
-		// Log specific fields that might be causing issues
-		console.log("Landing page loader - config details:", {
-			aboutSection: config.aboutSection
-				? config.aboutSection.substring(0, 100) + "..."
-				: null,
-			aboutButtons: config.aboutButtons
-				? config.aboutButtons.substring(0, 100) + "..."
-				: null,
-			customSections: config.customSections
-				? config.customSections.substring(0, 100) + "..."
-				: null,
-			socialLinks: config.socialLinks
-				? config.socialLinks.substring(0, 100) + "..."
-				: null,
-		});
-	}
-
 	// Get recurring service times
 	const serviceTimes = await db
 		.select()

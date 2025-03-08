@@ -26,24 +26,40 @@ export default function Header({
 						<h1 className="text-xl font-bold text-white">{churchName}</h1>
 					</div>
 					<nav className="space-x-4">
-						<a
-							href="#services"
+						<Link
+							to={
+								organizationId
+									? `/landing/${organizationId}#services`
+									: "#services"
+							}
 							className="text-white/80 hover:text-accent transition-colors"
 						>
 							Services
-						</a>
-						<a
-							href="#events"
+						</Link>
+						<Link
+							to={
+								organizationId ? `/landing/${organizationId}#events` : "#events"
+							}
 							className="text-white/80 hover:text-accent transition-colors"
 						>
 							Events
-						</a>
-						<a
-							href="#about"
+						</Link>
+						<Link
+							to={
+								organizationId ? `/landing/${organizationId}#about` : "#about"
+							}
 							className="text-white/80 hover:text-accent transition-colors"
 						>
 							About
-						</a>
+						</Link>
+						{organizationId && (
+							<Link
+								to={`/landing/${organizationId}/childcheckin`}
+								className="text-white/80 hover:text-accent transition-colors"
+							>
+								Child Check-in
+							</Link>
+						)}
 						{organizationId && canViewForms && (
 							<Link
 								to={`/churches/${organizationId}/forms`}
