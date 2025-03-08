@@ -1,12 +1,10 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { guardiansTable } from "../db/schema";
+import { users } from "../db/schema";
 
-
-export async function getGuardian(guardianId: string) {
-	const guardian = await db.select().from(guardiansTable).where(eq(guardiansTable.id, guardianId));
-	return guardian[0] as typeof guardiansTable.$inferSelect;
+// This service is deprecated and should be replaced with UserDataService
+// Keeping it for backward compatibility
+export async function getGuardian(userId: string) {
+	const user = await db.select().from(users).where(eq(users.id, userId));
+	return user[0];
 }
-
-
-

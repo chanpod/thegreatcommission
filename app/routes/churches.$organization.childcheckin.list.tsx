@@ -22,7 +22,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { childCheckinService } from "~/services/ChildCheckinService";
-import { useToast } from "~/hooks/use-toast";
+
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { data } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
@@ -44,10 +44,11 @@ import {
 } from "~/components/ui/dialog";
 import type {
 	ChildCheckin,
-	Guardian,
+	User,
 	AuthorizedPickupPerson,
-	CheckinSession,
+	Room,
 } from "@/server/db/schema";
+import { toast } from "sonner";
 import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
 import {
@@ -60,7 +61,7 @@ import {
 
 // Define extended types for the checkin data with additional properties
 interface ExtendedChildCheckin extends ChildCheckin {
-	guardians?: Guardian[];
+	guardians?: User[];
 	authorizedPickupPersons?: AuthorizedPickupPerson[];
 	child?: {
 		id: string;
@@ -70,27 +71,28 @@ interface ExtendedChildCheckin extends ChildCheckin {
 		allergies?: string;
 		specialNotes?: string;
 		photoUrl?: string;
+		familyId?: string;
 	};
 }
 
 // Define the loader data type
 interface LoaderData {
-	sessions: (CheckinSession & { activeCount: number })[];
+	rooms: (Room & { activeCount: number })[];
 	checkins: ExtendedChildCheckin[];
 	checkedOutToday: ExtendedChildCheckin[];
 	error?: string;
 }
 
-// Loader to fetch sessions and checkins
+// Loader to fetch rooms and checkins
 export const loader = createAuthLoader(async ({ params, request }) => {
 	const { organization } = params;
 	const searchParams = new URLSearchParams(request.url.split("?")[1]);
-	const sessionId = searchParams.get("sessionId");
+	const roomId = searchParams.get("roomId");
 
 	if (!organization) {
 		return data(
 			{
-				sessions: [],
+				rooms: [],
 				checkins: [],
 				checkedOutToday: [],
 				error: "Invalid organization",
@@ -100,79 +102,92 @@ export const loader = createAuthLoader(async ({ params, request }) => {
 	}
 
 	try {
-		// Get all active sessions
-		const sessions =
-			await childCheckinService.getActiveCheckinSessions(organization);
+		// Get active rooms
+		const rooms = await childCheckinService.getActiveRooms(organization);
 
-		// Fetch active count for each session
-		const sessionsWithCounts = await Promise.all(
-			sessions.map(async (session) => {
+		// Get active checkins for the selected room or the first room
+		let checkins: ExtendedChildCheckin[] = [];
+		let checkedOutToday: ExtendedChildCheckin[] = [];
+		let selectedRoomId = roomId;
+
+		// If no room is selected but rooms exist, use the first one
+		if (!selectedRoomId && rooms.length > 0) {
+			selectedRoomId = rooms[0].id;
+		}
+
+		if (selectedRoomId) {
+			// Get active checkins for the selected room
+			checkins = await childCheckinService.getActiveCheckins(selectedRoomId);
+
+			// Get checked out children for today
+			checkedOutToday =
+				await childCheckinService.getCheckedOutChildrenToday(selectedRoomId);
+
+			// For each checkin, fetch the family information
+			for (const checkin of checkins) {
+				if (checkin.child?.familyId) {
+					const familyData =
+						await childCheckinService.getFamilyWithChildrenAndGuardians(
+							checkin.child.familyId,
+						);
+					if (familyData) {
+						(checkin as ExtendedChildCheckin).guardians = familyData.guardians;
+					}
+				}
+
+				// Fetch authorized pickup persons
+				const pickupPersons =
+					await childCheckinService.getAuthorizedPickupPersons(checkin.id);
+				(checkin as ExtendedChildCheckin).authorizedPickupPersons =
+					pickupPersons;
+			}
+
+			// For each checked out checkin, fetch the family information
+			for (const checkin of checkedOutToday) {
+				if (checkin.child?.familyId) {
+					const familyData =
+						await childCheckinService.getFamilyWithChildrenAndGuardians(
+							checkin.child.familyId,
+						);
+					if (familyData) {
+						(checkin as ExtendedChildCheckin).guardians = familyData.guardians;
+					}
+				}
+
+				// Fetch authorized pickup persons
+				const pickupPersons =
+					await childCheckinService.getAuthorizedPickupPersons(checkin.id);
+				(checkin as ExtendedChildCheckin).authorizedPickupPersons =
+					pickupPersons;
+			}
+		}
+
+		// For each room, get the count of active check-ins
+		const roomsWithCounts = await Promise.all(
+			rooms.map(async (room) => {
 				const activeCount = await childCheckinService.getActiveCheckinsCount(
-					session.id,
+					room.id,
 				);
 				return {
-					...session,
+					...room,
 					activeCount,
 				};
 			}),
 		);
 
-		// If there are sessions, fetch checkins for the first session
-		let checkins = [];
-		let checkedOutToday = [];
-
-		if (sessions.length > 0 && sessionId) {
-			// Get active (not checked out) checkins
-			checkins = await childCheckinService.getActiveCheckins(sessionId);
-
-			// For each checkin, fetch the guardian information
-			for (const checkin of checkins) {
-				const guardians = await childCheckinService.getGuardiansForChild(
-					checkin.childId,
-				);
-
-				(checkin as ExtendedChildCheckin).guardians = guardians || [];
-
-				// Fetch authorized pickup persons
-				const pickupPersons =
-					await childCheckinService.getAuthorizedPickupPersons(checkin.id);
-				(checkin as ExtendedChildCheckin).authorizedPickupPersons =
-					pickupPersons || [];
-			}
-
-			// Get checked out children from today
-			checkedOutToday =
-				await childCheckinService.getCheckedOutChildrenToday(sessionId);
-
-			// For each checked out checkin, fetch the guardian information
-			for (const checkin of checkedOutToday) {
-				const guardians = await childCheckinService.getGuardiansForChild(
-					checkin.childId,
-				);
-
-				(checkin as ExtendedChildCheckin).guardians = guardians || [];
-
-				// Fetch authorized pickup persons
-				const pickupPersons =
-					await childCheckinService.getAuthorizedPickupPersons(checkin.id);
-				(checkin as ExtendedChildCheckin).authorizedPickupPersons =
-					pickupPersons || [];
-			}
-		}
-
 		return data({
-			sessions: sessionsWithCounts,
+			rooms: roomsWithCounts,
 			checkins,
 			checkedOutToday,
 		});
 	} catch (error) {
-		console.error("Error loading data:", error);
+		console.error("Error in child checkin list loader:", error);
 		return data(
 			{
-				sessions: [],
+				rooms: [],
 				checkins: [],
 				checkedOutToday: [],
-				error: "Failed to load child check-in data",
+				error: "An error occurred while loading data",
 			},
 			{ status: 500 },
 		);
@@ -184,7 +199,7 @@ interface ActionData {
 	success: boolean;
 	checkins?: ExtendedChildCheckin[];
 	checkedOutToday?: ExtendedChildCheckin[];
-	sessions?: CheckinSession[];
+	rooms?: Room[];
 	message?: string;
 	error?: string;
 }
@@ -192,8 +207,6 @@ interface ActionData {
 // Action to handle form submissions
 export const action = createAuthLoader(async ({ params, request }) => {
 	const { organization } = params;
-	const searchParams = new URLSearchParams(request.url.split("?")[1]);
-	const sessionId = searchParams.get("sessionId");
 
 	if (!organization) {
 		return data(
@@ -206,46 +219,12 @@ export const action = createAuthLoader(async ({ params, request }) => {
 	const action = formData.get("_action");
 
 	try {
-		if (action === "getCheckins") {
-			const sessionId = formData.get("sessionId");
-
-			if (!sessionId) {
-				return data(
-					{ success: false, error: "Session ID is required" },
-					{ status: 400 },
-				);
-			}
-
-			const checkins = await childCheckinService.getActiveCheckins(
-				sessionId.toString(),
-			);
-
-			// For each checkin, fetch the guardian information
-			for (const checkin of checkins) {
-				const guardians = await childCheckinService.getGuardiansForChild(
-					checkin.childId,
-				);
-				(checkin as ExtendedChildCheckin).guardians = guardians;
-
-				// Fetch authorized pickup persons
-				const pickupPersons =
-					await childCheckinService.getAuthorizedPickupPersons(checkin.id);
-				(checkin as ExtendedChildCheckin).authorizedPickupPersons =
-					pickupPersons;
-			}
-
-			return data({
-				success: true,
-				checkins,
-			});
-		}
-
 		if (action === "checkout") {
 			const checkinId = formData.get("checkinId");
-			const guardianId = formData.get("guardianId");
-			const sessionId = formData.get("sessionId");
+			const userId = formData.get("userId");
+			const roomId = formData.get("roomId");
 
-			if (!checkinId || !guardianId || !sessionId) {
+			if (!checkinId || !userId || !roomId) {
 				return data(
 					{ success: false, error: "Missing required fields" },
 					{ status: 400 },
@@ -254,26 +233,29 @@ export const action = createAuthLoader(async ({ params, request }) => {
 
 			await childCheckinService.checkoutChild(
 				checkinId.toString(),
-				guardianId.toString(),
+				userId.toString(),
 			);
 
 			// Fetch updated checkins list
 			const checkins = await childCheckinService.getActiveCheckins(
-				sessionId.toString(),
+				roomId.toString(),
 			);
 
 			// Fetch today's checked out children
 			const checkedOutToday =
-				await childCheckinService.getCheckedOutChildrenToday(
-					sessionId.toString(),
-				);
+				await childCheckinService.getCheckedOutChildrenToday(roomId.toString());
 
-			// For each checkin, fetch the guardian information
+			// For each checkin, fetch the family information
 			for (const checkin of checkins) {
-				const guardians = await childCheckinService.getGuardiansForChild(
-					checkin.childId,
-				);
-				(checkin as ExtendedChildCheckin).guardians = guardians;
+				if (checkin.child?.familyId) {
+					const familyData =
+						await childCheckinService.getFamilyWithChildrenAndGuardians(
+							checkin.child.familyId,
+						);
+					if (familyData) {
+						(checkin as ExtendedChildCheckin).guardians = familyData.guardians;
+					}
+				}
 
 				// Fetch authorized pickup persons
 				const pickupPersons =
@@ -282,12 +264,17 @@ export const action = createAuthLoader(async ({ params, request }) => {
 					pickupPersons;
 			}
 
-			// For each checked out checkin, fetch the guardian information
+			// For each checked out checkin, fetch the family information
 			for (const checkin of checkedOutToday) {
-				const guardians = await childCheckinService.getGuardiansForChild(
-					checkin.childId,
-				);
-				(checkin as ExtendedChildCheckin).guardians = guardians;
+				if (checkin.child?.familyId) {
+					const familyData =
+						await childCheckinService.getFamilyWithChildrenAndGuardians(
+							checkin.child.familyId,
+						);
+					if (familyData) {
+						(checkin as ExtendedChildCheckin).guardians = familyData.guardians;
+					}
+				}
 
 				// Fetch authorized pickup persons
 				const pickupPersons =
@@ -304,106 +291,99 @@ export const action = createAuthLoader(async ({ params, request }) => {
 			});
 		}
 
-		if (action === "renameSession") {
-			const sessionId = formData.get("sessionId");
+		if (action === "renameRoom") {
+			const roomId = formData.get("roomId");
 			const newName = formData.get("newName");
 
-			if (!sessionId || !newName) {
+			if (!roomId || !newName) {
 				return data(
-					{ success: false, error: "Session ID and new name are required" },
+					{ success: false, error: "Room ID and new name are required" },
 					{ status: 400 },
 				);
 			}
 
-			await childCheckinService.updateSessionName(
-				sessionId.toString(),
+			const updatedRoom = await childCheckinService.updateRoomName(
+				roomId.toString(),
 				newName.toString(),
 			);
 
-			// Fetch updated sessions list
-			const sessions =
-				await childCheckinService.getActiveCheckinSessions(organization);
+			// Fetch updated rooms list
+			const rooms = await childCheckinService.getActiveRooms(organization);
+
+			// For each room, get the count of active check-ins
+			const roomsWithCounts = await Promise.all(
+				rooms.map(async (room) => {
+					const activeCount = await childCheckinService.getActiveCheckinsCount(
+						room.id,
+					);
+					return {
+						...room,
+						activeCount,
+					};
+				}),
+			);
 
 			return data({
 				success: true,
-				message: "Session has been successfully renamed",
-				sessions,
+				message: "Room has been successfully renamed",
+				rooms: roomsWithCounts,
 			});
 		}
 
 		return data({ success: false, error: "Invalid action" }, { status: 400 });
 	} catch (error) {
-		console.error("Error processing action:", error);
+		console.error("Error in child checkin list action:", error);
 		return data(
-			{ success: false, error: "Failed to process action" },
+			{
+				success: false,
+				error: "An error occurred while processing your request",
+			},
 			{ status: 500 },
 		);
 	}
 });
 
-// RenameSessionDialog component
-interface RenameSessionDialogProps {
-	isOpen: boolean;
-	onClose: () => void;
-	session: {
-		id: string;
-		name: string;
-	} | null;
-}
-
-function RenameSessionDialog({
-	isOpen,
-	onClose,
-	session,
-}: RenameSessionDialogProps) {
-	const fetcher = useFetcher<ActionData>();
+// Rename Room Dialog Component
+function RenameRoomDialog({ isOpen, onClose, room }: RenameRoomDialogProps) {
 	const [newName, setNewName] = useState("");
+	const fetcher = useFetcher();
+
+	const { organization } = useParams();
 
 	useEffect(() => {
-		if (session) {
-			setNewName(session.name);
+		if (room) {
+			setNewName(room.name);
 		}
-	}, [session]);
-
-	useEffect(() => {
-		if (fetcher.data?.success) {
-			onClose();
-		}
-	}, [fetcher.data, onClose]);
+	}, [room]);
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
-
-		const formData = new FormData();
-		formData.append("_action", "renameSession");
-		formData.append("sessionId", session?.id || "");
-		formData.append("newName", newName);
-
-		fetcher.submit(formData, { method: "post" });
-		// onClose();
+		if (room && newName) {
+			const formData = new FormData();
+			formData.append("_action", "renameRoom");
+			formData.append("roomId", room.id);
+			formData.append("newName", newName);
+			fetcher.submit(formData, { method: "post" });
+			onClose();
+		}
 	};
 
 	return (
-		<Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Rename Session</DialogTitle>
-					<DialogDescription>
-						Enter a new name for the session.
-					</DialogDescription>
+					<DialogTitle>Rename Room</DialogTitle>
+					<DialogDescription>Enter a new name for this room.</DialogDescription>
 				</DialogHeader>
 				<form onSubmit={handleSubmit}>
-					<div className="grid gap-4 py-4">
-						<div className="grid grid-cols-4 items-center gap-4">
-							<Label htmlFor="name" className="text-right">
-								Name
-							</Label>
+					<div className="space-y-4 py-4">
+						<div className="space-y-2">
+							<Label htmlFor="newRoomName">Room Name</Label>
 							<Input
-								id="name"
+								id="newRoomName"
 								value={newName}
 								onChange={(e) => setNewName(e.target.value)}
-								className="col-span-3"
-								autoFocus
+								required
 							/>
 						</div>
 					</div>
@@ -411,9 +391,7 @@ function RenameSessionDialog({
 						<Button type="button" variant="outline" onClick={onClose}>
 							Cancel
 						</Button>
-						<Button type="submit" disabled={!newName.trim()}>
-							Save Changes
-						</Button>
+						<Button type="submit">Save Changes</Button>
 					</DialogFooter>
 				</form>
 			</DialogContent>
@@ -423,178 +401,80 @@ function RenameSessionDialog({
 
 export default function ChildCheckinList() {
 	const loaderData = useLoaderData<LoaderData>();
-	const { sessions, checkins, checkedOutToday, error } = loaderData;
+	const { rooms, checkins, checkedOutToday, error } = loaderData;
 	const navigate = useNavigate();
 	const submit = useSubmit();
-	const [searchTerm, setSearchTerm] = useState("");
-	const [showCheckedOut, setShowCheckedOut] = useState(false);
-	const [loading, setLoading] = useState(false);
-	const [processingCheckinId, setProcessingCheckinId] = useState<string | null>(
-		null,
-	);
-	const { toast } = useToast();
+	const fetcher = useFetcher();
+
 	const [searchParams, setSearchParams] = useSearchParams();
-	const sessionId = searchParams.get("sessionId");
-	const activeSession = sessions.find((s) => s.id === sessionId);
+	const roomId = searchParams.get("roomId");
+	const activeRoom = rooms.find((r) => r.id === roomId);
 	const params = useParams();
 	const messageFetcher = useFetcher();
-	const [guardianToMessage, setGuardianToMessage] = useState<{
+	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+	const [roomToRename, setRoomToRename] = useState<{
 		id: string;
+		name: string;
+	} | null>(null);
+	const [searchTerm, setSearchTerm] = useState("");
+	const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
+	const [checkinToCheckout, setCheckinToCheckout] =
+		useState<ExtendedChildCheckin | null>(null);
+	const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+	const [messageText, setMessageText] = useState("");
+	const [messageRecipient, setMessageRecipient] = useState<{
 		name: string;
 		phone: string;
 	} | null>(null);
-	const [messageDialogOpen, setMessageDialogOpen] = useState(false);
-	const [messageText, setMessageText] = useState("");
-	const [messageSending, setMessageSending] = useState(false);
-	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
 
-	// Show error toast if there's an error from the loader
-	useEffect(() => {
-		if (error) {
-			toast({
-				title: "Error",
-				description: error,
-				variant: "destructive",
-			});
-		}
-	}, [error, toast]);
+	// Calculate total active checkins across all rooms
+	const totalActiveCheckins = rooms.reduce(
+		(total, room) => total + room.activeCount,
+		0,
+	);
 
-	// Message templates for common scenarios
-	const messageTemplates = [
-		{
-			id: "pickup",
-			title: "Pickup Reminder",
-			text: "Hi, please come pick up your child at your earliest convenience. Thank you!",
-		},
-		{
-			id: "emergency",
-			title: "Emergency",
-			text: "Hi, we have an urgent situation with your child. Please come to the children's area as soon as possible.",
-		},
-		{
-			id: "needs",
-			title: "Child Needs",
-			text: "Hi, your child needs additional supplies (diapers/change of clothes). Could you please bring them to the children's area?",
-		},
-		{
-			id: "comfort",
-			title: "Child Comfort",
-			text: "Hi, your child is upset and we're having trouble comforting them. Could you please come to the children's area when possible?",
-		},
-	];
-
-	// Monitor messageFetcher state changes
-	useEffect(() => {
-		// Set loading state based on fetcher state
-		if (messageFetcher.state === "submitting") {
-			setMessageSending(true);
-		} else if (messageFetcher.state === "idle" && messageSending) {
-			setMessageSending(false);
-
-			// Only close dialog and show toast when we get a response and were previously sending
-			if (messageFetcher.data) {
-				// Close dialog only now that we have a response
-				setMessageDialogOpen(false);
-				setMessageText("");
-				setGuardianToMessage(null);
-
-				// Show toast based on the response
-				if (messageFetcher.data.success) {
-					toast({
-						title: "Message Sent",
-						description:
-							messageFetcher.data.message || "Message sent successfully",
-					});
-				} else {
-					toast({
-						title: "Error Sending Message",
-						description:
-							messageFetcher.data.error ||
-							"Failed to send message. Please try again.",
-						variant: "destructive",
-					});
-				}
-			}
-		}
-	}, [messageFetcher.state, messageFetcher.data, messageSending, toast]);
-
-	// Function to handle sending a message to a guardian
-	const handleSendMessage = () => {
-		if (!guardianToMessage || !messageText.trim()) return;
-
-		const formData = new FormData();
-		formData.append("message", messageText);
-		formData.append("type", "sms");
-		formData.append("recipientIds[]", `guardian:${guardianToMessage.id}`);
-
-		messageFetcher.submit(formData, {
-			method: "post",
-			action: `/churches/${params.organization}/message`,
-		});
-
-		// Don't close the dialog yet - wait for the response
-		// The useEffect will handle closing it when the response comes back
+	// Handle room change
+	const handleRoomChange = (roomId: string) => {
+		setSearchParams({ roomId });
 	};
 
-	const handleSessionChange = (sessionId: string) => {
-		const urlSearchParams = new URLSearchParams(searchParams);
-		urlSearchParams.set("sessionId", sessionId);
-		setSearchParams(urlSearchParams);
-	};
-
-	const handleCheckout = (checkinId: string, guardianId: string) => {
+	// Handle checkout
+	const handleCheckout = (checkinId: string, userId: string) => {
 		const formData = new FormData();
 		formData.append("_action", "checkout");
 		formData.append("checkinId", checkinId);
-		formData.append("guardianId", guardianId);
-		// Get the current sessionId from URL search params
-		const currentSessionId = searchParams.get("sessionId");
-		if (currentSessionId) {
-			formData.append("sessionId", currentSessionId);
-		} else {
-			toast({
-				title: "Error",
-				description: "No active session selected for checkout",
-				variant: "destructive",
-			});
-			return;
-		}
-
-		// Set the checkin being processed
-		setProcessingCheckinId(checkinId);
-
-		toast({
-			title: "Processing",
-			description: "Processing checkout, please wait...",
-		});
-		submit(formData, { method: "post" });
+		formData.append("userId", userId);
+		formData.append("roomId", roomId || "");
+		fetcher.submit(formData, { method: "post" });
+		setShowCheckoutDialog(false);
+		setCheckinToCheckout(null);
 	};
 
-	const handleRenameSession = (session: { id: string; name: string }) => {
+	// Handle rename room
+	const handleRenameRoom = (room: { id: string; name: string }) => {
+		setRoomToRename(room);
 		setIsRenameDialogOpen(true);
 	};
 
-	// Get initials for avatar fallback
+	// Get initials for avatar
 	const getInitials = (firstName?: string, lastName?: string) => {
-		if (!firstName && !lastName) return "?";
-		const firstInitial = firstName ? firstName.charAt(0).toUpperCase() : "";
-		const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : "";
-		return `${firstInitial}${lastInitial}`;
+		if (!firstName || !lastName) return "?";
+		return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 	};
 
+	// Calculate age from date of birth
 	const calculateAge = (dateOfBirth: Date): number => {
+		if (!dateOfBirth) return 0;
+
+		const dob = new Date(dateOfBirth);
 		const today = new Date();
-		let age = today.getFullYear() - dateOfBirth.getFullYear();
-		const monthDifference = today.getMonth() - dateOfBirth.getMonth();
 
-		if (
-			monthDifference < 0 ||
-			(monthDifference === 0 && today.getDate() < dateOfBirth.getDate())
-		) {
-			age--;
-		}
+		// Calculate age in months
+		const monthDiff =
+			(today.getFullYear() - dob.getFullYear()) * 12 +
+			(today.getMonth() - dob.getMonth());
 
-		return age;
+		return monthDiff;
 	};
 
 	// Filter checkins based on search term
@@ -604,48 +484,21 @@ export default function ChildCheckinList() {
 		return checkins.filter((checkin) => {
 			const childName =
 				`${checkin.child?.firstName} ${checkin.child?.lastName}`.toLowerCase();
-			const guardianName =
-				checkin.guardians && checkin.guardians.length > 0
-					? `${checkin.guardians[0].firstName} ${checkin.guardians[0].lastName}`.toLowerCase()
-					: "";
+			const guardianNames = checkin.guardians
+				?.map((g) => `${g.firstName} ${g.lastName}`.toLowerCase())
+				.join(" ");
 
 			return (
 				childName.includes(searchTerm.toLowerCase()) ||
-				guardianName.includes(searchTerm.toLowerCase())
+				(guardianNames && guardianNames.includes(searchTerm.toLowerCase()))
 			);
 		});
 	};
 
-	const filteredCheckins = filterCheckins(checkins);
-	const filteredCheckedOutToday = filterCheckins(checkedOutToday);
-
-	// Calculate total active checkins across all sessions
-	const totalActiveCheckins = sessions.reduce(
-		(total, session) => total + session.activeCount,
-		0,
-	);
-
 	return (
 		<div className="container mx-auto py-8">
-			{error && (
-				<div className="mb-6 p-4 bg-red-100 text-red-800 rounded border border-red-300">
-					{error}
-				</div>
-			)}
-
 			<div className="flex justify-between items-center mb-6">
-				<div>
-					<h1 className="text-3xl font-bold">Child Check-in List</h1>
-					{totalActiveCheckins > 0 && (
-						<div className="text-md text-muted-foreground mt-1">
-							<Badge variant="secondary" className="mr-2">
-								{totalActiveCheckins}
-							</Badge>
-							{totalActiveCheckins === 1 ? "child" : "children"} currently
-							checked in
-						</div>
-					)}
-				</div>
+				<h1 className="text-3xl font-bold">Child Check-in List</h1>
 				<Button
 					onClick={() =>
 						navigate(`/churches/${params.organization}/childcheckin`)
@@ -655,510 +508,546 @@ export default function ChildCheckinList() {
 				</Button>
 			</div>
 
-			{sessions.length === 0 ? (
+			{rooms.length === 0 ? (
 				<Card>
 					<CardHeader>
-						<CardTitle>No Active Sessions</CardTitle>
+						<CardTitle>No Active Rooms</CardTitle>
 						<CardDescription>
-							There are no active check-in sessions.
+							There are no active check-in rooms. Please create a room first.
 						</CardDescription>
 					</CardHeader>
-					<CardContent>
-						<p className="mb-4">
-							Create a new check-in session to get started.
-						</p>
+					<CardFooter>
 						<Button
 							onClick={() =>
 								navigate(`/churches/${params.organization}/childcheckin`)
 							}
 						>
-							Create Session
+							Create a Room
 						</Button>
-					</CardContent>
+					</CardFooter>
 				</Card>
 			) : (
 				<>
-					<Card className="mb-6">
-						<CardHeader>
-							<CardTitle>Session Information</CardTitle>
-							<CardDescription>
-								Select a session to view checked-in children.
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<div>
-									<Label htmlFor="session-select">Select Session</Label>
-									<Select
-										value={sessionId || ""}
-										onValueChange={handleSessionChange}
-									>
-										<SelectTrigger id="session-select" className="w-full">
-											<SelectValue placeholder="Select a session" />
-										</SelectTrigger>
-										<SelectContent>
-											{sessions.map((session) => (
-												<SelectItem key={session.id} value={session.id}>
-													{session.name}{" "}
-													<span className="text-muted-foreground ml-1">
-														(
-														<Badge
-															variant="outline"
-															className="text-xs py-0 px-1 ml-1 font-normal"
-														>
-															{session.activeCount}
-														</Badge>{" "}
-														active)
-													</span>
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-								<div>
-									<Label htmlFor="search">Search Children</Label>
-									<Input
-										id="search"
-										placeholder="Search by name..."
-										value={searchTerm}
-										onChange={(e) => setSearchTerm(e.target.value)}
-									/>
-								</div>
-							</div>
-							<div className="flex items-center gap-2 mt-4">
-								<Switch
-									id="show-checked-out"
-									checked={showCheckedOut}
-									onCheckedChange={setShowCheckedOut}
-								/>
-								<Label htmlFor="show-checked-out">
-									Show children checked out today
-								</Label>
-							</div>
-						</CardContent>
-					</Card>
+					<div className="flex flex-col md:flex-row gap-4 mb-6">
+						<div className="w-full md:w-1/3">
+							<Card>
+								<CardHeader>
+									<CardTitle>Rooms</CardTitle>
+									<CardDescription>
+										Select a room to view checked-in children
+									</CardDescription>
+								</CardHeader>
+								<CardContent>
+									<div className="space-y-2">
+										<Label htmlFor="roomSelect">Select Room</Label>
+										<Select
+											value={roomId || rooms[0]?.id || ""}
+											onValueChange={handleRoomChange}
+										>
+											<SelectTrigger id="roomSelect">
+												<SelectValue placeholder="Select a room" />
+											</SelectTrigger>
+											<SelectContent>
+												{rooms.map((room) => (
+													<SelectItem key={room.id} value={room.id}>
+														{room.name}{" "}
+														<span className="text-muted-foreground">
+															({room.activeCount})
+														</span>
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
 
-					{sessionId && (
-						<Card>
-							<CardHeader>
-								<div className="flex justify-between items-center">
-									<div>
-										<CardTitle>{activeSession.name}</CardTitle>
-										<CardDescription>
-											Started:{" "}
-											{new Date(activeSession.startTime).toLocaleString()}
-										</CardDescription>
-										<CardDescription className="mt-1">
-											<Badge variant="secondary" className="mr-1">
-												{activeSession.activeCount}
-											</Badge>
-											{activeSession.activeCount === 1 ? "child" : "children"}{" "}
-											checked in
-										</CardDescription>
-									</div>
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() => handleRenameSession(activeSession)}
-									>
-										Rename Session
-									</Button>
-								</div>
-							</CardHeader>
-							<CardContent>
-								{filteredCheckins.length === 0 ? (
-									<div className="text-center py-8">
-										No children checked in for this session.
-									</div>
-								) : (
-									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-										{filteredCheckins.map((checkin) => (
-											<Card key={checkin.id} className="overflow-hidden">
-												<div className="flex items-center p-4 border-b">
-													<Avatar className="h-16 w-16 mr-4">
-														<AvatarImage
-															src={checkin.child?.photoUrl}
-															alt={`${checkin.child?.firstName} ${checkin.child?.lastName}`}
-														/>
-														<AvatarFallback>
-															{getInitials(
-																checkin.child?.firstName,
-																checkin.child?.lastName,
-															)}
-														</AvatarFallback>
-													</Avatar>
-													<div>
-														<h3 className="font-bold text-lg">
-															{checkin.child?.firstName}{" "}
-															{checkin.child?.lastName}
-														</h3>
-														<p className="text-sm text-muted-foreground">
-															Checked in:{" "}
-															{new Date(
-																checkin.checkinTime,
-															).toLocaleTimeString()}
-														</p>
-														<Badge className="mt-1">Checked In</Badge>
+									{activeRoom && (
+										<div className="mt-4">
+											<div className="flex justify-between items-center">
+												<h3 className="text-lg font-medium">
+													{activeRoom.name}
+												</h3>
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={() => handleRenameRoom(activeRoom)}
+												>
+													Rename
+												</Button>
+											</div>
+											<div className="text-sm text-muted-foreground mt-1">
+												{activeRoom.minAge !== null &&
+												activeRoom.maxAge !== null ? (
+													<span>
+														Ages: {activeRoom.minAge}-{activeRoom.maxAge} months
+													</span>
+												) : activeRoom.minAge !== null ? (
+													<span>Ages: {activeRoom.minAge}+ months</span>
+												) : activeRoom.maxAge !== null ? (
+													<span>Ages: Up to {activeRoom.maxAge} months</span>
+												) : (
+													<span>All ages</span>
+												)}
+											</div>
+											<div className="text-sm text-muted-foreground">
+												Started:{" "}
+												{new Date(activeRoom.startTime).toLocaleString()}
+											</div>
+											<div className="mt-2">
+												<Badge variant="secondary">
+													{activeRoom.activeCount} active check-ins
+												</Badge>
+											</div>
+										</div>
+									)}
+
+									<div className="mt-6">
+										<h3 className="text-lg font-medium mb-2">All Rooms</h3>
+										<div className="space-y-2">
+											{rooms.map((room) => (
+												<div
+													key={room.id}
+													className={`p-3 border rounded-md cursor-pointer ${
+														room.id === roomId
+															? "border-primary bg-primary/5"
+															: "hover:bg-muted/50"
+													}`}
+													onClick={() => handleRoomChange(room.id)}
+												>
+													<div className="flex justify-between items-center">
+														<div>
+															<div className="font-medium">{room.name}</div>
+															<div className="text-sm text-muted-foreground">
+																{room.activeCount} children
+															</div>
+														</div>
+														{room.activeCount > 0 && (
+															<Badge variant="outline">
+																{room.activeCount}
+															</Badge>
+														)}
 													</div>
 												</div>
-												<CardContent className="p-4">
-													{checkin.child?.allergies && (
-														<div className="mb-2">
-															<span className="font-medium">Allergies:</span>{" "}
-															{checkin.child?.allergies}
-														</div>
-													)}
-													{checkin.child?.specialNotes && (
-														<div className="mb-2">
-															<span className="font-medium">Notes:</span>{" "}
-															{checkin.child?.specialNotes}
-														</div>
-													)}
-													<div className="mt-4">
-														<h4 className="font-medium mb-2">Guardian:</h4>
-														{checkin.guardians &&
-														checkin.guardians.length > 0 ? (
-															<div className="flex items-center justify-between">
-																<div className="flex items-center">
-																	<Avatar className="h-10 w-10 mr-2">
-																		<AvatarImage
-																			src={checkin.guardians[0].photoUrl}
-																			alt={`${checkin.guardians[0].firstName} ${checkin.guardians[0].lastName}`}
-																		/>
-																		<AvatarFallback>
-																			{getInitials(
-																				checkin.guardians[0].firstName,
-																				checkin.guardians[0].lastName,
+											))}
+										</div>
+									</div>
+								</CardContent>
+							</Card>
+						</div>
+
+						<div className="w-full md:w-2/3">
+							<Card>
+								<CardHeader>
+									<CardTitle>
+										{activeRoom ? `${activeRoom.name} Check-ins` : "Check-ins"}
+									</CardTitle>
+									<CardDescription>
+										{checkins.length} active check-ins
+										{checkedOutToday.length > 0 &&
+											`, ${checkedOutToday.length} checked out today`}
+									</CardDescription>
+								</CardHeader>
+								<CardContent>
+									<div className="relative mb-4">
+										<Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+										<Input
+											placeholder="Search by child or guardian name"
+											className="pl-8"
+											value={searchTerm}
+											onChange={(e) => setSearchTerm(e.target.value)}
+										/>
+										{searchTerm && (
+											<Button
+												variant="ghost"
+												size="sm"
+												className="absolute right-1 top-1 h-7 w-7 p-0"
+												onClick={() => setSearchTerm("")}
+											>
+												<X className="h-4 w-4" />
+											</Button>
+										)}
+									</div>
+
+									<Tabs defaultValue="active">
+										<TabsList className="mb-4">
+											<TabsTrigger value="active">
+												Active ({filterCheckins(checkins).length})
+											</TabsTrigger>
+											<TabsTrigger value="checked-out">
+												Checked Out Today (
+												{filterCheckins(checkedOutToday).length})
+											</TabsTrigger>
+										</TabsList>
+
+										<TabsContent value="active">
+											{filterCheckins(checkins).length === 0 ? (
+												<div className="text-center py-8 text-muted-foreground">
+													{searchTerm
+														? "No matching check-ins found"
+														: "No active check-ins for this room"}
+												</div>
+											) : (
+												<div className="space-y-4">
+													{filterCheckins(checkins).map((checkin) => (
+														<Card key={checkin.id}>
+															<CardContent className="p-4">
+																<div className="flex justify-between items-start">
+																	<div className="flex items-start space-x-4">
+																		<Avatar className="h-12 w-12">
+																			{checkin.child?.photoUrl ? (
+																				<AvatarImage
+																					src={checkin.child.photoUrl}
+																					alt={`${checkin.child?.firstName} ${checkin.child?.lastName}`}
+																				/>
+																			) : (
+																				<AvatarFallback>
+																					{getInitials(
+																						checkin.child?.firstName,
+																						checkin.child?.lastName,
+																					)}
+																				</AvatarFallback>
 																			)}
-																		</AvatarFallback>
-																	</Avatar>
-																	<div>
-																		{checkin.guardians[0].firstName}{" "}
-																		{checkin.guardians[0].lastName}
-																		{checkin.guardians[0].phone && (
-																			<div className="text-sm text-muted-foreground">
-																				{checkin.guardians[0].phone}
-																			</div>
-																		)}
+																		</Avatar>
+																		<div>
+																			<h3 className="font-medium">
+																				{checkin.child?.firstName}{" "}
+																				{checkin.child?.lastName}
+																			</h3>
+																			{checkin.child?.dateOfBirth && (
+																				<p className="text-sm text-muted-foreground">
+																					Age:{" "}
+																					{calculateAge(
+																						checkin.child.dateOfBirth,
+																					)}{" "}
+																					months
+																				</p>
+																			)}
+																			{checkin.child?.allergies && (
+																				<p className="text-sm text-red-500">
+																					Allergies: {checkin.child.allergies}
+																				</p>
+																			)}
+																			{checkin.child?.specialNotes && (
+																				<div className="flex items-center text-sm text-amber-600 mt-1">
+																					<InfoIcon className="h-3 w-3 mr-1" />
+																					<span>Has special notes</span>
+																				</div>
+																			)}
+																			<p className="text-sm text-muted-foreground mt-1">
+																				Checked in:{" "}
+																				{new Date(
+																					checkin.checkinTime,
+																				).toLocaleTimeString()}
+																			</p>
+																		</div>
 																	</div>
-																</div>
-																{checkin.guardians[0].phone && (
 																	<Button
 																		variant="outline"
 																		size="sm"
 																		onClick={() => {
-																			setGuardianToMessage({
-																				id: checkin.guardians[0].id,
-																				name: `${checkin.guardians[0].firstName} ${checkin.guardians[0].lastName}`,
-																				phone: checkin.guardians[0].phone,
-																			});
-																			setMessageDialogOpen(true);
+																			setCheckinToCheckout(checkin);
+																			setShowCheckoutDialog(true);
 																		}}
 																	>
-																		<MessageSquare className="h-4 w-4 mr-1" />
-																		Message
+																		Check Out
 																	</Button>
-																)}
-															</div>
-														) : (
-															<div>No guardian information available</div>
-														)}
-													</div>
+																</div>
 
-													{checkin.authorizedPickupPersons &&
-														checkin.authorizedPickupPersons.length > 0 && (
-															<div className="mt-4">
-																<h4 className="font-medium mb-2">
-																	Authorized for Pickup:
-																</h4>
-																<ul className="text-sm">
-																	{checkin.authorizedPickupPersons.map(
-																		(person) => (
-																			<li key={person.id}>
-																				{person.firstName} {person.lastName} (
-																				{person.relationship})
-																			</li>
-																		),
-																	)}
-																</ul>
-															</div>
-														)}
-												</CardContent>
-												<CardFooter className="bg-muted/20 p-4">
-													{checkin.status === "checked-out" ? (
-														<div className="w-full text-center p-2 bg-green-100 text-green-800 rounded flex items-center justify-center">
-															<svg
-																xmlns="http://www.w3.org/2000/svg"
-																className="h-5 w-5 mr-2"
-																viewBox="0 0 20 20"
-																fill="currentColor"
-																aria-hidden="true"
-																role="img"
-															>
-																<title>Checked Out Icon</title>
-																<path
-																	fillRule="evenodd"
-																	d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-																	clipRule="evenodd"
-																/>
-															</svg>
-															Checked Out{" "}
-															{checkin.checkoutTime
-																? `at ${new Date(checkin.checkoutTime).toLocaleTimeString()}`
-																: ""}
-														</div>
-													) : (
-														<Button
-															className="w-full"
-															disabled={
-																loading ||
-																(processingCheckinId !== null &&
-																	processingCheckinId !== checkin.id)
-															}
-															onClick={() => {
-																if (
-																	checkin.guardians &&
-																	checkin.guardians.length > 0
-																) {
-																	handleCheckout(
-																		checkin.id,
-																		checkin.guardians[0].id,
-																	);
-																} else {
-																	toast({
-																		title: "Error",
-																		description:
-																			"No guardian information available for checkout",
-																		variant: "destructive",
-																	});
-																}
-															}}
-														>
-															{loading && processingCheckinId === checkin.id ? (
-																<>
-																	<svg
-																		className="animate-spin -ml-1 mr-3 h-4 w-4"
-																		xmlns="http://www.w3.org/2000/svg"
-																		fill="none"
-																		viewBox="0 0 24 24"
-																		aria-hidden="true"
-																		role="img"
-																	>
-																		<title>Loading Spinner</title>
-																		<circle
-																			className="opacity-25"
-																			cx="12"
-																			cy="12"
-																			r="10"
-																			stroke="currentColor"
-																			strokeWidth="4"
-																		/>
-																		<path
-																			className="opacity-75"
-																			fill="currentColor"
-																			d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-																		/>
-																	</svg>
-																	Processing...
-																</>
-															) : (
-																"Check Out"
-															)}
-														</Button>
-													)}
-												</CardFooter>
-											</Card>
-										))}
-									</div>
-								)}
-							</CardContent>
-						</Card>
-					)}
-
-					{showCheckedOut && sessionId && (
-						<>
-							<div className="mt-8 mb-4">
-								<h3 className="text-xl font-bold">
-									Checked-out Children Today
-									<span className="ml-2">
-										<Badge variant="outline">
-											{filteredCheckedOutToday.length}
-										</Badge>
-									</span>
-								</h3>
-								<p className="text-muted-foreground">
-									These children have already been checked out today.
-								</p>
-							</div>
-
-							{filteredCheckedOutToday.length === 0 ? (
-								<div className="flex justify-center items-center p-8 bg-muted/20 rounded-lg">
-									<p className="text-muted-foreground">
-										No children have been checked out today.
-									</p>
-								</div>
-							) : (
-								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-									{filteredCheckedOutToday.map((checkin) => (
-										<Card
-											key={checkin.id}
-											className="overflow-hidden bg-muted/10"
-										>
-											<CardContent className="p-4">
-												<div className="flex items-center gap-4 mb-4">
-													<div
-														className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-lg"
-														aria-hidden="true"
-													>
-														{getInitials(
-															checkin.child?.firstName,
-															checkin.child?.lastName,
-														)}
-													</div>
-													<div>
-														<h3 className="font-bold">
-															{checkin.child?.firstName}{" "}
-															{checkin.child?.lastName}
-														</h3>
-														<p className="text-sm text-muted-foreground">
-															{checkin.child?.dateOfBirth
-																? `${calculateAge(
-																		new Date(checkin.child.dateOfBirth),
-																	)} years old`
-																: "Age unknown"}
-														</p>
-													</div>
-												</div>
-
-												{checkin.checkoutTime && (
-													<p className="text-sm text-muted-foreground mb-2">
-														<span className="font-medium">Checked out:</span>{" "}
-														{new Date(
-															checkin.checkoutTime,
-														).toLocaleTimeString()}
-													</p>
-												)}
-
-												<div className="mb-2">
-													<h4 className="font-medium mb-1">Checked out by:</h4>
-													<div className="flex items-center gap-2">
-														{checkin.guardians &&
-														checkin.guardians.length > 0 ? (
-															<div>
-																{checkin.guardians[0].firstName}{" "}
-																{checkin.guardians[0].lastName}
-																{checkin.guardians[0].phone && (
-																	<div className="text-sm text-muted-foreground">
-																		{checkin.guardians[0].phone}
+																<div className="mt-4 pt-4 border-t">
+																	<h4 className="text-sm font-medium mb-2">
+																		Guardians
+																	</h4>
+																	<div className="space-y-2">
+																		{checkin.guardians?.map((user) => (
+																			<div
+																				key={user.id}
+																				className="flex justify-between items-center"
+																			>
+																				<div className="flex items-center space-x-2">
+																					<Avatar className="h-8 w-8">
+																						{user.photoUrl ? (
+																							<AvatarImage
+																								src={user.photoUrl}
+																								alt={`${user.firstName} ${user.lastName}`}
+																							/>
+																						) : (
+																							<AvatarFallback>
+																								{getInitials(
+																									user.firstName,
+																									user.lastName,
+																								)}
+																							</AvatarFallback>
+																						)}
+																					</Avatar>
+																					<div>
+																						<p className="text-sm font-medium">
+																							{user.firstName} {user.lastName}
+																						</p>
+																						{user.phone && (
+																							<p className="text-xs text-muted-foreground">
+																								{user.phone}
+																							</p>
+																						)}
+																					</div>
+																				</div>
+																				{user.phone && (
+																					<Button
+																						variant="ghost"
+																						size="sm"
+																						onClick={() => {
+																							setMessageRecipient({
+																								name: `${user.firstName} ${user.lastName}`,
+																								phone: user.phone,
+																							});
+																							setMessageDialogOpen(true);
+																						}}
+																					>
+																						<MessageSquare className="h-4 w-4" />
+																					</Button>
+																				)}
+																			</div>
+																		))}
 																	</div>
-																)}
-															</div>
-														) : (
-															<div>No guardian information available</div>
-														)}
-													</div>
+
+																	{checkin.authorizedPickupPersons &&
+																		checkin.authorizedPickupPersons.length >
+																			0 && (
+																			<div className="mt-4">
+																				<h4 className="text-sm font-medium mb-2">
+																					Authorized for Pickup
+																				</h4>
+																				<div className="space-y-1">
+																					{checkin.authorizedPickupPersons.map(
+																						(person) => (
+																							<div
+																								key={person.id}
+																								className="text-sm"
+																							>
+																								{person.firstName}{" "}
+																								{person.lastName} (
+																								{person.relationship})
+																							</div>
+																						),
+																					)}
+																				</div>
+																			</div>
+																		)}
+																</div>
+															</CardContent>
+														</Card>
+													))}
 												</div>
-											</CardContent>
-										</Card>
-									))}
-								</div>
-							)}
-						</>
-					)}
+											)}
+										</TabsContent>
+
+										<TabsContent value="checked-out">
+											{filterCheckins(checkedOutToday).length === 0 ? (
+												<div className="text-center py-8 text-muted-foreground">
+													{searchTerm
+														? "No matching checked-out children found"
+														: "No children have been checked out today"}
+												</div>
+											) : (
+												<div className="space-y-4">
+													{filterCheckins(checkedOutToday).map((checkin) => (
+														<Card key={checkin.id}>
+															<CardContent className="p-4">
+																<div className="flex justify-between items-start">
+																	<div className="flex items-start space-x-4">
+																		<Avatar className="h-12 w-12">
+																			{checkin.child?.photoUrl ? (
+																				<AvatarImage
+																					src={checkin.child.photoUrl}
+																					alt={`${checkin.child?.firstName} ${checkin.child?.lastName}`}
+																				/>
+																			) : (
+																				<AvatarFallback>
+																					{getInitials(
+																						checkin.child?.firstName,
+																						checkin.child?.lastName,
+																					)}
+																				</AvatarFallback>
+																			)}
+																		</Avatar>
+																		<div>
+																			<h3 className="font-medium">
+																				{checkin.child?.firstName}{" "}
+																				{checkin.child?.lastName}
+																			</h3>
+																			{checkin.child?.dateOfBirth && (
+																				<p className="text-sm text-muted-foreground">
+																					Age:{" "}
+																					{calculateAge(
+																						checkin.child.dateOfBirth,
+																					)}{" "}
+																					months
+																				</p>
+																			)}
+																			<div className="flex items-center text-sm text-green-600 mt-1">
+																				<ArrowRightCircle className="h-3 w-3 mr-1" />
+																				<span>
+																					Checked out:{" "}
+																					{checkin.checkoutTime
+																						? new Date(
+																								checkin.checkoutTime,
+																							).toLocaleTimeString()
+																						: "Unknown"}
+																				</span>
+																			</div>
+																		</div>
+																	</div>
+																</div>
+															</CardContent>
+														</Card>
+													))}
+												</div>
+											)}
+										</TabsContent>
+									</Tabs>
+								</CardContent>
+							</Card>
+						</div>
+					</div>
 				</>
 			)}
 
-			{/* Rename Session Dialog */}
-			<RenameSessionDialog
-				isOpen={isRenameDialogOpen}
-				onClose={() => setIsRenameDialogOpen(false)}
-				session={
-					sessionId
-						? {
-								id: sessionId,
-								name: sessions.find((s) => s.id === sessionId)?.name || "",
-							}
-						: null
-				}
-			/>
-
-			{/* Message Guardian Dialog */}
-			<Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
-				<DialogContent className="sm:max-w-md">
+			{/* Checkout Dialog */}
+			<Dialog open={showCheckoutDialog} onOpenChange={setShowCheckoutDialog}>
+				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Message to {guardianToMessage?.name}</DialogTitle>
+						<DialogTitle>Check Out Child</DialogTitle>
+						<DialogDescription>
+							Are you sure you want to check out{" "}
+							{checkinToCheckout?.child?.firstName}{" "}
+							{checkinToCheckout?.child?.lastName}?
+						</DialogDescription>
 					</DialogHeader>
-					<div className="space-y-4 py-4">
+					<div className="py-4">
+						<h3 className="text-sm font-medium mb-2">Select Guardian</h3>
 						<div className="space-y-2">
-							<Label>Templates</Label>
-							<div className="grid grid-cols-2 gap-2 mb-4">
-								{messageTemplates.map((template) => (
+							{checkinToCheckout?.guardians?.map((user) => (
+								<div
+									key={user.id}
+									className="flex items-center justify-between p-2 border rounded-md"
+								>
+									<div className="flex items-center space-x-2">
+										<Avatar className="h-8 w-8">
+											{user.photoUrl ? (
+												<AvatarImage
+													src={user.photoUrl}
+													alt={`${user.firstName} ${user.lastName}`}
+												/>
+											) : (
+												<AvatarFallback>
+													{getInitials(user.firstName, user.lastName)}
+												</AvatarFallback>
+											)}
+										</Avatar>
+										<div>
+											<p className="text-sm font-medium">
+												{user.firstName} {user.lastName}
+											</p>
+										</div>
+									</div>
 									<Button
-										key={template.id}
-										variant="outline"
-										className="h-auto py-2 px-3 justify-start"
-										onClick={() => setMessageText(template.text)}
+										size="sm"
+										onClick={() => {
+											if (checkinToCheckout) {
+												handleCheckout(checkinToCheckout.id, user.id);
+											}
+										}}
 									>
-										{template.title}
+										Select
 									</Button>
-								))}
-							</div>
-							<Label htmlFor="message">Message</Label>
-							<Textarea
-								id="message"
-								placeholder="Type your message here..."
-								value={messageText}
-								onChange={(e) => setMessageText(e.target.value)}
-								className="min-h-[100px]"
-							/>
+								</div>
+							))}
+
+							{checkinToCheckout?.authorizedPickupPersons &&
+								checkinToCheckout.authorizedPickupPersons.length > 0 && (
+									<>
+										<h3 className="text-sm font-medium mt-4 mb-2">
+											Authorized Pickup Persons
+										</h3>
+										<div className="text-sm text-muted-foreground">
+											<p>
+												The following people are authorized for pickup but are
+												not in the system as guardians:
+											</p>
+											<ul className="list-disc pl-5 mt-2">
+												{checkinToCheckout.authorizedPickupPersons.map(
+													(person) => (
+														<li key={person.id}>
+															{person.firstName} {person.lastName} (
+															{person.relationship})
+														</li>
+													),
+												)}
+											</ul>
+										</div>
+									</>
+								)}
 						</div>
 					</div>
 					<DialogFooter>
 						<Button
 							variant="outline"
-							onClick={() => setMessageDialogOpen(false)}
-							disabled={messageSending}
+							onClick={() => setShowCheckoutDialog(false)}
 						>
 							Cancel
-						</Button>
-						<Button
-							onClick={handleSendMessage}
-							disabled={!messageText.trim() || messageSending}
-						>
-							{messageSending ? (
-								<>
-									<svg
-										className="animate-spin -ml-1 mr-3 h-4 w-4"
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										aria-hidden="true"
-										role="img"
-									>
-										<title>Loading Spinner</title>
-										<circle
-											className="opacity-25"
-											cx="12"
-											cy="12"
-											r="10"
-											stroke="currentColor"
-											strokeWidth="4"
-										/>
-										<path
-											className="opacity-75"
-											fill="currentColor"
-											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-										/>
-									</svg>
-									Sending...
-								</>
-							) : (
-								"Send SMS"
-							)}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{/* Message Dialog */}
+			<Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Send Message</DialogTitle>
+						<DialogDescription>
+							Send a text message to {messageRecipient?.name}
+						</DialogDescription>
+					</DialogHeader>
+					<div className="py-4">
+						<Label htmlFor="messageText">Message</Label>
+						<Textarea
+							id="messageText"
+							value={messageText}
+							onChange={(e) => setMessageText(e.target.value)}
+							placeholder="Enter your message here..."
+							className="mt-2"
+							rows={4}
+						/>
+					</div>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => {
+								setMessageDialogOpen(false);
+								setMessageText("");
+							}}
+						>
+							Cancel
+						</Button>
+						<Button
+							onClick={() => {
+								// Handle sending message
+								toast.success(`Message sent to ${messageRecipient?.name}`);
+								setMessageDialogOpen(false);
+								setMessageText("");
+							}}
+						>
+							Send Message
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Rename Room Dialog */}
+			<RenameRoomDialog
+				isOpen={isRenameDialogOpen}
+				onClose={() => setIsRenameDialogOpen(false)}
+				room={roomToRename}
+			/>
 		</div>
 	);
 }

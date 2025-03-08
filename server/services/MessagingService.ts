@@ -1,14 +1,13 @@
 import sgMail from "@sendgrid/mail";
 import twilio from "twilio";
 import { db } from "@/server/db/dbConnection";
-import { users, churchOrganization, guardiansTable } from "@/server/db/schema";
+import { users, churchOrganization } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { MessageTrackerService } from "./MessageTrackerService";
 
 // Interface for recipient data
 export interface MessageRecipient {
 	userId?: string;
-	guardianId?: string;
 	email?: string;
 	phone?: string;
 	firstName?: string;
@@ -83,8 +82,8 @@ export const MessagingService = {
 	},
 
 	/**
-	 * Fetch user data if only userId is provided, or guardian data if only guardianId is provided
-	 * @param recipient Recipient with at least userId or guardianId
+	 * Fetch user data if only userId is provided
+	 * @param recipient Recipient with at least userId
 	 */
 	async enrichRecipientData(
 		recipient: MessageRecipient,
@@ -93,7 +92,7 @@ export const MessagingService = {
 			return recipient; // Already has all needed data
 		}
 
-		// First check if we have a userId
+		// Check if we have a userId
 		if (recipient.userId) {
 			// Fetch user data
 			const user = await db
@@ -115,29 +114,7 @@ export const MessagingService = {
 			};
 		}
 
-		// Then check if we have a guardianId
-		if (recipient.guardianId) {
-			// Fetch guardian data
-			const guardian = await db
-				.select()
-				.from(guardiansTable)
-				.where(eq(guardiansTable.id, recipient.guardianId))
-				.then((res) => res[0]);
-
-			if (!guardian) {
-				throw new Error(`Guardian with ID ${recipient.guardianId} not found`);
-			}
-
-			return {
-				guardianId: recipient.guardianId,
-				email: recipient.email || guardian.email,
-				phone: recipient.phone || guardian.phone,
-				firstName: recipient.firstName || guardian.firstName,
-				lastName: recipient.lastName || guardian.lastName,
-			};
-		}
-
-		throw new Error("Either userId or guardianId must be provided");
+		throw new Error("userId must be provided");
 	},
 
 	/**
@@ -203,7 +180,9 @@ export const MessagingService = {
 
 			// We no longer track email messages
 			// Just log for debugging purposes
-			console.log(`Email sent to ${recipient.email} with subject: ${personalizedSubject}`);
+			console.log(
+				`Email sent to ${recipient.email} with subject: ${personalizedSubject}`,
+			);
 
 			return {
 				success: true,
@@ -263,7 +242,6 @@ export const MessagingService = {
 				churchOrganizationId: data.churchOrganizationId,
 				messageType: "sms",
 				recipientId: recipient.userId,
-				guardianId: recipient.guardianId,
 				recipientPhone: formattedPhone,
 				sentByUserId: data.senderUserId,
 				messageContent: personalizedMessage,
@@ -285,7 +263,6 @@ export const MessagingService = {
 				churchOrganizationId: data.churchOrganizationId,
 				messageType: "sms",
 				recipientId: recipient.userId,
-				guardianId: recipient.guardianId,
 				recipientPhone: recipient.phone,
 				sentByUserId: data.senderUserId,
 				messageContent: data.message,
@@ -343,7 +320,6 @@ export const MessagingService = {
 				churchOrganizationId: data.churchOrganizationId,
 				messageType: "phone",
 				recipientId: recipient.userId,
-				guardianId: recipient.guardianId,
 				recipientPhone: formattedPhone,
 				sentByUserId: data.senderUserId,
 				messageContent: personalizedMessage,
@@ -364,7 +340,6 @@ export const MessagingService = {
 				churchOrganizationId: data.churchOrganizationId,
 				messageType: "phone",
 				recipientId: recipient.userId,
-				guardianId: recipient.guardianId,
 				recipientPhone: recipient.phone,
 				sentByUserId: data.senderUserId,
 				messageContent: data.message,
@@ -431,22 +406,30 @@ export const MessagingService = {
 		let success = 0;
 		let failed = 0;
 		let skipped = 0;
-		const skippedRecipients: Array<{ recipient: MessageRecipient; reason: string }> = [];
+		const skippedRecipients: Array<{
+			recipient: MessageRecipient;
+			reason: string;
+		}> = [];
 
 		for (const recipient of recipients) {
 			// Validate if we can send this type of message to this recipient
-			const validationResult = await this.canSendMessageToUser(data.messageType, recipient);
-			
+			const validationResult = await this.canSendMessageToUser(
+				data.messageType,
+				recipient,
+			);
+
 			if (!validationResult.isAllowed) {
-				console.log(`Skipping message to ${recipient.email || recipient.phone}: ${validationResult.reason}`);
+				console.log(
+					`Skipping message to ${recipient.email || recipient.phone}: ${validationResult.reason}`,
+				);
 				skipped++;
 				skippedRecipients.push({
 					recipient,
-					reason: validationResult.reason || 'Unknown reason'
+					reason: validationResult.reason || "Unknown reason",
 				});
 				continue;
 			}
-			
+
 			// Send the message if validation passed
 			const result = await this.sendMessage(data, recipient);
 			results.push(result);
@@ -463,9 +446,9 @@ export const MessagingService = {
 			summary: {
 				success,
 				failed,
-				skipped
+				skipped,
 			},
-			skippedRecipients
+			skippedRecipients,
 		};
 	},
 
@@ -567,11 +550,11 @@ export const MessagingService = {
 	async canSendMessageToUser(
 		messageType: "email" | "sms" | "phone",
 		recipient: MessageRecipient,
-		userPreferences?: any
+		userPreferences?: any,
 	): Promise<{ isAllowed: boolean; reason?: string }> {
 		// If no preferences provided in recipient and no separate userPreferences, assume allowed
 		const preferences = recipient.preferences || userPreferences;
-		
+
 		// If no preferences at all, default to allowed (legacy behavior)
 		if (!preferences) {
 			console.log(`No preferences found for recipient, defaulting to allowed`);
@@ -582,51 +565,51 @@ export const MessagingService = {
 		switch (messageType) {
 			case "email":
 				if (preferences.emailNotifications === false) {
-					return { 
-						isAllowed: false, 
-						reason: "User has disabled email notifications" 
+					return {
+						isAllowed: false,
+						reason: "User has disabled email notifications",
 					};
 				}
-				
+
 				// Check if recipient has an email
 				if (!recipient.email) {
-					return { 
-						isAllowed: false, 
-						reason: "Recipient has no email address" 
+					return {
+						isAllowed: false,
+						reason: "Recipient has no email address",
 					};
 				}
 				break;
-				
+
 			case "sms":
 				if (preferences.smsNotifications === false) {
-					return { 
-						isAllowed: false, 
-						reason: "User has disabled SMS notifications" 
+					return {
+						isAllowed: false,
+						reason: "User has disabled SMS notifications",
 					};
 				}
-				
+
 				// Check if recipient has a phone number
 				if (!recipient.phone) {
-					return { 
-						isAllowed: false, 
-						reason: "Recipient has no phone number" 
+					return {
+						isAllowed: false,
+						reason: "Recipient has no phone number",
 					};
 				}
 				break;
-				
+
 			case "phone":
 				if (preferences.phoneNotifications === false) {
-					return { 
-						isAllowed: false, 
-						reason: "User has disabled phone call notifications" 
+					return {
+						isAllowed: false,
+						reason: "User has disabled phone call notifications",
 					};
 				}
-				
+
 				// Check if recipient has a phone number
 				if (!recipient.phone) {
-					return { 
-						isAllowed: false, 
-						reason: "Recipient has no phone number" 
+					return {
+						isAllowed: false,
+						reason: "Recipient has no phone number",
 					};
 				}
 				break;

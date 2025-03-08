@@ -1,18 +1,20 @@
 import { db } from "../../server/db";
 import {
 	childrenTable,
-	guardiansTable,
-	childrenToGuardiansTable,
-	checkinSessionsTable,
+	users,
+	familiesTable,
+	usersToFamiliesTable,
+	roomsTable,
 	childCheckinsTable,
 	authorizedPickupPersonsTable,
 	type NewChild,
-	type NewGuardian,
-	type NewChildToGuardian,
-	type NewCheckinSession,
+	type NewUser,
+	type NewFamily,
+	type NewUserToFamily,
+	type NewRoom,
 	type NewChildCheckin,
 	type NewAuthorizedPickupPerson,
-} from "../../server/db/childCheckin";
+} from "../../server/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
 
 export class ChildCheckinService {
@@ -43,88 +45,123 @@ export class ChildCheckinService {
 		return children;
 	}
 
-	// Guardian management
-	async createGuardian(guardianData: NewGuardian) {
-		const [guardian] = await db
-			.insert(guardiansTable)
-			.values(guardianData)
-			.returning();
-		return guardian;
-	}
-
-	async getGuardianById(guardianId: string) {
-		const guardian = await db.query.guardiansTable.findFirst({
-			where: eq(guardiansTable.id, guardianId),
+	async getChildrenByFamily(familyId: string) {
+		const children = await db.query.childrenTable.findMany({
+			where: eq(childrenTable.familyId, familyId),
 		});
-		return guardian;
+		return children;
 	}
 
-	async getGuardiansByOrganization(churchOrganizationId: string) {
-		const guardians = await db.query.guardiansTable.findMany({
-			where: eq(guardiansTable.churchOrganizationId, churchOrganizationId),
+	// Family management
+	async createFamily(familyData: NewFamily) {
+		const [family] = await db
+			.insert(familiesTable)
+			.values(familyData)
+			.returning();
+		return family;
+	}
+
+	async getFamilyById(familyId: string) {
+		const family = await db.query.familiesTable.findFirst({
+			where: eq(familiesTable.id, familyId),
+		});
+		return family;
+	}
+
+	async getFamiliesByOrganization(churchOrganizationId: string) {
+		const families = await db.query.familiesTable.findMany({
+			where: eq(familiesTable.churchOrganizationId, churchOrganizationId),
+		});
+		return families;
+	}
+
+	// User management (formerly Guardian management)
+	async createUser(userData: NewUser) {
+		const [user] = await db.insert(users).values(userData).returning();
+		return user;
+	}
+
+	async getUserById(userId: string) {
+		const user = await db.query.users.findFirst({
+			where: eq(users.id, userId),
+		});
+		return user;
+	}
+
+	async getUsersByOrganization(churchOrganizationId: string) {
+		const guardians = await db.query.users.findMany({
+			where: eq(users.churchOrganizationId, churchOrganizationId),
 		});
 		return guardians;
 	}
 
-	// Child-Guardian relationship management
-	async linkChildToGuardian(relationData: NewChildToGuardian) {
+	async getUserByPhone(phone: string) {
+		const user = await db.query.users.findFirst({
+			where: eq(users.phone, phone),
+		});
+		return user;
+	}
+
+	// User-Family relationship management
+	async linkUserToFamily(relationData: NewUserToFamily) {
 		const [relation] = await db
-			.insert(childrenToGuardiansTable)
+			.insert(usersToFamiliesTable)
 			.values(relationData)
 			.returning();
 		return relation;
 	}
 
-	async getGuardiansForChild(childId: string) {
+	async getUsersForFamily(familyId: string) {
 		const relations = await db
 			.select()
-			.from(childrenToGuardiansTable)
+			.from(usersToFamiliesTable)
+			.innerJoin(users, eq(usersToFamiliesTable.userId, users.id))
+			.where(eq(usersToFamiliesTable.familyId, familyId))
+			.then((res) => res.map((r) => r.users));
+
+		return relations;
+	}
+
+	async getFamiliesForUser(userId: string) {
+		const relations = await db
+			.select()
+			.from(usersToFamiliesTable)
 			.innerJoin(
-				guardiansTable,
-				eq(childrenToGuardiansTable.guardianId, guardiansTable.id),
+				familiesTable,
+				eq(usersToFamiliesTable.familyId, familiesTable.id),
 			)
-			.where(eq(childrenToGuardiansTable.childId, childId))
-			.then((res) => res.map((r) => r.guardians));
+			.where(eq(usersToFamiliesTable.userId, userId))
+			.then((res) => res.map((r) => r.families));
 
 		return relations;
 	}
 
-	async getChildrenForGuardian(guardianId: string) {
-		const relations = await db.query.childrenToGuardiansTable.findMany({
-			where: eq(childrenToGuardiansTable.guardianId, guardianId),
-		});
-		return relations;
+	// Room management (formerly Checkin session management)
+	async createRoom(roomData: NewRoom) {
+		const [room] = await db.insert(roomsTable).values(roomData).returning();
+		return room;
 	}
 
-	// Checkin session management
-	async createCheckinSession(sessionData: NewCheckinSession) {
-		const [session] = await db
-			.insert(checkinSessionsTable)
-			.values(sessionData)
-			.returning();
-		return session;
-	}
-
-	async getActiveCheckinSessions(churchOrganizationId: string) {
-		const sessions = await db.query.checkinSessionsTable.findMany({
+	async getActiveRooms(churchOrganizationId: string) {
+		const rooms = await db.query.roomsTable.findMany({
 			where: and(
-				eq(checkinSessionsTable.churchOrganizationId, churchOrganizationId),
-				eq(checkinSessionsTable.isActive, true),
+				eq(roomsTable.churchOrganizationId, churchOrganizationId),
+				eq(roomsTable.isActive, true),
 			),
 		});
-		return sessions;
+		return rooms;
 	}
 
-	async updateSessionName(sessionId: string, newName: string) {
-		const [updatedSession] = await db
-			.update(checkinSessionsTable)
+	async updateRoomName(roomId: string, newName: string) {
+		const [updatedRoom] = await db
+			.update(roomsTable)
 			.set({
 				name: newName,
 				updatedAt: new Date(),
 			})
-			.where(eq(checkinSessionsTable.id, sessionId))
+			.where(eq(roomsTable.id, roomId))
 			.returning();
-		return updatedSession;
+		return updatedRoom;
 	}
 
 	// Child checkin management
@@ -139,7 +176,7 @@ export class ChildCheckinService {
 		return checkin;
 	}
 
-	async getActiveCheckins(sessionId: string) {
+	async getActiveCheckins(roomId: string) {
 		const checkins = await db
 			.select()
 			.from(childCheckinsTable)
@@ -149,7 +186,7 @@ export class ChildCheckinService {
 			)
 			.where(
 				and(
-					eq(childCheckinsTable.sessionId, sessionId),
+					eq(childCheckinsTable.roomId, roomId),
 					isNull(childCheckinsTable.checkoutTime),
 				),
 			);
@@ -163,7 +200,7 @@ export class ChildCheckinService {
 		return formattedCheckins;
 	}
 
-	async getCheckedOutChildrenToday(sessionId: string) {
+	async getCheckedOutChildrenToday(roomId: string) {
 		// Create start of today date
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
@@ -177,7 +214,7 @@ export class ChildCheckinService {
 			)
 			.where(
 				and(
-					eq(childCheckinsTable.sessionId, sessionId),
+					eq(childCheckinsTable.roomId, roomId),
 					eq(childCheckinsTable.status, "checked-out"),
 					// Only get checkins from today
 					sql`${childCheckinsTable.checkoutTime} >= ${today}`,
@@ -193,13 +230,13 @@ export class ChildCheckinService {
 		return formattedCheckins;
 	}
 
-	async getActiveCheckinsCount(sessionId: string) {
+	async getActiveCheckinsCount(roomId: string) {
 		const count = await db
 			.select({ count: sql`count(*)` })
 			.from(childCheckinsTable)
 			.where(
 				and(
-					eq(childCheckinsTable.sessionId, sessionId),
+					eq(childCheckinsTable.roomId, roomId),
 					isNull(childCheckinsTable.checkoutTime),
 				),
 			);
@@ -208,27 +245,23 @@ export class ChildCheckinService {
 	}
 
 	async getTotalActiveCheckinsForOrganization(churchOrganizationId: string) {
-		// First get all active sessions for this organization
-		const activeSessions =
-			await this.getActiveCheckinSessions(churchOrganizationId);
+		// First get all active rooms for this organization
+		const activeRooms = await this.getActiveRooms(churchOrganizationId);
 
-		// If no active sessions, return 0
-		if (activeSessions.length === 0) {
+		// If no active rooms, return 0
+		if (activeRooms.length === 0) {
 			return 0;
 		}
 
-		// Get the count of active check-ins across all sessions
+		// Get the count of active check-ins across all rooms
 		const count = await db
 			.select({ count: sql`count(*)` })
 			.from(childCheckinsTable)
-			.innerJoin(
-				checkinSessionsTable,
-				eq(childCheckinsTable.sessionId, checkinSessionsTable.id),
-			)
+			.innerJoin(roomsTable, eq(childCheckinsTable.roomId, roomsTable.id))
 			.where(
 				and(
-					eq(checkinSessionsTable.churchOrganizationId, churchOrganizationId),
-					eq(checkinSessionsTable.isActive, true),
+					eq(roomsTable.churchOrganizationId, churchOrganizationId),
+					eq(roomsTable.isActive, true),
 					isNull(childCheckinsTable.checkoutTime),
 				),
 			);
@@ -247,13 +280,10 @@ export class ChildCheckinService {
 				uniqueChildrenCount: sql`COUNT(DISTINCT ${childCheckinsTable.childId})`,
 			})
 			.from(childCheckinsTable)
-			.innerJoin(
-				checkinSessionsTable,
-				eq(childCheckinsTable.sessionId, checkinSessionsTable.id),
-			)
+			.innerJoin(roomsTable, eq(childCheckinsTable.roomId, roomsTable.id))
 			.where(
 				and(
-					eq(checkinSessionsTable.churchOrganizationId, churchOrganizationId),
+					eq(roomsTable.churchOrganizationId, churchOrganizationId),
 					sql`${childCheckinsTable.checkinTime} >= ${weekAgo}`,
 				),
 			);
@@ -261,12 +291,12 @@ export class ChildCheckinService {
 		return Number(result[0]?.uniqueChildrenCount || 0);
 	}
 
-	async checkoutChild(checkinId: string, guardianId: string) {
+	async checkoutChild(checkinId: string, userId: string) {
 		const [updatedCheckin] = await db
 			.update(childCheckinsTable)
 			.set({
 				checkoutTime: new Date(),
-				checkedOutByGuardianId: guardianId,
+				checkedOutByUserId: userId,
 				status: "checked-out",
 				updatedAt: new Date(),
 			})
@@ -275,7 +305,7 @@ export class ChildCheckinService {
 		return updatedCheckin;
 	}
 
-	// Authorized pickup persons management
+	// Authorized pickup persons
 	async addAuthorizedPickupPerson(pickupPersonData: NewAuthorizedPickupPerson) {
 		const [pickupPerson] = await db
 			.insert(authorizedPickupPersonsTable)
@@ -297,6 +327,51 @@ export class ChildCheckinService {
 			where: eq(childCheckinsTable.secureId, secureId),
 		});
 		return checkin;
+	}
+
+	// Family check-in helpers
+	async findFamilyByPhone(phone: string, churchOrganizationId: string) {
+		// Find user by phone
+		const user = await this.getUserByPhone(phone);
+
+		if (!user) {
+			return null;
+		}
+
+		// Get families for this user
+		const families = await this.getFamiliesForUser(user.id);
+
+		// Filter families by church organization
+		const orgFamilies = families.filter(
+			(family) => family.churchOrganizationId === churchOrganizationId,
+		);
+
+		if (orgFamilies.length === 0) {
+			return null;
+		}
+
+		// Return the first family (most users will only have one family per church)
+		return {
+			user,
+			family: orgFamilies[0],
+		};
+	}
+
+	async getFamilyWithChildrenAndGuardians(familyId: string) {
+		const family = await this.getFamilyById(familyId);
+
+		if (!family) {
+			return null;
+		}
+
+		const children = await this.getChildrenByFamily(familyId);
+		const guardians = await this.getUsersForFamily(familyId);
+
+		return {
+			family,
+			children,
+			guardians,
+		};
 	}
 }
 

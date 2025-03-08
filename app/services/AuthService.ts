@@ -41,10 +41,13 @@ export class AuthService {
 			const userEmail = clerkUser.emailAddresses[0].emailAddress;
 
 			// Get user data with site-wide roles
-			const getUserQuery = await getUser(	{email: userEmail}, {
-				roles: true,
-				churches: false,
-			});
+			const getUserQuery = await getUser(
+				{ email: userEmail },
+				{
+					roles: true,
+					churches: false,
+				},
+			);
 
 			let user = getUserQuery?.users;
 
@@ -65,6 +68,7 @@ export class AuthService {
 						firstName,
 						lastName,
 						avatarUrl: imageUrl,
+						updatedAt: new Date(),
 					})
 					.returning();
 

@@ -1,5 +1,5 @@
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { churchOrganization, users, guardiansTable } from "@/server/db/schema";
+import { churchOrganization, users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db/dbConnection";
 import {
@@ -7,7 +7,6 @@ import {
 	type MessageRecipient,
 } from "@/server/services/MessagingService";
 import { getUser } from "@/server/dataServices/UserDataService";
-import { getGuardian } from "@/server/dataServices/GuardianDataService";
 import { getUserPreferences } from "@/server/dataServices/UserPreferences";
 
 export const action = createAuthLoader(
@@ -24,7 +23,7 @@ export const action = createAuthLoader(
 
 		// Get all recipientIds entries and extract the type and ID
 		const recipientEntries = formData.getAll("recipientIds[]").map((id) => {
-			// Extract the type (user/guardian) and ID
+			// Extract the type and ID
 			const [type, actualId] = (id as string).split(":");
 			return { type, id: actualId };
 		});
@@ -46,20 +45,7 @@ export const action = createAuthLoader(
 					phone: user.phone,
 					firstName: user.firstName,
 					lastName: user.lastName,
-					preferences: userPreferences
-				});
-			} else if (entry.type === "guardian") {
-				// Handle guardians
-				const guardian = await getGuardian(entry.id);
-
-				if (!guardian) continue;
-
-				recipients.push({
-					guardianId: guardian.userId,
-					email: guardian.email,
-					phone: guardian.phone,
-					firstName: guardian.firstName,
-					lastName: guardian.lastName,
+					preferences: userPreferences,
 				});
 			}
 		}

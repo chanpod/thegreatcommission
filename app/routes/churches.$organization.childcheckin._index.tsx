@@ -4,6 +4,7 @@ import {
 	useNavigate,
 	useLoaderData,
 	useFetcher,
+	useActionData,
 } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
@@ -33,37 +34,47 @@ import {
 	DialogTitle,
 } from "~/components/ui/dialog";
 import { Badge } from "~/components/ui/badge";
+import { Checkbox } from "~/components/ui/checkbox";
 
-// Loader to fetch active check-in sessions
-export const loader = createAuthLoader(async ({ params, request }) => {
+// Loader to fetch initial data
+export const loader = createAuthLoader(async ({ params }) => {
 	const { organization } = params;
 
 	if (!organization) {
-		return data({ sessions: [] }, { status: 400 });
+		return data(
+			{ success: false, error: "Invalid organization" },
+			{ status: 400 },
+		);
 	}
 
 	try {
-		const sessions =
-			await childCheckinService.getActiveCheckinSessions(organization);
+		// Get active rooms
+		const rooms = await childCheckinService.getActiveRooms(organization);
 
-		// Fetch active count for each session
-		const sessionsWithCounts = await Promise.all(
-			sessions.map(async (session) => {
+		// For each room, get the count of active check-ins
+		const roomsWithCounts = await Promise.all(
+			rooms.map(async (room) => {
 				const activeCount = await childCheckinService.getActiveCheckinsCount(
-					session.id,
+					room.id,
 				);
 				return {
-					...session,
+					...room,
 					activeCount,
 				};
 			}),
 		);
 
-		return data({ sessions: sessionsWithCounts });
+		return data({
+			success: true,
+			rooms: roomsWithCounts,
+		});
 	} catch (error) {
-		console.error("Error fetching sessions:", error);
+		console.error("Error in child checkin loader:", error);
 		return data(
-			{ sessions: [], error: "Failed to load check-in sessions" },
+			{
+				success: false,
+				error: "An error occurred while loading data",
+			},
 			{ status: 500 },
 		);
 	}
@@ -90,6 +101,49 @@ type Session = {
 	activeCount: number;
 };
 
+// Define types for the component
+type Room = {
+	id: string;
+	name: string;
+	minAge?: number | null;
+	maxAge?: number | null;
+	startTime: string | Date;
+	churchOrganizationId: string;
+	activeCount: number;
+};
+
+type Child = {
+	id: string;
+	firstName: string;
+	lastName: string;
+	dateOfBirth: string | Date;
+	allergies?: string;
+	specialNotes?: string;
+	photoUrl?: string;
+	familyId?: string;
+};
+
+type User = {
+	id: string;
+	firstName: string;
+	lastName: string;
+	email?: string;
+	phone?: string;
+	photoUrl?: string;
+};
+
+type Family = {
+	id: string;
+	name: string;
+	churchOrganizationId: string;
+};
+
+type FamilyWithDetails = {
+	family: Family;
+	children: Child[];
+	guardians: User[];
+};
+
 // Action to handle form submissions
 export const action = createAuthLoader(async ({ params, request }) => {
 	const { organization } = params;
@@ -105,30 +159,131 @@ export const action = createAuthLoader(async ({ params, request }) => {
 	const action = formData.get("_action");
 
 	try {
-		// Create session
-		if (action === "createSession") {
-			const sessionName = formData.get("sessionName");
+		// Create room
+		if (action === "createRoom") {
+			const roomName = formData.get("roomName");
+			const minAge = formData.get("minAge");
+			const maxAge = formData.get("maxAge");
 
-			if (!sessionName) {
+			if (!roomName) {
 				return data(
-					{ success: false, error: "Session name is required" },
+					{ success: false, error: "Room name is required" },
 					{ status: 400 },
 				);
 			}
 
-			const sessionData = {
-				name: sessionName.toString(),
+			const roomData = {
+				name: roomName.toString(),
+				minAge: minAge ? Number.parseInt(minAge.toString()) : null,
+				maxAge: maxAge ? Number.parseInt(maxAge.toString()) : null,
 				churchOrganizationId: organization,
 				startTime: new Date(),
 				updatedAt: new Date(),
 			};
 
-			const newSession =
-				await childCheckinService.createCheckinSession(sessionData);
-			return data({ success: true, session: newSession });
+			const newRoom = await childCheckinService.createRoom(roomData);
+			return data({ success: true, room: newRoom });
 		}
 
-		// Complete check-in
+		// Search for family by phone number
+		if (action === "searchFamily") {
+			const phone = formData.get("phone");
+
+			if (!phone) {
+				return data(
+					{
+						success: false,
+						error: "Phone number is required",
+						action: "searchFamily",
+					},
+					{ status: 400 },
+				);
+			}
+
+			// Find family by phone number
+			const familyResult = await childCheckinService.findFamilyByPhone(
+				phone.toString(),
+				organization,
+			);
+
+			if (!familyResult) {
+				return data(
+					{
+						success: false,
+						error: "No family found with this phone number",
+						action: "searchFamily",
+					},
+					{ status: 404 },
+				);
+			}
+
+			// Get family details with children and guardians
+			const familyData =
+				await childCheckinService.getFamilyWithChildrenAndGuardians(
+					familyResult.family.id,
+				);
+
+			if (!familyData) {
+				return data(
+					{
+						success: false,
+						error: "Failed to load family details",
+						action: "searchFamily",
+					},
+					{ status: 500 },
+				);
+			}
+
+			return data({
+				success: true,
+				familyData,
+				action: "searchFamily",
+			});
+		}
+
+		// Handle family check-in
+		if (action === "familyCheckin") {
+			const roomId = formData.get("roomId");
+			const userId = formData.get("userId");
+			const childIds = formData.getAll("childIds[]");
+
+			if (!roomId || !userId || childIds.length === 0) {
+				return data(
+					{
+						success: false,
+						error: "Missing required fields for family check-in",
+					},
+					{ status: 400 },
+				);
+			}
+
+			// Check in each selected child
+			const checkins = [];
+			for (const childId of childIds) {
+				const checkinData = {
+					childId: childId.toString(),
+					roomId: roomId.toString(),
+					checkedInByUserId: userId.toString(),
+					updatedAt: new Date(),
+				};
+
+				const newCheckin = await childCheckinService.checkinChild(checkinData);
+				checkins.push(newCheckin);
+			}
+
+			// Generate QR code URL for the first check-in
+			const host = new URL(request.url).origin;
+			const qrCodeUrl = `${host}/churches/${organization}/childcheckin/verify/${checkins[0].secureId}`;
+
+			return data({
+				success: true,
+				message: "Children have been successfully checked in",
+				checkins,
+				qrCodeUrl,
+			});
+		}
+
+		// Complete individual check-in
 		if (action === "completeCheckin") {
 			// Get data from form
 			const childFirstName = formData.get("childFirstName");
@@ -144,16 +299,17 @@ export const action = createAuthLoader(async ({ params, request }) => {
 			const email = formData.get("email");
 			const guardianPhotoUrl = formData.get("guardianPhotoUrl");
 
-			const sessionId = formData.get("sessionId");
+			const roomId = formData.get("roomId");
 			const pickupPersonsJson = formData.get("authorizedPickups");
 
 			// Validate required fields
 			if (
 				!childFirstName ||
 				!childLastName ||
+				!dateOfBirth ||
 				!guardianFirstName ||
 				!guardianLastName ||
-				!sessionId
+				!roomId
 			) {
 				return data(
 					{
@@ -190,45 +346,79 @@ export const action = createAuthLoader(async ({ params, request }) => {
 				}
 			}
 
+			// Check if user already exists by phone
+			let user = null;
+			if (phone) {
+				user = await childCheckinService.getUserByPhone(phone.toString());
+			}
+
+			// Create or update user
+			if (!user) {
+				// Create new user
+				const userData = {
+					firstName: guardianFirstName?.toString(),
+					lastName: guardianLastName?.toString(),
+					phone: phone ? phone.toString() : undefined,
+					email: email ? email.toString() : undefined,
+					photoUrl: processedGuardianPhotoUrl,
+					churchOrganizationId: organization,
+					updatedAt: new Date(),
+				};
+				user = await childCheckinService.createUser(userData);
+			}
+
+			// Create or get family
+			const familyName = `${guardianLastName} Family`;
+			let family = null;
+
+			// Check if user already has a family in this organization
+			const userFamilies = await childCheckinService.getFamiliesForUser(
+				user.id,
+			);
+			const orgFamily = userFamilies.find(
+				(f) => f.churchOrganizationId === organization,
+			);
+
+			if (orgFamily) {
+				family = orgFamily;
+			} else {
+				// Create new family
+				const familyData = {
+					name: familyName,
+					churchOrganizationId: organization,
+					updatedAt: new Date(),
+				};
+				family = await childCheckinService.createFamily(familyData);
+
+				// Link user to family
+				await childCheckinService.linkUserToFamily({
+					userId: user.id,
+					familyId: family.id,
+					relationship: "parent",
+					isPrimaryGuardian: true,
+					updatedAt: new Date(),
+				});
+			}
+
 			// Create child record
 			const childData = {
 				firstName: childFirstName?.toString(),
 				lastName: childLastName?.toString(),
-				dateOfBirth: dateOfBirth ? dateOfBirth?.toString() : undefined,
+				dateOfBirth: new Date(dateOfBirth.toString()),
 				allergies: allergies ? allergies?.toString() : undefined,
 				specialNotes: specialNotes ? specialNotes?.toString() : undefined,
 				photoUrl: processedChildPhotoUrl,
+				familyId: family.id,
 				churchOrganizationId: organization,
 				updatedAt: new Date(),
 			};
 			const newChild = await childCheckinService.createChild(childData);
 
-			// Create guardian record
-			const guardianData = {
-				firstName: guardianFirstName?.toString(),
-				lastName: guardianLastName?.toString(),
-				phone: phone ? phone?.toString() : undefined,
-				email: email ? email?.toString() : undefined,
-				photoUrl: processedGuardianPhotoUrl,
-				churchOrganizationId: organization,
-				updatedAt: new Date(),
-			};
-			const newGuardian =
-				await childCheckinService.createGuardian(guardianData);
-
-			// Link child to guardian
-			await childCheckinService.linkChildToGuardian({
-				childId: newChild.id,
-				guardianId: newGuardian.id,
-				relationship: "parent",
-				updatedAt: new Date(),
-			});
-
 			// Create checkin record
 			const checkinData = {
 				childId: newChild.id,
-				sessionId: sessionId.toString(),
-				checkedInByGuardianId: newGuardian.id,
+				roomId: roomId.toString(),
+				checkedInByUserId: user.id,
 				updatedAt: new Date(),
 			};
 			const newCheckin = await childCheckinService.checkinChild(checkinData);
@@ -249,50 +439,48 @@ export const action = createAuthLoader(async ({ params, request }) => {
 
 			// Generate QR code URL
 			const host = new URL(request.url).origin;
-			const qrUrl = `${host}/churches/${organization}/childcheckin/verify/${newCheckin.secureId}`;
+			const qrCodeUrl = `${host}/churches/${organization}/childcheckin/verify/${newCheckin.secureId}`;
 
-			return {
+			return data({
 				success: true,
+				message: "Child has been successfully checked in",
 				checkin: newCheckin,
-				qrCodeUrl: qrUrl,
-				childInfo: newChild,
-				guardianInfo: newGuardian,
-			};
+				qrCodeUrl,
+			});
 		}
 
-		// Rename session
-		if (action === "renameSession") {
-			const sessionId = formData.get("sessionId");
+		// Rename room
+		if (action === "renameRoom") {
+			const roomId = formData.get("roomId");
 			const newName = formData.get("newName");
 
-			if (!sessionId || !newName) {
+			if (!roomId || !newName) {
 				return data(
-					{ success: false, error: "Session ID and new name are required" },
+					{ success: false, error: "Room ID and new name are required" },
 					{ status: 400 },
 				);
 			}
 
-			await childCheckinService.updateSessionName(
-				sessionId.toString(),
+			const updatedRoom = await childCheckinService.updateRoomName(
+				roomId.toString(),
 				newName.toString(),
 			);
 
-			// Fetch updated sessions list
-			const sessions =
-				await childCheckinService.getActiveCheckinSessions(organization);
-
 			return data({
 				success: true,
-				message: "Session has been successfully renamed",
-				sessions,
+				message: "Room has been renamed",
+				room: updatedRoom,
 			});
 		}
 
 		return data({ success: false, error: "Invalid action" }, { status: 400 });
 	} catch (error) {
-		console.error("Error processing action:", error);
+		console.error("Error in child checkin action:", error);
 		return data(
-			{ success: false, error: "Failed to process action" },
+			{
+				success: false,
+				error: "An error occurred while processing your request",
+			},
 			{ status: 500 },
 		);
 	}
@@ -370,14 +558,16 @@ function RenameSessionDialog({
 export default function ChildCheckin() {
 	const { organization } = useParams();
 	const navigate = useNavigate();
-	const loaderData = useLoaderData<typeof loader>() as LoaderData;
-	const [sessions, setSessions] = useState<Session[]>(
-		loaderData?.sessions || [],
-	);
+	const loaderData = useLoaderData<typeof loader>();
 	const fetcher = useFetcher();
+	const actionData = useActionData<typeof action>();
 
-	const [activeTab, setActiveTab] = useState("session");
-	const [activeSession, setActiveSession] = useState<Session | null>(null);
+	// State for tabs
+	const [activeTab, setActiveTab] = useState("room");
+	const [checkinComplete, setCheckinComplete] = useState(false);
+	const [qrCodeUrl, setQrCodeUrl] = useState("");
+
+	// State for child info
 	const [childInfo, setChildInfo] = useState({
 		firstName: "",
 		lastName: "",
@@ -386,6 +576,8 @@ export default function ChildCheckin() {
 		specialNotes: "",
 		photoUrl: "",
 	});
+
+	// State for guardian info
 	const [guardianInfo, setGuardianInfo] = useState({
 		firstName: "",
 		lastName: "",
@@ -393,111 +585,152 @@ export default function ChildCheckin() {
 		email: "",
 		photoUrl: "",
 	});
-	const [authorizedPickups, setAuthorizedPickups] = useState([]);
-	const [childPhoto, setChildPhoto] = useState(null);
-	const [guardianPhoto, setGuardianPhoto] = useState(null);
-	const [qrCodeUrl, setQrCodeUrl] = useState("");
-	const [checkinComplete, setCheckinComplete] = useState(false);
 
-	// State for rename session dialog
-	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
-	const [sessionToRename, setSessionToRename] = useState<Session | null>(null);
+	// State for authorized pickup persons
+	const [authorizedPickups, setAuthorizedPickups] = useState<any[]>([]);
 
-	// Refs for camera elements
+	// State for photos
+	const [childPhoto, setChildPhoto] = useState<string | null>(null);
+	const [guardianPhoto, setGuardianPhoto] = useState<string | null>(null);
+
+	// Refs for camera
 	const childVideoRef = useRef(null);
 	const childCanvasRef = useRef(null);
 	const guardianVideoRef = useRef(null);
 	const guardianCanvasRef = useRef(null);
 
-	// Handle successful session creation
+	// State for active room
+	const [activeRoom, setActiveRoom] = useState<Room | null>(null);
+	const [rooms, setRooms] = useState<Room[]>([]);
+	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+	const [roomToRename, setRoomToRename] = useState<Room | null>(null);
+
+	// State for family check-in
+	const [phoneNumber, setPhoneNumber] = useState("");
+	const [isSearchingFamily, setIsSearchingFamily] = useState(false);
+	const [familyData, setFamilyData] = useState<FamilyWithDetails | null>(null);
+	const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
+
+	// Load rooms from loader data
 	useEffect(() => {
-		if (fetcher.data?.success && fetcher.data?.session) {
-			setActiveSession(fetcher.data.session);
-			toast.success(
-				`Session "${fetcher.data.session.name}" has been created successfully.`,
-			);
-			setActiveTab("child");
+		if (loaderData?.rooms) {
+			setRooms(loaderData.rooms);
+		}
+	}, [loaderData]);
+
+	// Handle successful room creation
+	useEffect(() => {
+		if (fetcher.data?.success && fetcher.data?.room) {
+			// Add the new room to the list
+			setRooms((prevRooms) => [
+				...prevRooms,
+				{ ...fetcher.data.room, activeCount: 0 },
+			]);
+
+			// Set it as the active room
+			setActiveRoom(fetcher.data.room);
+
+			// Show success message
+			toast.success("Room created successfully");
 		}
 	}, [fetcher.data]);
 
-	// Handle successful check-in
+	// Handle successful checkin
 	useEffect(() => {
-		if (fetcher.data?.success && fetcher.data?.checkin) {
-			setQrCodeUrl(fetcher.data.qrCodeUrl);
+		if (
+			fetcher.data?.success &&
+			fetcher.data?.message === "Child has been successfully checked in"
+		) {
 			setCheckinComplete(true);
+			setQrCodeUrl(fetcher.data.qrCodeUrl);
 			setActiveTab("complete");
-			toast.success("Child has been successfully checked in.");
+			toast.success("Child checked in successfully");
 		}
 	}, [fetcher.data]);
 
-	// Handle sessions update
+	// Handle successful family search
 	useEffect(() => {
-		if (fetcher.data?.success && fetcher.data?.sessions) {
-			setSessions(fetcher.data.sessions);
-
-			// Update active session if it was renamed
-			if (activeSession) {
-				const updatedActiveSession = fetcher.data.sessions.find(
-					(session) => session.id === activeSession.id,
-				);
-				if (updatedActiveSession) {
-					setActiveSession(updatedActiveSession);
-				}
-			}
-
-			if (fetcher.data.message) {
-				toast.success(fetcher.data.message);
-			}
-		}
-	}, [fetcher.data]);
-
-	// Handle errors
-	useEffect(() => {
-		if (fetcher.data && !fetcher.data.success && fetcher.data.error) {
+		if (fetcher.data?.success && fetcher.data?.familyData) {
+			setFamilyData(fetcher.data.familyData);
+			setIsSearchingFamily(false);
+			toast.success("Family found");
+		} else if (fetcher.data?.error && fetcher.data?.action === "searchFamily") {
+			setIsSearchingFamily(false);
 			toast.error(fetcher.data.error);
 		}
 	}, [fetcher.data]);
 
-	// Function to handle session creation
-	const handleCreateSession = (e: React.FormEvent<HTMLFormElement>) => {
+	// Handle child info changes
+	const handleChildInfoChange = (
+		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+	) => {
+		const { name, value } = e.target;
+		setChildInfo((prev) => ({ ...prev, [name]: value }));
+	};
+
+	// Handle guardian info changes
+	const handleGuardianInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const { name, value } = e.target;
+		setGuardianInfo((prev) => ({ ...prev, [name]: value }));
+	};
+
+	// Handle phone number change
+	const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		setPhoneNumber(e.target.value);
+	};
+
+	// Handle search family by phone
+	const handleSearchFamily = (e: React.FormEvent) => {
 		e.preventDefault();
-		const formData = new FormData(e.target as HTMLFormElement);
-		formData.append("_action", "createSession");
-		fetcher.submit(formData, { method: "post" });
-	};
+		if (!phoneNumber) {
+			toast.error("Please enter a phone number");
+			return;
+		}
 
-	// Function to handle session rename
-	const handleRenameSession = (session: Session) => {
-		setSessionToRename(session);
-		setIsRenameDialogOpen(true);
-	};
-
-	// Function to submit session rename
-	const submitRenameSession = (sessionId: string, newName: string) => {
+		setIsSearchingFamily(true);
 		const formData = new FormData();
-		formData.append("_action", "renameSession");
-		formData.append("sessionId", sessionId);
-		formData.append("newName", newName);
-
+		formData.append("_action", "searchFamily");
+		formData.append("phone", phoneNumber);
 		fetcher.submit(formData, { method: "post" });
 	};
 
-	// Function to handle child info update
-	const handleChildInfoChange = (e) => {
-		const { name, value } = e.target;
-		setChildInfo({
-			...childInfo,
-			[name]: value,
+	// Handle child selection for family check-in
+	const handleChildSelection = (childId: string) => {
+		setSelectedChildren((prev) => {
+			if (prev.includes(childId)) {
+				return prev.filter((id) => id !== childId);
+			} else {
+				return [...prev, childId];
+			}
 		});
 	};
 
-	// Function to handle guardian info update
-	const handleGuardianInfoChange = (e) => {
-		const { name, value } = e.target;
-		setGuardianInfo({
-			...guardianInfo,
-			[name]: value,
+	// Handle family check-in submission
+	const handleFamilyCheckin = () => {
+		if (!activeRoom) {
+			toast.error("Please select a room first");
+			return;
+		}
+
+		if (selectedChildren.length === 0) {
+			toast.error("Please select at least one child");
+			return;
+		}
+
+		if (!familyData?.guardians[0]?.id) {
+			toast.error("No guardian found for this family");
+			return;
+		}
+
+		const formData = new FormData();
+		formData.append("_action", "familyCheckin");
+		formData.append("roomId", activeRoom.id);
+		formData.append("userId", familyData.guardians[0].id);
+		selectedChildren.forEach((childId) => {
+			formData.append("childIds[]", childId);
 		});
+
+		fetcher.submit(formData, { method: "post" });
 	};
 
 	// Function to start camera for child
@@ -613,7 +846,11 @@ export default function ChildCheckin() {
 
 	// Function to complete checkin process
 	const handleCompleteCheckin = () => {
-		if (guardianInfo.firstName && guardianInfo.lastName) {
+		if (
+			guardianInfo.firstName &&
+			guardianInfo.lastName &&
+			childInfo.dateOfBirth
+		) {
 			const formData = new FormData();
 
 			// Add action type
@@ -634,16 +871,50 @@ export default function ChildCheckin() {
 			formData.append("email", guardianInfo.email);
 			formData.append("guardianPhotoUrl", guardianInfo.photoUrl);
 
-			// Add session ID
-			formData.append("sessionId", activeSession.id);
+			// Add room ID
+			formData.append("roomId", activeRoom.id);
 
 			// Add authorized pickup persons
 			formData.append("authorizedPickups", JSON.stringify(authorizedPickups));
 
 			// Submit form data
 			fetcher.submit(formData, { method: "post" });
+		} else if (!childInfo.dateOfBirth) {
+			toast.error("Please enter the child's date of birth.");
 		} else {
 			toast.error("Please enter the guardian's first and last name.");
+		}
+	};
+
+	// Function to create a new room
+	const handleCreateRoom = (e: React.FormEvent) => {
+		e.preventDefault();
+		const form = e.target as HTMLFormElement;
+		const formData = new FormData(form);
+		formData.append("_action", "createRoom");
+		fetcher.submit(formData, { method: "post" });
+		form.reset();
+	};
+
+	// Function to select a room
+	const handleSelectRoom = (room: Room) => {
+		setActiveRoom(room);
+	};
+
+	// Function to open rename dialog
+	const handleOpenRenameDialog = (room: Room) => {
+		setRoomToRename(room);
+		setIsRenameDialogOpen(true);
+	};
+
+	// Function to submit room rename
+	const submitRenameRoom = (newName: string) => {
+		if (roomToRename && newName) {
+			const formData = new FormData();
+			formData.append("_action", "renameRoom");
+			formData.append("roomId", roomToRename.id);
+			formData.append("newName", newName);
+			fetcher.submit(formData, { method: "post" });
 		}
 	};
 
@@ -662,9 +933,10 @@ export default function ChildCheckin() {
 			</div>
 
 			<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-				<TabsList className="grid w-full grid-cols-4">
-					<TabsTrigger value="session">Session</TabsTrigger>
-					<TabsTrigger value="child" disabled={!activeSession}>
+				<TabsList className="grid w-full grid-cols-5">
+					<TabsTrigger value="room">Room</TabsTrigger>
+					<TabsTrigger value="quick">Quick Check-in</TabsTrigger>
+					<TabsTrigger value="child" disabled={!activeRoom}>
 						Child Info
 					</TabsTrigger>
 					<TabsTrigger value="guardian" disabled={!childInfo.firstName}>
@@ -675,40 +947,57 @@ export default function ChildCheckin() {
 					</TabsTrigger>
 				</TabsList>
 
-				<TabsContent value="session">
+				<TabsContent value="room">
 					<Card>
 						<CardHeader>
-							<CardTitle>Check-in Session</CardTitle>
+							<CardTitle>Check-in Room</CardTitle>
 							<CardDescription>
-								Create a new check-in session or select an existing one.
+								Create a new check-in room or select an existing one.
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<fetcher.Form
-								onSubmit={handleCreateSession}
-								className="space-y-4"
-							>
+							<fetcher.Form onSubmit={handleCreateRoom} className="space-y-4">
 								<div className="space-y-2">
-									<Label htmlFor="sessionName">Session Name</Label>
+									<Label htmlFor="roomName">Room Name</Label>
 									<Input
-										id="sessionName"
-										name="sessionName"
-										placeholder="e.g., Sunday School - June 2, 2024"
+										id="roomName"
+										name="roomName"
+										placeholder="e.g., Nursery, Toddlers, Elementary"
 										required
 									/>
 								</div>
-								<Button type="submit">Create Session</Button>
+								<div className="grid grid-cols-2 gap-4">
+									<div className="space-y-2">
+										<Label htmlFor="minAge">Minimum Age (months)</Label>
+										<Input
+											id="minAge"
+											name="minAge"
+											type="number"
+											placeholder="e.g., 0"
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="maxAge">Maximum Age (months)</Label>
+										<Input
+											id="maxAge"
+											name="maxAge"
+											type="number"
+											placeholder="e.g., 24"
+										/>
+									</div>
+								</div>
+								<Button type="submit">Create Room</Button>
 							</fetcher.Form>
 
-							{sessions?.length > 0 && (
+							{rooms?.length > 0 && (
 								<div className="mt-6">
 									<div className="flex items-center mb-2 justify-between">
-										<h3 className="text-lg font-medium">Active Sessions</h3>
-										{sessions.some((s) => s.activeCount > 0) && (
+										<h3 className="text-lg font-medium">Active Rooms</h3>
+										{rooms.some((r) => r.activeCount > 0) && (
 											<div className="text-sm text-muted-foreground">
 												<Badge variant="secondary">
-													{sessions.reduce(
-														(total, session) => total + session.activeCount,
+													{rooms.reduce(
+														(total, room) => total + room.activeCount,
 														0,
 													)}
 												</Badge>{" "}
@@ -717,55 +1006,67 @@ export default function ChildCheckin() {
 										)}
 									</div>
 									<div className="space-y-2">
-										{sessions?.map((session) => (
-											<Card
-												key={session.id}
-												className={`p-4 cursor-pointer transition-all ${
-													activeSession?.id === session.id
-														? "border-2 border-primary bg-primary/5"
-														: "hover:bg-muted/50"
+										{rooms.map((room) => (
+											<div
+												key={room.id}
+												className={`p-4 border rounded-lg ${
+													activeRoom?.id === room.id
+														? "border-primary bg-primary/5"
+														: ""
 												}`}
 											>
 												<div className="flex justify-between items-center">
-													<div
-														className="flex-1"
-														onClick={() => {
-															setActiveSession(session);
-															toast.success(
-																`Selected session: ${session.name}`,
-															);
-														}}
-													>
-														<div className="font-medium">{session.name}</div>
+													<div>
+														<div className="font-medium">{room.name}</div>
+														<div className="text-sm text-muted-foreground">
+															{room.minAge !== null && room.maxAge !== null ? (
+																<span>
+																	Ages: {room.minAge}-{room.maxAge} months
+																</span>
+															) : room.minAge !== null ? (
+																<span>Ages: {room.minAge}+ months</span>
+															) : room.maxAge !== null ? (
+																<span>Ages: Up to {room.maxAge} months</span>
+															) : (
+																<span>All ages</span>
+															)}
+														</div>
 														<div className="text-sm text-muted-foreground">
 															Started:{" "}
-															{new Date(session.startTime).toLocaleString()}
+															{new Date(room.startTime).toLocaleTimeString()}
 														</div>
-														<div className="text-sm mt-1">
-															<Badge variant="outline" className="mr-1">
-																{session.activeCount}
-															</Badge>
-															{session.activeCount === 1 ? "child" : "children"}{" "}
-															checked in
-														</div>
-														{activeSession?.id === session.id && (
-															<div className="mt-2 text-sm font-medium text-primary">
-																✓ Selected
+														{room.activeCount > 0 && (
+															<div className="mt-1">
+																<Badge>
+																	{room.activeCount} children checked in
+																</Badge>
 															</div>
 														)}
 													</div>
-													<Button
-														variant="ghost"
-														size="sm"
-														onClick={(e) => {
-															e.stopPropagation();
-															handleRenameSession(session);
-														}}
-													>
-														Rename
-													</Button>
+													<div className="flex space-x-2">
+														<Button
+															variant="outline"
+															size="sm"
+															onClick={() => handleOpenRenameDialog(room)}
+														>
+															Rename
+														</Button>
+														<Button
+															onClick={() => handleSelectRoom(room)}
+															variant={
+																activeRoom?.id === room.id
+																	? "secondary"
+																	: "default"
+															}
+															size="sm"
+														>
+															{activeRoom?.id === room.id
+																? "Selected"
+																: "Select"}
+														</Button>
+													</div>
 												</div>
-											</Card>
+											</div>
 										))}
 									</div>
 								</div>
@@ -774,19 +1075,171 @@ export default function ChildCheckin() {
 						<CardFooter>
 							<Button
 								onClick={() => {
-									if (activeSession) {
+									if (activeRoom) {
 										setActiveTab("child");
 									}
 								}}
-								disabled={!activeSession}
-								variant={!activeSession ? "outline" : "default"}
-								className={
-									!activeSession ? "opacity-50 cursor-not-allowed" : ""
-								}
+								disabled={!activeRoom}
+								variant={!activeRoom ? "outline" : "default"}
+								className={!activeRoom ? "opacity-50 cursor-not-allowed" : ""}
 							>
 								Next: Child Information
 							</Button>
 						</CardFooter>
+					</Card>
+				</TabsContent>
+
+				<TabsContent value="quick">
+					<Card>
+						<CardHeader>
+							<CardTitle>Quick Check-in</CardTitle>
+							<CardDescription>
+								Enter a phone number to find a family and check in their
+								children
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<div className="space-y-6">
+								<div>
+									<form
+										onSubmit={handleSearchFamily}
+										className="flex space-x-2"
+									>
+										<div className="flex-1">
+											<Label htmlFor="phoneNumber">Phone Number</Label>
+											<Input
+												id="phoneNumber"
+												placeholder="Enter phone number"
+												value={phoneNumber}
+												onChange={handlePhoneNumberChange}
+												type="tel"
+												required
+											/>
+										</div>
+										<Button
+											type="submit"
+											className="mt-8"
+											disabled={isSearchingFamily}
+										>
+											{isSearchingFamily ? "Searching..." : "Find Family"}
+										</Button>
+									</form>
+								</div>
+
+								{familyData && (
+									<div className="space-y-6">
+										<div>
+											<h3 className="text-lg font-medium mb-2">
+												Family Information
+											</h3>
+											<div className="p-4 border rounded-md">
+												<p className="font-medium">{familyData.family.name}</p>
+												<div className="mt-2">
+													<p className="text-sm text-muted-foreground">
+														Guardians:
+													</p>
+													<ul className="mt-1 space-y-1">
+														{familyData.guardians.map((guardian) => (
+															<li key={guardian.id} className="text-sm">
+																{guardian.firstName} {guardian.lastName}
+																{guardian.phone && ` - ${guardian.phone}`}
+															</li>
+														))}
+													</ul>
+												</div>
+											</div>
+										</div>
+
+										<div>
+											<div className="flex justify-between items-center mb-2">
+												<h3 className="text-lg font-medium">Children</h3>
+												<p className="text-sm text-muted-foreground">
+													Select children to check in
+												</p>
+											</div>
+
+											{familyData.children.length === 0 ? (
+												<div className="p-4 border rounded-md text-center">
+													<p className="text-muted-foreground">
+														No children found for this family
+													</p>
+												</div>
+											) : (
+												<div className="space-y-2">
+													{familyData.children.map((child) => (
+														<div
+															key={child.id}
+															className={`p-4 border rounded-md flex justify-between items-center cursor-pointer ${
+																selectedChildren.includes(child.id)
+																	? "border-primary bg-primary/5"
+																	: ""
+															}`}
+															onClick={() => handleChildSelection(child.id)}
+														>
+															<div>
+																<p className="font-medium">
+																	{child.firstName} {child.lastName}
+																</p>
+																{child.dateOfBirth && (
+																	<p className="text-sm text-muted-foreground">
+																		{new Date(
+																			child.dateOfBirth,
+																		).toLocaleDateString()}
+																	</p>
+																)}
+																{child.allergies && (
+																	<p className="text-sm text-red-500">
+																		Allergies: {child.allergies}
+																	</p>
+																)}
+															</div>
+															<Checkbox
+																checked={selectedChildren.includes(child.id)}
+																onCheckedChange={() =>
+																	handleChildSelection(child.id)
+																}
+															/>
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+
+										{activeRoom && (
+											<div className="p-4 border rounded-md">
+												<h3 className="font-medium mb-2">Selected Room</h3>
+												<div className="text-sm">
+													<p>
+														<span className="font-medium">Room:</span>{" "}
+														{activeRoom.name}
+													</p>
+													{(activeRoom.minAge !== null ||
+														activeRoom.maxAge !== null) && (
+														<p>
+															<span className="font-medium">Age Range:</span>{" "}
+															{activeRoom.minAge !== null &&
+															activeRoom.maxAge !== null
+																? `${activeRoom.minAge}-${activeRoom.maxAge} months`
+																: activeRoom.minAge !== null
+																	? `${activeRoom.minAge}+ months`
+																	: `Up to ${activeRoom.maxAge} months`}
+														</p>
+													)}
+												</div>
+											</div>
+										)}
+
+										<Button
+											onClick={handleFamilyCheckin}
+											disabled={selectedChildren.length === 0 || !activeRoom}
+											className="w-full"
+										>
+											Check In Selected Children
+										</Button>
+									</div>
+								)}
+							</div>
+						</CardContent>
 					</Card>
 				</TabsContent>
 
@@ -829,6 +1282,7 @@ export default function ChildCheckin() {
 											type="date"
 											value={childInfo.dateOfBirth}
 											onChange={handleChildInfoChange}
+											required
 										/>
 									</div>
 									<div className="space-y-2">
@@ -847,68 +1301,88 @@ export default function ChildCheckin() {
 											name="specialNotes"
 											value={childInfo.specialNotes}
 											onChange={handleChildInfoChange}
+											rows={3}
 										/>
 									</div>
 								</div>
 								<div className="space-y-4">
 									<div className="space-y-2">
-										<Label>Child's Photo</Label>
-										{childPhoto ? (
-											<div className="relative">
-												<img
-													src={childPhoto}
-													alt="Child"
-													className="w-full h-64 object-cover rounded-md"
-												/>
-												<Button
-													variant="outline"
-													size="sm"
-													className="absolute top-2 right-2"
-													onClick={() => setChildPhoto(null)}
-												>
-													Retake
-												</Button>
-											</div>
-										) : (
-											<div className="border rounded-md p-4">
-												<video
-													ref={childVideoRef}
-													autoPlay
-													playsInline
-													className="w-full h-64 object-cover"
-													onLoadedMetadata={() => console.log("Camera ready")}
-												>
-													<track kind="captions" />
-												</video>
-												<canvas
-													ref={childCanvasRef}
-													style={{ display: "none" }}
-												/>
-												<div className="flex space-x-2 mt-2">
-													<Button className="flex-1" onClick={startChildCamera}>
-														Start Camera
-													</Button>
+										<Label>Child's Photo (Optional)</Label>
+										<div className="flex flex-col items-center justify-center border rounded-lg p-4 h-64">
+											{childPhoto ? (
+												<div className="relative w-full h-full">
+													<img
+														src={childPhoto}
+														alt="Child"
+														className="w-full h-full object-cover rounded-lg"
+													/>
 													<Button
-														className="flex-1"
-														onClick={captureChildPhoto}
+														variant="destructive"
+														size="sm"
+														className="absolute top-2 right-2"
+														onClick={() => {
+															setChildPhoto(null);
+															setChildInfo({
+																...childInfo,
+																photoUrl: "",
+															});
+														}}
 													>
-														Take Photo
+														Remove
 													</Button>
 												</div>
-											</div>
-										)}
+											) : (
+												<div className="flex flex-col items-center justify-center h-full">
+													<Button variant="outline" onClick={captureChildPhoto}>
+														Take Photo
+													</Button>
+													<p className="text-sm text-muted-foreground mt-2">
+														Or drag and drop an image here
+													</p>
+												</div>
+											)}
+										</div>
 									</div>
+									{activeRoom && (
+										<div className="p-4 border rounded-lg mt-4">
+											<h3 className="font-medium mb-2">Selected Room</h3>
+											<div className="text-sm">
+												<p>
+													<span className="font-medium">Room:</span>{" "}
+													{activeRoom.name}
+												</p>
+												{(activeRoom.minAge !== null ||
+													activeRoom.maxAge !== null) && (
+													<p>
+														<span className="font-medium">Age Range:</span>{" "}
+														{activeRoom.minAge !== null &&
+														activeRoom.maxAge !== null
+															? `${activeRoom.minAge}-${activeRoom.maxAge} months`
+															: activeRoom.minAge !== null
+																? `${activeRoom.minAge}+ months`
+																: `Up to ${activeRoom.maxAge} months`}
+													</p>
+												)}
+											</div>
+										</div>
+									)}
 								</div>
 							</div>
 						</CardContent>
 						<CardFooter className="flex justify-between">
-							<Button variant="outline" onClick={() => setActiveTab("session")}>
+							<Button variant="outline" onClick={() => setActiveTab("room")}>
 								Back
 							</Button>
 							<Button
 								onClick={() => {
-									if (childInfo.firstName && childInfo.lastName) {
+									if (
+										childInfo.firstName &&
+										childInfo.lastName &&
+										childInfo.dateOfBirth
+									) {
 										setActiveTab("guardian");
+									} else if (!childInfo.dateOfBirth) {
+										toast.error("Please enter the child's date of birth.");
 									} else {
 										toast.error(
 											"Please enter the child's first and last name.",
@@ -1257,9 +1731,68 @@ export default function ChildCheckin() {
 			<RenameSessionDialog
 				isOpen={isRenameDialogOpen}
 				onClose={() => setIsRenameDialogOpen(false)}
-				session={sessionToRename}
-				onRename={submitRenameSession}
+				session={roomToRename}
+				onRename={submitRenameRoom}
 			/>
 		</div>
+	);
+}
+
+// Rename Room Dialog Component
+function RenameRoomDialog({
+	isOpen,
+	onClose,
+	session,
+	onRename,
+}: {
+	isOpen: boolean;
+	onClose: () => void;
+	session: any;
+	onRename: (newName: string) => void;
+}) {
+	const [newName, setNewName] = useState("");
+
+	useEffect(() => {
+		if (session) {
+			setNewName(session.name);
+		}
+	}, [session]);
+
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (session) {
+			onRename(newName);
+		}
+		onClose();
+	};
+
+	return (
+		<Dialog open={isOpen} onOpenChange={onClose}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Rename Room</DialogTitle>
+					<DialogDescription>Enter a new name for this room.</DialogDescription>
+				</DialogHeader>
+				<form onSubmit={handleSubmit}>
+					<div className="space-y-4 py-4">
+						<div className="space-y-2">
+							<Label htmlFor="newRoomName">Room Name</Label>
+							<Input
+								id="newRoomName"
+								value={newName}
+								onChange={(e) => setNewName(e.target.value)}
+								required
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={onClose}>
+							Cancel
+						</Button>
+						<Button type="submit">Save Changes</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
 	);
 }

@@ -20,6 +20,7 @@
 - Lucide React for icons
 - date-fns for date manipulation
 - Zod for schema validation
+- use sonner for toast
 
 ## Project Structure
 - `/app` - Main application code

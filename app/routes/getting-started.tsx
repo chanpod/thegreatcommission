@@ -54,6 +54,7 @@ import type { Route } from "./+types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { AuthService } from "~/services/AuthService";
 import { getAuth, rootAuthLoader } from "@clerk/react-router/ssr.server";
+import { createAuthLoader } from "~/server/auth/authLoader";
 
 // Define the steps of the wizard
 const STEPS = [
@@ -77,23 +78,18 @@ const STEPS = [
 	{ id: "complete", title: "Complete", icon: <Check className="h-5 w-5" /> },
 ];
 
-export const loader = async (request: Route.LoaderArgs) => {
-	return rootAuthLoader(request, async ({ request, params, context }) => {
-		// Get user context
-		const userContext = await AuthService.getAuthenticatedUser(request.auth);
+export const loader = createAuthLoader(async ({ request, userContext }) => {
+	// If authenticated and on auth step, redirect to church-info step
+	const url = new URL(request.url);
+	const currentStep = url.searchParams.get("step");
+	if (userContext && (!currentStep || currentStep === "auth")) {
+		throw redirect("/getting-started?step=church-info");
+	}
 
-		// If authenticated and on auth step, redirect to church-info step
-		const url = new URL(request.url);
-		const currentStep = url.searchParams.get("step");
-		if (userContext && (!currentStep || currentStep === "auth")) {
-			return redirect("/getting-started?step=church-info");
-		}
-
-		return {
-			isAuthenticated: !!userContext,
-		};
-	});
-};
+	return {
+		isAuthenticated: !!userContext,
+	};
+});
 
 export const action = async (request: Route.ActionArgs) => {
 	return rootAuthLoader(request, async ({ request, params, context }) => {
@@ -441,17 +437,19 @@ export default function GettingStarted() {
 						{STEPS.map((step, index) => (
 							<div key={step.id} className="flex items-center">
 								<div
-									className={`flex items-center justify-center w-10 h-10 rounded-full ${currentStep >= index
-										? "bg-blue-600 text-white"
-										: "bg-gray-200 text-gray-500"
-										}`}
+									className={`flex items-center justify-center w-10 h-10 rounded-full ${
+										currentStep >= index
+											? "bg-blue-600 text-white"
+											: "bg-gray-200 text-gray-500"
+									}`}
 								>
 									{step.icon}
 								</div>
 								{index < STEPS.length - 1 && (
 									<div
-										className={`w-12 h-1 mx-1 ${currentStep > index ? "bg-blue-600" : "bg-gray-200"
-											}`}
+										className={`w-12 h-1 mx-1 ${
+											currentStep > index ? "bg-blue-600" : "bg-gray-200"
+										}`}
 									/>
 								)}
 							</div>
@@ -518,7 +516,9 @@ export default function GettingStarted() {
 												className={errors.name ? "border-red-500" : ""}
 											/>
 											{errors.name && (
-												<p className="text-sm text-red-500 mt-1">{errors.name}</p>
+												<p className="text-sm text-red-500 mt-1">
+													{errors.name}
+												</p>
 											)}
 										</div>
 
@@ -574,7 +574,9 @@ export default function GettingStarted() {
 												className={errors.street ? "border-red-500" : ""}
 											/>
 											{errors.street && (
-												<p className="text-sm text-red-500 mt-1">{errors.street}</p>
+												<p className="text-sm text-red-500 mt-1">
+													{errors.street}
+												</p>
 											)}
 										</div>
 
@@ -589,7 +591,9 @@ export default function GettingStarted() {
 												className={errors.city ? "border-red-500" : ""}
 											/>
 											{errors.city && (
-												<p className="text-sm text-red-500 mt-1">{errors.city}</p>
+												<p className="text-sm text-red-500 mt-1">
+													{errors.city}
+												</p>
 											)}
 										</div>
 
@@ -605,7 +609,9 @@ export default function GettingStarted() {
 													className={errors.state ? "border-red-500" : ""}
 												/>
 												{errors.state && (
-													<p className="text-sm text-red-500 mt-1">{errors.state}</p>
+													<p className="text-sm text-red-500 mt-1">
+														{errors.state}
+													</p>
 												)}
 											</div>
 
@@ -620,7 +626,9 @@ export default function GettingStarted() {
 													className={errors.zip ? "border-red-500" : ""}
 												/>
 												{errors.zip && (
-													<p className="text-sm text-red-500 mt-1">{errors.zip}</p>
+													<p className="text-sm text-red-500 mt-1">
+														{errors.zip}
+													</p>
 												)}
 											</div>
 										</div>
@@ -649,7 +657,9 @@ export default function GettingStarted() {
 											{isLogoUploading && (
 												<div className="flex items-center space-x-2 mb-2">
 													<Loader2 className="h-4 w-4 animate-spin" />
-													<span className="text-sm text-muted-foreground">Uploading logo...</span>
+													<span className="text-sm text-muted-foreground">
+														Uploading logo...
+													</span>
 												</div>
 											)}
 
@@ -823,7 +833,9 @@ export default function GettingStarted() {
 												{isHeroImageUploading && (
 													<div className="flex items-center space-x-2 mb-2">
 														<Loader2 className="h-4 w-4 animate-spin" />
-														<span className="text-sm text-muted-foreground">Uploading image...</span>
+														<span className="text-sm text-muted-foreground">
+															Uploading image...
+														</span>
 													</div>
 												)}
 

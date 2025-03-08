@@ -14,7 +14,6 @@ export interface MessageTrackingData {
 	churchOrganizationId: string;
 	messageType: "sms" | "phone" | "email";
 	recipientId?: string;
-	guardianId?: string;
 	recipientPhone?: string;
 	recipientEmail?: string;
 	sentByUserId?: string;
