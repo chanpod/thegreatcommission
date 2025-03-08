@@ -12,24 +12,37 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "~/components/ui/alert";
 import { FormFieldType, type FormConfig } from "./FormFieldTypes";
+import { cn } from "~/lib/utils";
 
 interface DynamicFormProps {
 	formConfig: FormConfig;
-	onSubmit: (data: Record<string, any>) => Promise<boolean>;
+	onSubmit: (data: FormSubmissionData) => Promise<boolean>;
 	submitButtonText?: string;
+	isSubmitting?: boolean;
+	className?: string;
+}
+
+// Define a type for form submission data
+export interface FormSubmissionData {
+	formData: Record<string, string | boolean | string[]>;
+	submitterEmail?: string;
+	submitterName?: string;
 }
 
 export function DynamicForm({
 	formConfig,
 	onSubmit,
 	submitButtonText = "Submit",
+	isSubmitting = false,
+	className,
 }: DynamicFormProps) {
-	const [formData, setFormData] = useState<Record<string, any>>({});
+	const [formData, setFormData] = useState<
+		Record<string, string | boolean | string[]>
+	>({});
 	const [errors, setErrors] = useState<Record<string, string>>({});
-	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [submitSuccess, setSubmitSuccess] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -98,18 +111,23 @@ export function DynamicForm({
 		e.preventDefault();
 
 		if (!validateForm()) {
+			// Scroll to the first error
+			const firstErrorField = document.querySelector(".border-destructive");
+			if (firstErrorField) {
+				firstErrorField.scrollIntoView({ behavior: "smooth", block: "center" });
+			}
 			return;
 		}
 
-		setIsSubmitting(true);
 		setSubmitError(null);
 
 		try {
 			// Add form metadata
-			const submissionData = {
+			const submissionData: FormSubmissionData = {
 				formData: { ...formData },
-				submitterEmail: formData.email || "",
-				submitterName: formData.name || formData.fullName || "",
+				submitterEmail: (formData.email as string) || "",
+				submitterName:
+					(formData.name as string) || (formData.fullName as string) || "",
 			};
 
 			const success = await onSubmit(submissionData);
@@ -125,25 +143,33 @@ export function DynamicForm({
 		} catch (error) {
 			console.error("Form submission error:", error);
 			setSubmitError("An unexpected error occurred. Please try again later.");
-		} finally {
-			setIsSubmitting(false);
 		}
 	};
 
 	if (submitSuccess) {
 		return (
-			<div className="text-center py-8">
-				<Alert
-					variant="default"
-					className="mb-4 bg-primary/10 border-primary/20"
-				>
-					<AlertTitle className="text-primary">
-						Submission Successful
-					</AlertTitle>
-					<AlertDescription>
-						{formConfig.confirmationMessage || "Thank you for your submission!"}
-					</AlertDescription>
-				</Alert>
+			<div className="py-8 text-center">
+				<div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						className="h-6 w-6 text-primary"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M5 13l4 4L19 7"
+						/>
+					</svg>
+				</div>
+				<h3 className="mb-2 text-xl font-semibold">Thank You!</h3>
+				<p className="mb-6 text-muted-foreground">
+					{formConfig.confirmationMessage ||
+						"Your form has been submitted successfully."}
+				</p>
 				<Button
 					variant="outline"
 					onClick={() => {
@@ -158,32 +184,43 @@ export function DynamicForm({
 	}
 
 	return (
-		<form onSubmit={handleSubmit} className="space-y-6">
+		<form onSubmit={handleSubmit} className={cn("space-y-6", className)}>
 			{submitError && (
-				<Alert variant="destructive">
+				<Alert variant="destructive" className="mb-6">
+					<AlertCircle className="h-4 w-4" />
 					<AlertTitle>Error</AlertTitle>
 					<AlertDescription>{submitError}</AlertDescription>
 				</Alert>
 			)}
 
-			{formConfig.fields.map((field) => {
-				const fieldId = `field-${field.name}`;
-				const error = errors[field.name];
+			<div className="space-y-5">
+				{formConfig.fields.map((field) => {
+					const fieldId = `field-${field.name}`;
+					const error = errors[field.name];
 
-				switch (field.type) {
-					case FormFieldType.TEXT:
-					case FormFieldType.EMAIL:
-					case FormFieldType.DATE:
-					case FormFieldType.NUMBER:
-					case FormFieldType.PHONE:
-						return (
-							<div key={field.id} className="space-y-2">
-								<Label htmlFor={fieldId} className="flex items-center gap-1">
+					return (
+						<div key={field.id} className="space-y-2">
+							{/* Don't show label for checkbox type without options */}
+							{!(field.type === FormFieldType.CHECKBOX && !field.options) && (
+								<Label
+									htmlFor={fieldId}
+									className="flex items-center gap-1 text-base font-medium"
+								>
 									{field.label}
 									{field.required && (
 										<span className="text-destructive">*</span>
 									)}
 								</Label>
+							)}
+
+							{/* Text, Email, Phone, Number, Date inputs */}
+							{[
+								FormFieldType.TEXT,
+								FormFieldType.EMAIL,
+								FormFieldType.PHONE,
+								FormFieldType.NUMBER,
+								FormFieldType.DATE,
+							].includes(field.type as FormFieldType) && (
 								<Input
 									id={fieldId}
 									name={field.name}
@@ -201,130 +238,57 @@ export function DynamicForm({
 									placeholder={field.placeholder}
 									value={formData[field.name] || ""}
 									onChange={(e) => handleChange(field.name, e.target.value)}
-									className={error ? "border-destructive" : ""}
+									className={cn("w-full", error ? "border-destructive" : "")}
+									aria-invalid={error ? "true" : "false"}
 								/>
-								{error && <p className="text-sm text-destructive">{error}</p>}
-							</div>
-						);
+							)}
 
-					case FormFieldType.TEXTAREA:
-						return (
-							<div key={field.id} className="space-y-2">
-								<Label htmlFor={fieldId} className="flex items-center gap-1">
-									{field.label}
-									{field.required && (
-										<span className="text-destructive">*</span>
-									)}
-								</Label>
+							{/* Textarea */}
+							{field.type === FormFieldType.TEXTAREA && (
 								<Textarea
 									id={fieldId}
 									name={field.name}
 									placeholder={field.placeholder}
 									value={formData[field.name] || ""}
 									onChange={(e) => handleChange(field.name, e.target.value)}
-									className={error ? "border-destructive" : ""}
+									className={cn(error ? "border-destructive" : "")}
 									rows={4}
+									aria-invalid={error ? "true" : "false"}
 								/>
-								{error && <p className="text-sm text-destructive">{error}</p>}
-							</div>
-						);
+							)}
 
-					case FormFieldType.SELECT:
-						return (
-							<div key={field.id} className="space-y-2">
-								<Label className="flex items-center gap-1">
-									{field.label}
-									{field.required && (
-										<span className="text-destructive">*</span>
-									)}
-								</Label>
+							{/* Select dropdown */}
+							{field.type === FormFieldType.SELECT && field.options && (
 								<Select
 									value={formData[field.name] || ""}
 									onValueChange={(value) => handleChange(field.name, value)}
 								>
-									<SelectTrigger className={error ? "border-destructive" : ""}>
+									<SelectTrigger
+										className={cn(error ? "border-destructive" : "")}
+										aria-invalid={error ? "true" : "false"}
+									>
 										<SelectValue
 											placeholder={field.placeholder || "Select an option"}
 										/>
 									</SelectTrigger>
 									<SelectContent>
-										{field.options?.map((option) => (
+										{field.options.map((option) => (
 											<SelectItem key={option.value} value={option.value}>
 												{option.label}
 											</SelectItem>
 										))}
 									</SelectContent>
 								</Select>
-								{error && <p className="text-sm text-destructive">{error}</p>}
-							</div>
-						);
+							)}
 
-					case FormFieldType.CHECKBOX:
-						return (
-							<div key={field.id} className="space-y-3">
-								<Label className="flex items-center gap-1">
-									{field.label}
-									{field.required && (
-										<span className="text-destructive">*</span>
-									)}
-								</Label>
-								<div className="space-y-2">
-									{field.options?.map((option) => {
-										const checkboxId = `${fieldId}-${option.value}`;
-										const values = (formData[field.name] || []) as string[];
-
-										return (
-											<div
-												key={option.value}
-												className="flex items-center space-x-2"
-											>
-												<Checkbox
-													id={checkboxId}
-													checked={values.includes(option.value)}
-													onCheckedChange={(checked) => {
-														const newValues = [...values];
-														if (checked) {
-															if (!newValues.includes(option.value)) {
-																newValues.push(option.value);
-															}
-														} else {
-															const index = newValues.indexOf(option.value);
-															if (index > -1) {
-																newValues.splice(index, 1);
-															}
-														}
-														handleChange(field.name, newValues);
-													}}
-												/>
-												<label
-													htmlFor={checkboxId}
-													className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-												>
-													{option.label}
-												</label>
-											</div>
-										);
-									})}
-								</div>
-								{error && <p className="text-sm text-destructive">{error}</p>}
-							</div>
-						);
-
-					case FormFieldType.RADIO:
-						return (
-							<div key={field.id} className="space-y-3">
-								<Label className="flex items-center gap-1">
-									{field.label}
-									{field.required && (
-										<span className="text-destructive">*</span>
-									)}
-								</Label>
+							{/* Radio buttons */}
+							{field.type === FormFieldType.RADIO && field.options && (
 								<RadioGroup
 									value={formData[field.name] || ""}
 									onValueChange={(value) => handleChange(field.name, value)}
 									className="space-y-2"
 								>
-									{field.options?.map((option) => (
+									{field.options.map((option) => (
 										<div
 											key={option.value}
 											className="flex items-center space-x-2"
@@ -332,27 +296,94 @@ export function DynamicForm({
 											<RadioGroupItem
 												value={option.value}
 												id={`${fieldId}-${option.value}`}
+												aria-invalid={error ? "true" : "false"}
 											/>
-											<label
+											<Label
 												htmlFor={`${fieldId}-${option.value}`}
-												className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+												className="cursor-pointer"
 											>
 												{option.label}
-											</label>
+											</Label>
 										</div>
 									))}
 								</RadioGroup>
-								{error && <p className="text-sm text-destructive">{error}</p>}
-							</div>
-						);
+							)}
 
-					default:
-						return null;
-				}
-			})}
+							{/* Checkbox group */}
+							{field.type === FormFieldType.CHECKBOX && field.options && (
+								<div className="space-y-2">
+									{field.options.map((option) => (
+										<div
+											key={option.value}
+											className="flex items-center space-x-2"
+										>
+											<Checkbox
+												id={`${fieldId}-${option.value}`}
+												checked={
+													Array.isArray(formData[field.name]) &&
+													formData[field.name].includes(option.value)
+												}
+												onCheckedChange={(checked) => {
+													const currentValues = Array.isArray(
+														formData[field.name],
+													)
+														? [...formData[field.name]]
+														: [];
+													const newValues = checked
+														? [...currentValues, option.value]
+														: currentValues.filter(
+																(value) => value !== option.value,
+															);
+													handleChange(field.name, newValues);
+												}}
+												aria-invalid={error ? "true" : "false"}
+											/>
+											<Label
+												htmlFor={`${fieldId}-${option.value}`}
+												className="cursor-pointer"
+											>
+												{option.label}
+											</Label>
+										</div>
+									))}
+								</div>
+							)}
 
-			<div className="flex justify-end">
-				<Button type="submit" disabled={isSubmitting}>
+							{/* Single checkbox */}
+							{field.type === FormFieldType.CHECKBOX && !field.options && (
+								<div className="flex items-center space-x-2">
+									<Checkbox
+										id={fieldId}
+										checked={!!formData[field.name]}
+										onCheckedChange={(checked) => {
+											handleChange(field.name, !!checked);
+										}}
+										aria-invalid={error ? "true" : "false"}
+									/>
+									<Label htmlFor={fieldId} className="cursor-pointer">
+										{field.label}
+										{field.required && (
+											<span className="ml-1 text-destructive">*</span>
+										)}
+									</Label>
+								</div>
+							)}
+
+							{/* Error message */}
+							{error && (
+								<p className="text-sm font-medium text-destructive">{error}</p>
+							)}
+						</div>
+					);
+				})}
+			</div>
+
+			<div className="pt-2">
+				<Button
+					type="submit"
+					disabled={isSubmitting}
+					className="w-full sm:w-auto"
+				>
 					{isSubmitting ? (
 						<>
 							<Loader2 className="mr-2 h-4 w-4 animate-spin" />

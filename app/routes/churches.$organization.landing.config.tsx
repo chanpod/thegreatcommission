@@ -459,7 +459,8 @@ export default function LandingConfig() {
 			content: formData.aboutContent,
 			logoImage: aboutLogoUrl,
 			buttons: aboutButtons,
-			backgroundGradient: "linear-gradient(135deg, #00a99d 0%, #89d7bb 100%)",
+			backgroundGradient:
+				"linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-secondary) 100%)",
 		};
 		submitData.set("aboutSection", JSON.stringify(aboutSection));
 
@@ -685,6 +686,7 @@ export default function LandingConfig() {
 								}));
 							}}
 							config={config}
+							organization={organization}
 						/>
 					</CardContent>
 				</Card>

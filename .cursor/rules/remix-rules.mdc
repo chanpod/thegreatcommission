@@ -1,0 +1,27 @@
+---
+description: remix rules
+globs: 
+alwaysApply: true
+---
+
+# Remix Project Coding Standards
+- NEVER use remix-run for imports.
+    AI frequently wants to use older import patterns. This prevents that.
+- This is a react-router project in framework mode
+- Prefer loader/action pattern over traditional fetches and api calls.
+- In loaders/actions use raw json returns unless we need to specify a status, then use the data function from react-router
+   ```
+   return data(jsonData, {status: 200})
+   ```
+- If the loader or action is a pure api route, then we instead need to return with Response.json(jsonData, options)
+- Prefer our wrapper function for loaders/actions to gauruntee proper auth protections
+   ```
+    export const loader = createAuthLoader(
+	async ({ request, params, userContext }) => {
+            const user = sessionData?.user;
+
+            //logic
+        
+    }, true); //false if we don't want auth on this route
+   ```
+- When using an api call, use the useFetch hook and utilize the loading prop for better UX.

@@ -1,4 +1,5 @@
 import React from "react";
+import { ContactFormDialog } from "~/components/ContactFormDialog";
 
 export interface CustomSectionButton {
 	label: string;
@@ -47,7 +48,11 @@ export interface CustomSectionProps {
 const DecorativeElements = ({ position }: { position: "top" | "bottom" }) => {
 	return position === "top" ? (
 		<div className="absolute top-0 right-0 w-full h-full opacity-25 pointer-events-none overflow-hidden">
-			<svg className="absolute -top-20 -right-20 w-[120%] h-[120%]" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+			<svg
+				className="absolute -top-20 -right-20 w-[120%] h-[120%]"
+				viewBox="0 0 800 800"
+				xmlns="http://www.w3.org/2000/svg"
+			>
 				<path
 					fill="none"
 					stroke="currentColor"
@@ -80,18 +85,46 @@ const DecorativeElements = ({ position }: { position: "top" | "bottom" }) => {
 					d="M-100,440 C100,490 300,300 500,400 S700,600 900,500"
 					transform="rotate(-15)"
 					className="animate-dash"
-					style={{ animationDuration: '30s' }}
+					style={{ animationDuration: "30s" }}
 				/>
 
 				{/* Add decorative circles */}
-				<circle cx="200" cy="200" r="20" fill="currentColor" fillOpacity="0.1" className="float-animation" style={{ animationDuration: '15s' }} />
-				<circle cx="600" cy="300" r="15" fill="currentColor" fillOpacity="0.1" className="float-animation" style={{ animationDuration: '20s', animationDelay: '2s' }} />
-				<circle cx="400" cy="500" r="25" fill="currentColor" fillOpacity="0.1" className="float-animation" style={{ animationDuration: '18s', animationDelay: '1s' }} />
+				<circle
+					cx="200"
+					cy="200"
+					r="20"
+					fill="currentColor"
+					fillOpacity="0.1"
+					className="float-animation"
+					style={{ animationDuration: "15s" }}
+				/>
+				<circle
+					cx="600"
+					cy="300"
+					r="15"
+					fill="currentColor"
+					fillOpacity="0.1"
+					className="float-animation"
+					style={{ animationDuration: "20s", animationDelay: "2s" }}
+				/>
+				<circle
+					cx="400"
+					cy="500"
+					r="25"
+					fill="currentColor"
+					fillOpacity="0.1"
+					className="float-animation"
+					style={{ animationDuration: "18s", animationDelay: "1s" }}
+				/>
 			</svg>
 		</div>
 	) : (
 		<div className="absolute bottom-0 left-0 w-full h-full opacity-25 pointer-events-none overflow-hidden">
-			<svg className="absolute -bottom-20 -left-20 w-[120%] h-[120%]" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+			<svg
+				className="absolute -bottom-20 -left-20 w-[120%] h-[120%]"
+				viewBox="0 0 800 800"
+				xmlns="http://www.w3.org/2000/svg"
+			>
 				<path
 					fill="none"
 					stroke="currentColor"
@@ -124,13 +157,31 @@ const DecorativeElements = ({ position }: { position: "top" | "bottom" }) => {
 					d="M-100,440 C100,490 300,300 500,400 S700,600 900,500"
 					transform="rotate(15)"
 					className="animate-dash-reverse"
-					style={{ animationDuration: '25s' }}
+					style={{ animationDuration: "25s" }}
 				/>
 
 				{/* Add decorative polygons */}
-				<polygon points="300,100 320,150 270,150" fill="currentColor" fillOpacity="0.1" className="float-animation" style={{ animationDuration: '12s' }} />
-				<polygon points="500,400 530,470 470,470" fill="currentColor" fillOpacity="0.1" className="float-animation" style={{ animationDuration: '16s', animationDelay: '3s' }} />
-				<polygon points="150,300 190,350 110,350" fill="currentColor" fillOpacity="0.1" className="float-animation" style={{ animationDuration: '14s', animationDelay: '1.5s' }} />
+				<polygon
+					points="300,100 320,150 270,150"
+					fill="currentColor"
+					fillOpacity="0.1"
+					className="float-animation"
+					style={{ animationDuration: "12s" }}
+				/>
+				<polygon
+					points="500,400 530,470 470,470"
+					fill="currentColor"
+					fillOpacity="0.1"
+					className="float-animation"
+					style={{ animationDuration: "16s", animationDelay: "3s" }}
+				/>
+				<polygon
+					points="150,300 190,350 110,350"
+					fill="currentColor"
+					fillOpacity="0.1"
+					className="float-animation"
+					style={{ animationDuration: "14s", animationDelay: "1.5s" }}
+				/>
 			</svg>
 		</div>
 	);
@@ -158,7 +209,9 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 }) => {
 	// Background style with optional image
 	const sectionStyle: React.CSSProperties = {
-		backgroundColor: useThemeColors ? "var(--theme-secondary)" : backgroundColor,
+		backgroundColor: useThemeColors
+			? "var(--theme-secondary)"
+			: backgroundColor,
 		color: useThemeColors ? "white" : textColor,
 		backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
 		backgroundSize: backgroundImage ? "cover" : undefined,
@@ -272,7 +325,7 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 
 			{content && (
 				<div
-					className={`prose max-w-none mb-8 ${useThemeColors ? 'prose-invert' : ''}`}
+					className={`prose max-w-none mb-8 ${useThemeColors ? "prose-invert" : ""}`}
 					dangerouslySetInnerHTML={{ __html: content }}
 				/>
 			)}
@@ -292,9 +345,7 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 				: "flex-col md:flex-row-reverse";
 
 		return (
-			<div
-				className={`flex ${flex} gap-8 md:gap-12 items-center`}
-			>
+			<div className={`flex ${flex} gap-8 md:gap-12 items-center`}>
 				{mainImage && (
 					<div className="md:w-1/2 relative">
 						<img
@@ -317,7 +368,7 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 
 					{content && (
 						<div
-							className={`prose max-w-none mb-8 ${useThemeColors ? 'prose-invert' : ''}`}
+							className={`prose max-w-none mb-8 ${useThemeColors ? "prose-invert" : ""}`}
 							dangerouslySetInnerHTML={{ __html: content }}
 						/>
 					)}
@@ -355,7 +406,7 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 				{content && (
 					<div className={`${getTextAlignClass()}`}>
 						<div
-							className={`prose max-w-none mb-8 ${useThemeColors ? 'prose-invert' : ''}`}
+							className={`prose max-w-none mb-8 ${useThemeColors ? "prose-invert" : ""}`}
 							dangerouslySetInnerHTML={{ __html: content }}
 						/>
 
@@ -377,7 +428,7 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 
 				{content && (
 					<div
-						className={`prose max-w-none ${useThemeColors ? 'prose-invert' : ''}`}
+						className={`prose max-w-none ${useThemeColors ? "prose-invert" : ""}`}
 						dangerouslySetInnerHTML={{ __html: content }}
 					/>
 				)}
@@ -387,8 +438,9 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 				{cards.map((card, index) => (
 					<div
 						key={index}
-						className={`rounded-lg overflow-hidden shadow-lg transition-transform duration-300 hover:-translate-y-2 ${useThemeColors ? 'bg-white bg-opacity-10' : 'bg-white'
-							}`}
+						className={`rounded-lg overflow-hidden shadow-lg transition-transform duration-300 hover:-translate-y-2 ${
+							useThemeColors ? "bg-white bg-opacity-10" : "bg-white"
+						}`}
 					>
 						{card.image && (
 							<div className="relative">
@@ -408,17 +460,18 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 							)}
 							{card.content && (
 								<div
-									className={`prose-sm ${useThemeColors ? 'prose-invert' : ''} mb-4`}
+									className={`prose-sm ${useThemeColors ? "prose-invert" : ""} mb-4`}
 									dangerouslySetInnerHTML={{ __html: card.content }}
 								/>
 							)}
 							{card.link && (
 								<a
 									href={card.link}
-									className={`inline-block mt-2 ${useThemeColors
-										? "text-white hover:underline"
-										: "text-blue-600 hover:text-blue-800"
-										}`}
+									className={`inline-block mt-2 ${
+										useThemeColors
+											? "text-white hover:underline"
+											: "text-blue-600 hover:text-blue-800"
+									}`}
 								>
 									Learn more →
 								</a>
@@ -445,7 +498,7 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 
 				{content && (
 					<div
-						className={`prose max-w-none ${useThemeColors ? 'prose-invert' : ''}`}
+						className={`prose max-w-none ${useThemeColors ? "prose-invert" : ""}`}
 						dangerouslySetInnerHTML={{ __html: content }}
 					/>
 				)}
@@ -467,20 +520,25 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 									/>
 								</div>
 								{decorativeElements && (
-									<div className={`absolute inset-0 rounded-full transform translate-x-2 translate-y-2 z-0 ${useThemeColors ? 'bg-white bg-opacity-10' : 'bg-blue-100'
-										}`}></div>
+									<div
+										className={`absolute inset-0 rounded-full transform translate-x-2 translate-y-2 z-0 ${
+											useThemeColors ? "bg-white bg-opacity-10" : "bg-blue-100"
+										}`}
+									></div>
 								)}
 							</div>
 						)}
 						<h3 className="text-xl font-bold">{member.name}</h3>
 						{member.role && (
-							<p className={`${useThemeColors ? 'text-white text-opacity-80' : 'text-gray-600'} mb-3`}>
+							<p
+								className={`${useThemeColors ? "text-white text-opacity-80" : "text-gray-600"} mb-3`}
+							>
 								{member.role}
 							</p>
 						)}
 						{member.bio && (
 							<div
-								className={`prose-sm ${useThemeColors ? 'prose-invert' : ''} mx-auto`}
+								className={`prose-sm ${useThemeColors ? "prose-invert" : ""} mx-auto`}
 								dangerouslySetInnerHTML={{ __html: member.bio }}
 							/>
 						)}
@@ -500,15 +558,64 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 
 		return (
 			<div className="flex flex-wrap gap-4 justify-start">
-				{buttons.map((button, index) => (
-					<a
-						key={index}
-						href={button.url}
-						className={getButtonClass(button.variant)}
-					>
-						{button.label}
-					</a>
-				))}
+				{buttons.map((button, index) => {
+					// Check if the button URL is for a form
+					if (button.url.includes("/forms/")) {
+						// Extract form ID from URL if it's a form link
+						const formIdMatch = button.url.match(/\/forms\/([^\/]+)/);
+						const formId = formIdMatch ? formIdMatch[1] : null;
+
+						// Extract organization ID from URL
+						// Handle both absolute and relative paths
+						let orgId;
+						if (button.url.includes("/landing/")) {
+							const orgIdMatch = button.url.match(/\/landing\/([^\/]+)/);
+							orgId = orgIdMatch ? orgIdMatch[1] : null;
+						} else {
+							// For relative paths like /forms/123, try to get org ID from the current URL
+							const pathParts = window.location.pathname.split("/");
+							const landingIndex = pathParts.findIndex(
+								(part) => part === "landing",
+							);
+							if (landingIndex >= 0 && landingIndex < pathParts.length - 1) {
+								orgId = pathParts[landingIndex + 1];
+							}
+						}
+
+						if (formId && orgId) {
+							// Use ContactFormDialog for form links
+							return (
+								<ContactFormDialog
+									key={index}
+									buttonText={button.label}
+									churchId={orgId}
+									formId={formId}
+									buttonVariant={
+										button.variant === "primary"
+											? "default"
+											: button.variant === "secondary"
+												? "secondary"
+												: "outline"
+									}
+									buttonClassName={getButtonClass(button.variant)}
+									dialogTitle="Complete Form"
+									dialogDescription="Please fill out the form below"
+								/>
+							);
+						}
+					}
+
+					// Regular link for non-form URLs
+					return (
+						<a
+							key={index}
+							href={button.url}
+							className={getButtonClass(button.variant)}
+						>
+							{button.label}
+						</a>
+					);
+				})}
 			</div>
 		);
 	};
@@ -530,7 +637,11 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 						<>
 							{/* For light backgrounds, use darker lines */}
 							<div className="absolute top-0 right-0 w-full h-full opacity-15 pointer-events-none overflow-hidden">
-								<svg className="absolute -top-20 -right-20 w-[120%] h-[120%]" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+								<svg
+									className="absolute -top-20 -right-20 w-[120%] h-[120%]"
+									viewBox="0 0 800 800"
+									xmlns="http://www.w3.org/2000/svg"
+								>
 									<path
 										fill="none"
 										stroke="#333333"
@@ -558,7 +669,11 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 								</svg>
 							</div>
 							<div className="absolute bottom-0 left-0 w-full h-full opacity-15 pointer-events-none overflow-hidden">
-								<svg className="absolute -bottom-20 -left-20 w-[120%] h-[120%]" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+								<svg
+									className="absolute -bottom-20 -left-20 w-[120%] h-[120%]"
+									viewBox="0 0 800 800"
+									xmlns="http://www.w3.org/2000/svg"
+								>
 									<path
 										fill="none"
 										stroke="#333333"
@@ -589,9 +704,7 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 					)}
 				</>
 			)}
-			<div className="container mx-auto relative z-10">
-				{renderLayout()}
-			</div>
+			<div className="container mx-auto relative z-10">{renderLayout()}</div>
 		</section>
 	);
 };
