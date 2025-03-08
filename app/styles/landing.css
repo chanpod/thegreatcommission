@@ -4,6 +4,10 @@
   --theme-accent: #8b5cf6;
 }
 
+.landing-page {
+  scroll-behavior: smooth;
+}
+
 .hero-section {
   background-color: var(--theme-secondary);
   color: white;
@@ -21,6 +25,11 @@
 
 .event-card {
   border-color: var(--theme-accent);
+  transition: transform 0.3s ease;
+}
+
+.event-card:hover {
+  transform: translateY(-5px);
 }
 
 .footer {
@@ -47,4 +56,193 @@
 
 .accent-bg {
   background-color: var(--theme-accent);
+}
+
+/* Section transitions */
+section {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Enhanced wavy lines */
+svg path {
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+}
+
+/* Animated background gradient */
+.animated-gradient {
+  background-size: 400% 400%;
+  animation: gradientAnimation 15s ease infinite;
+  transition: all 0.5s ease;
+}
+
+@keyframes gradientAnimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animated-gradient:hover {
+  background-size: 300% 300%;
+  animation-duration: 10s;
+}
+
+/* Scroll reveal animations */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.reveal-on-scroll.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Decorative patterns */
+.pattern-dots {
+  background-image: radial-gradient(var(--theme-accent) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.pattern-grid {
+  background-image: linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.pattern-diagonal {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255,255,255,0.05),
+    rgba(255,255,255,0.05) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+}
+
+/* Enhance SVG decorations */
+svg.decorative {
+  filter: drop-shadow(0 0 8px rgba(255,255,255,0.2));
+}
+
+/* Animated elements */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.float-animation {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* New animations for SVG elements */
+@keyframes dash {
+  to {
+    stroke-dashoffset: 100;
+  }
+}
+
+.animate-dash {
+  stroke-dashoffset: 0;
+  animation: dash 20s linear infinite;
+}
+
+.animate-dash-reverse {
+  stroke-dashoffset: 0;
+  animation: dash 20s linear infinite reverse;
+}
+
+/* Pulse animation for decorative elements */
+@keyframes pulse {
+  0% {
+    transform: scale(1) translate(-16px, 16px);
+    opacity: 0.1;
+  }
+  50% {
+    transform: scale(1.05) translate(-16px, 16px);
+    opacity: 0.2;
+  }
+  100% {
+    transform: scale(1) translate(-16px, 16px);
+    opacity: 0.1;
+  }
+}
+
+.pulse-animation {
+  animation: pulse 4s ease-in-out infinite;
+}
+
+/* Slow spin animation */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg) translate(16px, -16px);
+  }
+  to {
+    transform: rotate(360deg) translate(16px, -16px);
+  }
+}
+
+.spin-slow {
+  animation: spin-slow 30s linear infinite;
+}
+
+/* Shimmer effect for text */
+@keyframes shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 100% 0;
+  }
+}
+
+.shimmer-text {
+  background: linear-gradient(90deg, 
+    rgba(255,255,255,0) 0%, 
+    rgba(255,255,255,0.2) 50%, 
+    rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+/* Enhanced hover effects */
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+/* Animated background patterns */
+.animated-dots {
+  background-image: radial-gradient(var(--theme-accent) 1px, transparent 1px);
+  background-size: 20px 20px;
+  animation: backgroundScroll 20s linear infinite;
+}
+
+@keyframes backgroundScroll {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 20px 20px;
+  }
 } 
