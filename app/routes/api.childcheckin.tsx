@@ -1,5 +1,5 @@
-import { childCheckinService } from "~/services/ChildCheckinService";
 import { data } from "react-router";
+import { childCheckinService } from "~/services/ChildCheckinService";
 
 export async function action({ request }) {
 	const requestData = await request.json();

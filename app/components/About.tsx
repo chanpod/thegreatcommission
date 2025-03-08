@@ -207,7 +207,7 @@ export default function About({
 
 						{/* Content with rich text */}
 						<div
-							className="prose prose-lg prose-invert max-w-none mb-8 reveal-on-scroll"
+							className="prose text-2xl prose-lg prose-invert max-w-none mb-8 reveal-on-scroll"
 							style={{ transitionDelay: "200ms" }}
 							// Using dangerouslySetInnerHTML is necessary here for rich text content
 							// The content is sanitized by the RichTextEditor component before saving
