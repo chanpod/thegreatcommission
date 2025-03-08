@@ -42,6 +42,15 @@ export const PERMISSIONS = {
 		view: "View settings",
 		edit: "Edit settings",
 	},
+	childcare: {
+		checkin: "Perform child check-ins",
+		viewRooms: "View childcare rooms",
+		createRooms: "Create childcare rooms",
+		editRooms: "Edit childcare rooms",
+		deleteRooms: "Delete childcare rooms",
+		assignChildren: "Assign children to rooms",
+		viewReports: "View childcare reports",
+	},
 } as const;
 
 export type PermissionCategory = keyof typeof PERMISSIONS;

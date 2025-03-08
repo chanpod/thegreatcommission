@@ -28,7 +28,7 @@ export const PageLayout = ({
 			<CardContent>
 				<CardHeader>
 					<div className="flex items-center">
-						<div className="flex">
+						<div className="flex flex-col">
 							<CardTitle className="text-gray-900">{title}</CardTitle>
 							<CardDescription className="text-gray-500">
 								{description}
