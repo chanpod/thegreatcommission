@@ -17,7 +17,7 @@ import { AuthorizationService } from "~/services/AuthorizationService";
 import { createAuthLoader } from "~/server/auth/authLoader";
 
 export const loader = createAuthLoader(async ({ params, userContext }) => {
-	const userId = userContext.user?.id;
+	const userId = userContext?.user?.id;
 
 	// Default permission to false
 	let canViewForms = false;

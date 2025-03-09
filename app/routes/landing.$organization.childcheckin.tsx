@@ -1,11 +1,5 @@
-import {
-	Pencil as PencilIcon,
-	Plus as PlusIcon,
-	Trash as TrashIcon,
-	Check,
-	CheckCircle as CheckCircleIcon,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { MessagingService } from "@/server/services/MessagingService";
+import { useCallback, useEffect, useState } from "react";
 import {
 	data,
 	useFetcher,
@@ -20,35 +14,38 @@ import {
 	Card,
 	CardContent,
 	CardDescription,
-	CardFooter,
 	CardHeader,
-	CardTitle,
+	CardTitle
 } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { MessagingService } from "@/server/services/MessagingService";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "~/components/ui/select";
 import { Stepper } from "~/components/ui/stepper";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { Textarea } from "~/components/ui/textarea";
-import { Badge } from "~/components/ui/badge";
 // Import services
+import { FileUploadService } from "@/app/services/FileUploadService";
 import { childCheckinService } from "~/services/ChildCheckinService";
-import { verificationService } from "~/services/VerificationService";
 import { organizationService } from "~/services/OrganizationService";
+import { verificationService } from "~/services/VerificationService";
 
-import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
-import { churchOrganization, users, familiesTable, childCheckinsTable } from "@/server/db/schema";
+import {
+	churchOrganization,
+	familiesTable,
+	users
+} from "@/server/db/schema";
+import { eq } from "drizzle-orm";
+import { useCamera } from "~/components/CameraCapture";
+
+// Import our new components
+import { ChildSelectionStep } from "~/components/checkin/ChildSelectionStep";
+import { ConfirmationStep } from "~/components/checkin/ConfirmationStep";
+import { EditChildForm } from "~/components/checkin/EditChildForm";
+import { PhoneVerificationStep } from "~/components/checkin/PhoneVerificationStep";
+import type {
+	CheckInSteps
+} from "~/components/checkin/types";
+import { UpdateUserInfoStep } from "~/components/checkin/UpdateUserInfoStep";
+import { VerificationCodeStep } from "~/components/checkin/VerificationCodeStep";
 
 // Define step names for the stepper
-const STEPS = {
+const STEPS: CheckInSteps = {
 	PHONE: 0,
 	VERIFY: 1,
 	UPDATE_USER_INFO: 2,
@@ -59,11 +56,29 @@ const STEPS = {
 // The stepper names that will be displayed to the user
 const STEP_NAMES = ["Phone", "Verify", "Child", "Confirm"];
 
+// Simple in-memory cache with a timestamp
+const loaderCache = {
+	data: null,
+	timestamp: 0,
+	organizationId: null,
+};
+
 // Loader to fetch initial data - no authentication required
 export async function loader({ params, request }) {
 	const { organization } = params;
 	const url = new URL(request.url);
 	const step = url.searchParams.get("step") || "phone";
+
+	// Check if we have a cached result for this organization that's less than 5 seconds old
+	const now = Date.now();
+	if (
+		loaderCache.data &&
+		loaderCache.organizationId === organization &&
+		now - loaderCache.timestamp < 5000 && // 5 seconds cache
+		!request.headers.get('Cache-Control')?.includes('no-cache') // Allow bypassing cache
+	) {
+		return loaderCache.data;
+	}
 
 	try {
 		// Check for existing verification cookie
@@ -135,13 +150,20 @@ export async function loader({ params, request }) {
 			}
 		}
 
-		return data({
+		// Cache the result before returning
+		const result = data({
 			success: true,
 			organization: org,
 			rooms: roomsWithCounts,
 			familyData,
 			currentStep: step,
 		});
+
+		loaderCache.data = result;
+		loaderCache.timestamp = now;
+		loaderCache.organizationId = organization;
+
+		return result;
 	} catch (error) {
 		console.error("Error in checkin loader:", error);
 		return data(
@@ -158,7 +180,7 @@ export async function loader({ params, request }) {
 export async function action({ params, request }) {
 	const { organization } = params;
 	const formData = await request.formData();
-	const intent = formData.get("intent");
+	const actionType = formData.get("_action") || formData.get("intent");
 
 	// Get organization name for verification texts
 	const org = await db.query.churchOrganization.findFirst({
@@ -179,8 +201,7 @@ export async function action({ params, request }) {
 		);
 	}
 
-	// Handle different action intents
-	switch (intent) {
+	switch (actionType) {
 		case "verify-phone": {
 			const phone = formData.get("phone")?.toString().trim();
 
@@ -456,6 +477,7 @@ export async function action({ params, request }) {
 			}
 		}
 
+		case "addChild":
 		case "add-child": {
 			// Get family ID from verification cookie
 			const verificationData =
@@ -465,6 +487,7 @@ export async function action({ params, request }) {
 				return data({
 					success: false,
 					error: "You must be verified to add a child",
+					_action: "addChild"
 				});
 			}
 
@@ -473,44 +496,73 @@ export async function action({ params, request }) {
 			const dateOfBirth = formData.get("dateOfBirth");
 			const allergies = formData.get("allergies");
 			const specialNotes = formData.get("specialNotes");
+			const childPhoto = formData.get("childPhoto");
+			const photoDataUrl = formData.get("photoDataUrl");
 
 			if (!firstName || !lastName || !dateOfBirth) {
 				return data({
 					success: false,
 					error: "Child details are incomplete",
+					_action: "addChild"
 				});
 			}
 
+			// Photo is not mandatory for testing but would be in production
 			try {
-				// Create new child with proper type handling
-				const child = await childCheckinService.createChild({
+				let photoUrl = "";
+
+				// If we have a data URL from the camera, use that directly
+				if (photoDataUrl) {
+					photoUrl = photoDataUrl.toString();
+				}
+				// Otherwise use the file upload if present
+				else if (childPhoto instanceof File && childPhoto.size > 0) {
+					// Upload the photo
+					photoUrl = await FileUploadService.uploadChildPhoto(
+						childPhoto,
+						organization,
+						`${firstName}-${lastName}-${Date.now()}`
+					);
+				}
+
+				// Create new child
+				const newChild = await childCheckinService.createChild({
 					firstName: firstName.toString(),
 					lastName: lastName.toString(),
-					dateOfBirth: new Date(dateOfBirth.toString()),
+					dateOfBirth: dateOfBirth.toString(),
 					allergies: allergies?.toString() || "",
 					specialNotes: specialNotes?.toString() || "",
+					photoUrl,
 					familyId: verificationData.familyId,
 					churchOrganizationId: organization,
 					updatedAt: new Date(),
 				});
 
+				if (!newChild) {
+					return data({
+						success: false,
+						error: "Failed to add child",
+						_action: "addChild"
+					});
+				}
+
 				// Get updated family data
-				const familyData =
-					await childCheckinService.getFamilyWithChildrenAndGuardians(
-						verificationData.familyId,
-					);
+				const updatedFamilyData = await childCheckinService.getFamilyWithChildrenAndGuardians(
+					verificationData.familyId
+				);
 
 				return data({
 					success: true,
-					child,
-					familyData,
-					step: "select-child",
+					message: "Child added successfully",
+					_action: "addChild",
+					familyData: updatedFamilyData
 				});
 			} catch (error) {
 				console.error("Error adding child:", error);
 				return data({
 					success: false,
 					error: "Error adding child",
+					_action: "addChild"
 				});
 			}
 		}
@@ -533,6 +585,8 @@ export async function action({ params, request }) {
 			const dateOfBirth = formData.get("dateOfBirth");
 			const allergies = formData.get("allergies");
 			const specialNotes = formData.get("specialNotes");
+			const childPhoto = formData.get("childPhoto");
+			const photoDataUrl = formData.get("photoDataUrl");
 
 			if (!childId || !firstName || !lastName || !dateOfBirth) {
 				return data({
@@ -542,17 +596,49 @@ export async function action({ params, request }) {
 			}
 
 			try {
-				// Update child with explicit type handling for allergies and specialNotes
+				// Check if we have a new photo to upload
+				let photoUrl;
+
+				// If we have a data URL from the camera, use that directly
+				if (photoDataUrl) {
+					photoUrl = photoDataUrl.toString();
+				}
+				// Otherwise check if we have a file upload
+				else if (childPhoto instanceof File && childPhoto.size > 0) {
+					// Upload the new photo
+					photoUrl = await FileUploadService.uploadChildPhoto(
+						childPhoto,
+						organization,
+						`${firstName}-${lastName}-${Date.now()}`
+					);
+
+					if (!photoUrl) {
+						return data({
+							success: false,
+							error: "Failed to upload child photo",
+						});
+					}
+				}
+
+				// Create update object with explicit type handling for allergies and specialNotes
+				const updateData: any = {
+					firstName: firstName.toString(),
+					lastName: lastName.toString(),
+					dateOfBirth: new Date(dateOfBirth.toString()),
+					allergies: allergies?.toString() || "",
+					specialNotes: specialNotes?.toString() || "",
+					updatedAt: new Date(),
+				};
+
+				// Only add photoUrl if a new photo was uploaded
+				if (photoUrl) {
+					updateData.photoUrl = photoUrl;
+				}
+
+				// Update child
 				const updatedChild = await childCheckinService.updateChild(
 					childId.toString(),
-					{
-						firstName: firstName.toString(),
-						lastName: lastName.toString(),
-						dateOfBirth: new Date(dateOfBirth.toString()),
-						allergies: allergies?.toString() || "",
-						specialNotes: specialNotes?.toString() || "",
-						updatedAt: new Date(),
-					},
+					updateData
 				);
 
 				// Get updated family data
@@ -865,13 +951,39 @@ export async function action({ params, request }) {
 	}
 }
 
-// Child check-in content component
 function ChildCheckinContent({ organization, rooms }) {
 	const loaderData = useLoaderData();
 	const fetcher = useFetcher();
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const { organization: orgId } = useParams();
+
+	// State variables
+	const [phoneNumber, setPhoneNumber] = useState("");
+	const [verificationCode, setVerificationCode] = useState("");
+	const [familyData, setFamilyData] = useState(loaderData.familyData || null);
+	const [selectedChildren, setSelectedChildren] = useState([]);
+	const [isWorkerMode, setIsWorkerMode] = useState(false);
+	const [showEditFamily, setShowEditFamily] = useState(false);
+	const [childBeingEdited, setChildBeingEdited] = useState(null);
+	const [guardianBeingAdded, setGuardianBeingAdded] = useState(false);
+	const [qrCodeUrl, setQrCodeUrl] = useState("");
+	const [checkedInChildren, setCheckedInChildren] = useState([]);
+	const [isNewUser, setIsNewUser] = useState(false);
+	const [newUserId, setNewUserId] = useState(null);
+	const [showAddChildForm, setShowAddChildForm] = useState(false);
+	const [showDebug, setShowDebug] = useState(false);
+
+	// Use our camera hook
+	const {
+		showCamera,
+		photoDataUrl,
+		photoFile,
+		openCamera,
+		closeCamera,
+		resetPhoto,
+		CameraComponent
+	} = useCamera();
 
 	// Define steps
 	const STEPS = {
@@ -903,1172 +1015,500 @@ function ChildCheckinContent({ organization, rooms }) {
 		}
 	};
 
-	// State variables
-	const [phoneNumber, setPhoneNumber] = useState("");
-	const [verificationCode, setVerificationCode] = useState("");
-	const [familyData, setFamilyData] = useState(loaderData.familyData || null);
-	const [selectedChildren, setSelectedChildren] = useState([]);
-	const [isWorkerMode, setIsWorkerMode] = useState(false);
-	const [showEditFamily, setShowEditFamily] = useState(false);
-	const [childBeingEdited, setChildBeingEdited] = useState(null);
-	const [guardianBeingAdded, setGuardianBeingAdded] = useState(false);
-	const [qrCodeUrl, setQrCodeUrl] = useState("");
-	const [checkedInChildren, setCheckedInChildren] = useState([]);
-	const [isNewUser, setIsNewUser] = useState(false);
-	const [newUserId, setNewUserId] = useState(null);
-
 	// Get current step index
 	const currentStepIndex = getStepIndex(currentStep);
 
 	// Check for pre-verified session from loader
 	useEffect(() => {
-		if (loaderData?.familyData?.verified && currentStep !== "edit-family") {
+		// Skip this effect if we're not on the initial steps
+		if (currentStep === 'select-child' ||
+			currentStep === 'confirmed' ||
+			currentStep === 'edit-family' ||
+			showAddChildForm ||
+			childBeingEdited) {
+			return;
+		}
+
+		// Only set family data and redirect if appropriate
+		if (loaderData?.familyData?.verified) {
 			setFamilyData(loaderData.familyData);
 
-			// If we have family data but are on the phone or verify step, move forward
-			if (currentStep === "phone" || currentStep === "verify") {
+			// Avoid causing a navigation loop by checking current step
+			if (currentStep === 'phone' || currentStep === 'verify') {
 				setSearchParams({ step: "select-child" });
 			}
 		}
-	}, [loaderData, currentStep, setSearchParams]);
+	}, [loaderData?.familyData?.verified, currentStep]);
 
-	// Check for fetcher data updates
-	useEffect(() => {
-		if (fetcher.data) {
-			if (fetcher.data.success) {
-				// Handle successful actions
-				if (fetcher.data.step) {
-					setSearchParams({ step: fetcher.data.step });
-				}
-
-				// Update family data if available
-				if (fetcher.data.familyData) {
-					// Validate family data has guardians before updating state
-					if (fetcher.data.familyData.guardians && fetcher.data.familyData.guardians.length > 0) {
-						setFamilyData(fetcher.data.familyData);
-					} else {
-						console.error("Family data missing guardians:", fetcher.data.familyData);
-						toast.error("Unable to load complete family data. Please start over.");
-						// Automatically start over to recover from this state
-						handleStartOver();
-					}
-				}
-
-				// Handle phone verification
-				if (fetcher.data.phone) {
-					setPhoneNumber(fetcher.data.phone);
-				}
-
-				// Handle check-in confirmation
-				if (fetcher.data.checkin) {
-					setCheckedInChildren((prev) => [...prev, fetcher.data.checkin]);
-					setQrCodeUrl(fetcher.data.qrCodeUrl);
-				}
-
-				// Handle new user flag
-				if (fetcher.data.isNewUser) {
-					setIsNewUser(true);
-					setNewUserId(fetcher.data.userId);
-					// Don't need to set step here since it's already set in the response
-				}
-
-				// Reset new user flag if requested
-				if (fetcher.data.resetNewUser) {
-					setIsNewUser(false);
-					setNewUserId(null);
-				}
-			} else if (fetcher.data.error) {
-				// Show error toast
-				toast.error(fetcher.data.error);
-
-				// If there's a step to go back to, set it
-				if (fetcher.data.step) {
-					setSearchParams({ step: fetcher.data.step });
-				}
-			}
-		}
-	}, [fetcher.data, fetcher.formData]);
-
-	// Handle form submissions
+	// Handle phone search
 	const handlePhoneSearch = (e) => {
 		e.preventDefault();
 
-		if (!phoneNumber.trim()) {
-			toast.error("Please enter a phone number");
-			return;
-		}
-
 		fetcher.submit(
 			{
-				intent: "verify-phone",
-				phone: phoneNumber,
+				_action: "searchPhone",
+				phoneNumber,
+				organizationId: orgId,
 			},
-			{ method: "POST" },
+			{ method: "post" }
 		);
 	};
 
+	// Handle verification code submission
 	const handleVerifyCode = (e) => {
 		e.preventDefault();
 
-		if (!verificationCode.trim()) {
-			toast.error("Please enter the verification code");
-			return;
-		}
-
 		fetcher.submit(
 			{
-				intent: "verify-code",
-				phone: phoneNumber,
+				_action: "verifyCode",
+				phoneNumber,
 				verificationCode,
+				organizationId: orgId,
 			},
-			{ method: "POST" },
+			{ method: "post" }
 		);
 	};
 
+	// Handle resending verification code
 	const handleResendCode = () => {
 		fetcher.submit(
 			{
-				intent: "verify-phone",
-				phone: phoneNumber,
+				_action: "resendCode",
+				phoneNumber,
+				organizationId: orgId,
 			},
-			{ method: "POST" },
+			{ method: "post" }
 		);
-		toast.info("Verification code resent");
 	};
 
+	// Handle updating user info
 	const handleUpdateUserInfo = (e) => {
 		e.preventDefault();
-		fetcher.submit(e.target, { method: "POST" });
+		const formData = new FormData(e.target);
+		formData.append("_action", "updateUserInfo");
+		formData.append("organizationId", orgId);
+
+		fetcher.submit(formData, { method: "post" });
 	};
 
+	// Handle starting over
 	const handleStartOver = () => {
-		if (window.confirm("Are you sure you want to start over? This will clear your current session.")) {
-			// Reset local state before submitting to avoid any potential race conditions
-			setIsNewUser(false);
-			setNewUserId(null);
-
-			fetcher.submit(
-				{
-					intent: "start-over",
-				},
-				{ method: "POST" },
-			);
-		}
+		setPhoneNumber("");
+		setVerificationCode("");
+		setFamilyData(null);
+		setSelectedChildren([]);
+		setCheckedInChildren([]);
+		setQrCodeUrl("");
+		setIsNewUser(false);
+		setNewUserId(null);
+		setSearchParams({ step: "phone" });
 	};
 
-	// Replace handleChildSelect with toggleChildSelection for multi-select
+	// Handle toggling child selection
 	const toggleChildSelection = (child) => {
-		// If child is already checked in, don't allow selection
-		if (child.isCheckedIn) {
-			toast.error(
-				`${child.firstName} is already checked in. Please check them out first.`,
-			);
-			return;
+		const isSelected = selectedChildren.some(sc => sc.id === child.id);
+
+		if (isSelected) {
+			setSelectedChildren(selectedChildren.filter(sc => sc.id !== child.id));
+		} else {
+			setSelectedChildren([...selectedChildren, child]);
 		}
-
-		setSelectedChildren((prevSelected) => {
-			// Check if the child is already selected
-			const isSelected = prevSelected.some((c) => c.id === child.id);
-
-			if (isSelected) {
-				// Remove child if already selected
-				return prevSelected.filter((c) => c.id !== child.id);
-			} else {
-				// Add child if not selected
-				return [...prevSelected, child];
-			}
-		});
 	};
 
-	// Calculate child's age in months
+	// Calculate child age in months
 	const getChildAgeInMonths = (dateOfBirth) => {
-		const dob = new Date(dateOfBirth);
-		const today = new Date();
+		try {
+			const dob = new Date(dateOfBirth);
+			const now = new Date();
 
-		const monthDiff =
-			(today.getFullYear() - dob.getFullYear()) * 12 +
-			(today.getMonth() - dob.getMonth());
+			// Calculate months difference
+			let months = (now.getFullYear() - dob.getFullYear()) * 12;
+			months -= dob.getMonth();
+			months += now.getMonth();
 
-		return monthDiff;
+			return months <= 0 ? 0 : months;
+		} catch (error) {
+			console.error("Error calculating child age:", error);
+			return 0;
+		}
 	};
 
-	// Find the best room for a child based on age
+	// Find appropriate room for child
 	const findRoomForChild = (child, availableRooms) => {
-		if (
-			!child ||
-			!child.dateOfBirth ||
-			!availableRooms ||
-			availableRooms.length === 0
-		) {
+		if (!child.dateOfBirth || !availableRooms || availableRooms.length === 0) {
 			return null;
 		}
 
 		const ageInMonths = getChildAgeInMonths(child.dateOfBirth);
 
-		// First try to find a room with matching min and max age
-		const exactMatch = availableRooms.find((room) => {
-			// If both min and max age are specified
-			if (room.minAge !== null && room.maxAge !== null) {
-				return ageInMonths >= room.minAge && ageInMonths <= room.maxAge;
-			}
-			// If only min age is specified
-			else if (room.minAge !== null && room.maxAge === null) {
-				return ageInMonths >= room.minAge;
-			}
-			// If only max age is specified
-			else if (room.minAge === null && room.maxAge !== null) {
-				return ageInMonths <= room.maxAge;
-			}
-			return false;
-		});
-
-		if (exactMatch) {
-			return exactMatch;
-		}
-
-		// If no exact match, find the closest room or return the first room
-		// with no age restrictions
-		const roomWithNoRestrictions = availableRooms.find(
-			(room) => room.minAge === null && room.maxAge === null,
+		// First find rooms where the child's age fits within the min and max age range
+		const eligibleRooms = availableRooms.filter(
+			room => ageInMonths >= room.minAgeMonths && ageInMonths <= room.maxAgeMonths
 		);
 
-		if (roomWithNoRestrictions) {
-			return roomWithNoRestrictions;
+		if (eligibleRooms.length === 0) {
+			return null;
 		}
 
-		// If all else fails, return the first room
-		return availableRooms[0];
+		// If multiple rooms are eligible, prioritize rooms with fewer children
+		// but still below capacity
+		return eligibleRooms.sort((a, b) => {
+			// If one room is at capacity and the other isn't, prioritize the one that's not at capacity
+			if ((a.currentCount || 0) >= a.capacity && (b.currentCount || 0) < b.capacity) {
+				return 1;
+			}
+			if ((b.currentCount || 0) >= b.capacity && (a.currentCount || 0) < a.capacity) {
+				return -1;
+			}
+
+			// Otherwise, choose the room with fewer children
+			return (a.currentCount || 0) - (b.currentCount || 0);
+		})[0];
 	};
 
-	// Modified check-in handler for multiple children
+	// Handle check-in submission
 	const handleCheckin = () => {
 		if (selectedChildren.length === 0) {
 			toast.error("Please select at least one child");
 			return;
 		}
 
-		// Reset checked-in children
-		setCheckedInChildren([]);
-
-		// For each selected child, submit a check-in request
-		selectedChildren.forEach((child) => {
-			// Find appropriate room for this child
+		// Get room assignments for each child
+		const childrenWithRooms = selectedChildren.map(child => {
 			const room = findRoomForChild(child, rooms);
-
-			if (!room) {
-				toast.error(`No suitable room found for ${child.firstName}`);
-				return;
-			}
-
-			// Use the first guardian's ID if available
-			if (!familyData.guardians || familyData.guardians.length === 0) {
-				toast.error("No guardian found for check-in");
-				return;
-			}
-
-			const guardianId = familyData.guardians[0]?.id;
-
-			if (!guardianId) {
-				toast.error("Invalid guardian ID for check-in");
-				return;
-			}
-
-			// Store the child and assigned room for display in the confirmation screen
-			setCheckedInChildren((prev) => [
-				...prev,
-				{
-					...child,
-					room: room,
-				},
-			]);
-
-			fetcher.submit(
-				{
-					intent: "check-in",
-					childId: child.id,
-					roomId: room.id,
-					guardianId: guardianId,
-				},
-				{ method: "POST" },
-			);
+			return {
+				childId: child.id,
+				roomId: room?.id,
+			};
 		});
 
-		// Move directly to confirmation step
-		setSearchParams({ step: "confirmed" });
-	};
-
-	const toggleWorkerMode = () => {
-		setIsWorkerMode(!isWorkerMode);
-		if (isWorkerMode) {
-			// Reset state when exiting worker mode
-			setPhoneNumber("");
-			setVerificationCode("");
-			setFamilyData(null);
+		// Check if any child doesn't have a room
+		const missingRooms = childrenWithRooms.filter(c => !c.roomId);
+		if (missingRooms.length > 0) {
+			toast.error("Some children don't have appropriate rooms available");
+			return;
 		}
+
+		fetcher.submit(
+			{
+				_action: "checkin",
+				children: JSON.stringify(childrenWithRooms),
+				organizationId: orgId,
+			},
+			{ method: "post" }
+		);
 	};
 
+	// Handle edit family
 	const handleEditFamily = () => {
 		setShowEditFamily(true);
-		setSearchParams({ step: "edit-family" });
 	};
 
+	// Handle start adding a child
+	const handleStartAddChild = (e) => {
+		// If called with an event, prevent default behavior
+		if (e && e.preventDefault) {
+			e.preventDefault();
+		}
+
+		// Set the state to show the add child form
+		setShowAddChildForm(true);
+		setChildBeingEdited(null);
+		resetPhoto?.(); // Reset any existing photo
+	};
+
+	// Handle add child form submission
 	const handleAddChild = (e) => {
 		e.preventDefault();
 		const formData = new FormData(e.target);
-		fetcher.submit(formData, {
-			method: "POST",
-		});
-		e.target.reset();
+		formData.append("_action", "addChild");
+		formData.append("organizationId", orgId);
+
+		fetcher.submit(formData, { method: "post" });
 	};
 
+	// Handle cancel adding/editing child
+	const handleCancelEditChild = () => {
+		setShowAddChildForm(false);
+		setChildBeingEdited(null);
+		resetPhoto?.();
+	};
+
+	// Handle updating child
 	const handleUpdateChild = (e) => {
 		e.preventDefault();
 		const formData = new FormData(e.target);
-		fetcher.submit(formData, {
-			method: "POST",
-		});
+		formData.append("_action", "updateChild");
+		formData.append("organizationId", orgId);
+
+		fetcher.submit(formData, { method: "post" });
 		setChildBeingEdited(null);
-		e.target.reset();
 	};
 
-	const handleRemoveChild = (childId) => {
-		fetcher.submit(
-			{
-				intent: "remove-child",
-				childId,
-			},
-			{ method: "POST" },
-		);
-	};
+	// toggle debug panel
+	const toggleDebug = useCallback(() => {
+		setShowDebug(prev => !prev);
+	}, []);
 
-	const handleAddGuardian = (e) => {
-		e.preventDefault();
-		const formData = new FormData(e.target);
-		fetcher.submit(formData, {
-			method: "POST",
-		});
-		setGuardianBeingAdded(false);
-		e.target.reset();
-	};
-
-	const handleRemoveGuardian = (userId) => {
-		fetcher.submit(
-			{
-				intent: "remove-guardian",
-				userId,
-			},
-			{ method: "POST" },
-		);
-	};
-
-	// Render the appropriate step content
+	// Render content based on current step
 	const renderStepContent = () => {
+		// If we're adding/editing a child, show that form instead of the normal step content
+		if (showAddChildForm || childBeingEdited) {
+			return (
+				<EditChildForm
+					child={childBeingEdited}
+					onSubmit={childBeingEdited ? handleUpdateChild : handleAddChild}
+					onCancel={handleCancelEditChild}
+					isLoading={fetcher.state !== "idle"}
+					openCamera={openCamera}
+					photoDataUrl={photoDataUrl}
+				/>
+			);
+		}
+
+		// Otherwise, render the normal step content
 		switch (currentStep) {
 			case "phone":
 				return (
-					<div className="space-y-6">
-						<div className="text-center">
-							<h2 className="text-2xl font-bold">{organization.name}</h2>
-							<p className="text-sm text-muted-foreground">
-								Enter your phone number to begin the check-in process
-							</p>
-						</div>
-						<form onSubmit={handlePhoneSearch} className="space-y-4">
-							<div className="space-y-2">
-								<Label htmlFor="phone">Phone Number</Label>
-								<Input
-									id="phone"
-									type="tel"
-									placeholder="(xxx) xxx-xxxx"
-									value={phoneNumber}
-									onChange={(e) => setPhoneNumber(e.target.value)}
-									required
-								/>
-							</div>
-							<Button
-								type="submit"
-								className="w-full"
-								disabled={fetcher.state !== "idle"}
-							>
-								{fetcher.state !== "idle" ? "Sending Code..." : "Continue"}
-							</Button>
-						</form>
-					</div>
+					<PhoneVerificationStep
+						phoneNumber={phoneNumber}
+						onPhoneNumberChange={setPhoneNumber}
+						onSubmit={handlePhoneSearch}
+						isLoading={fetcher.state !== "idle"}
+					/>
 				);
 
 			case "verify":
 				return (
-					<div className="space-y-6">
-						<div className="text-center">
-							<h2 className="text-2xl font-bold">Verify Your Phone</h2>
-							<p className="text-sm text-muted-foreground">
-								Enter the 6-digit code sent to {phoneNumber}
-							</p>
-						</div>
-						<form onSubmit={handleVerifyCode} className="space-y-4">
-							<input type="hidden" name="phone" value={phoneNumber} />
-							<div className="space-y-2">
-								<Label htmlFor="verificationCode">Verification Code</Label>
-								<Input
-									id="verificationCode"
-									type="text"
-									placeholder="123456"
-									value={verificationCode}
-									onChange={(e) => setVerificationCode(e.target.value)}
-									required
-								/>
-							</div>
-							<Button
-								type="submit"
-								className="w-full"
-								disabled={fetcher.state !== "idle"}
-							>
-								{fetcher.state !== "idle" ? "Verifying..." : "Verify Code"}
-							</Button>
-							<button
-								type="button"
-								className="w-full text-center text-sm text-blue-600 hover:underline mt-2"
-								onClick={handleResendCode}
-								disabled={fetcher.state !== "idle"}
-							>
-								Resend Code
-							</button>
-							<button
-								type="button"
-								className="w-full text-center text-sm text-muted-foreground hover:underline mt-2"
-								onClick={handleStartOver}
-							>
-								Start Over
-							</button>
-						</form>
-					</div>
+					<VerificationCodeStep
+						verificationCode={verificationCode}
+						onVerificationCodeChange={setVerificationCode}
+						onSubmit={handleVerifyCode}
+						onResendCode={handleResendCode}
+						isLoading={fetcher.state !== "idle"}
+						phoneNumber={phoneNumber}
+					/>
 				);
 
 			case "update-user-info":
-				// Check if we have valid family data with guardians
-				if (familyData && familyData.guardians && familyData.guardians.length > 0) {
-					// Get the user ID from either the newUserId state, fetcher data, or the first guardian
-					const userId = newUserId || fetcher.data?.userId || familyData.guardians[0].id;
-
-					// Find the guardian with the matching ID
-					const guardian = familyData.guardians.find(g => g.id === userId) || familyData.guardians[0];
-
-					return (
-						<div className="space-y-6">
-							<div className="text-center">
-								<h2 className="text-2xl font-bold">Welcome!</h2>
-								<p className="text-sm text-muted-foreground">
-									Please provide some information about yourself
-								</p>
-							</div>
-							<form onSubmit={handleUpdateUserInfo} className="space-y-4">
-								<input type="hidden" name="intent" value="update-user-info" />
-								<input
-									type="hidden"
-									name="userId"
-									value={userId}
-								/>
-								<div className="space-y-2">
-									<Label htmlFor="firstName">First Name</Label>
-									<Input
-										id="firstName"
-										name="firstName"
-										placeholder="First Name"
-										defaultValue={guardian.firstName}
-										required
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="lastName">Last Name</Label>
-									<Input
-										id="lastName"
-										name="lastName"
-										placeholder="Last Name"
-										defaultValue={guardian.lastName}
-										required
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="email">Email (Optional)</Label>
-									<Input
-										id="email"
-										name="email"
-										type="email"
-										placeholder="Email"
-										defaultValue={guardian.email || ""}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="familyName">Family Name</Label>
-									<Input
-										id="familyName"
-										name="familyName"
-										placeholder="Family Name"
-										defaultValue={familyData.name || ""}
-										required
-									/>
-								</div>
-								<Button
-									type="submit"
-									className="w-full"
-									disabled={fetcher.state !== "idle"}
-								>
-									{fetcher.state !== "idle" ? "Saving..." : "Continue"}
-								</Button>
-								<button
-									type="button"
-									className="w-full text-center text-sm text-muted-foreground hover:underline mt-2"
-									onClick={handleStartOver}
-								>
-									Start Over
-								</button>
-							</form>
-						</div>
-					);
-				}
-
-				// If we don't have valid family data, show an error and provide a way to start over
 				return (
-					<div className="space-y-6">
-						<div className="text-center">
-							<h2 className="text-2xl font-bold">Something went wrong</h2>
-							<p className="text-sm text-muted-foreground">
-								We couldn't find your family information. Please start over.
-							</p>
-						</div>
-						<Button
-							className="w-full"
-							onClick={handleStartOver}
-						>
-							Start Over
-						</Button>
-					</div>
+					<UpdateUserInfoStep
+						familyData={familyData}
+						isNewUser={isNewUser}
+						userId={newUserId}
+						onSubmit={handleUpdateUserInfo}
+						onStartOver={handleStartOver}
+						isLoading={fetcher.state !== "idle"}
+					/>
 				);
 
 			case "select-child":
 				return (
-					<div className="space-y-6">
-						<div className="text-center">
-							<h2 className="text-2xl font-bold">Select Children</h2>
-							<p className="text-sm text-muted-foreground">
-								Choose which children you want to check in
-							</p>
-						</div>
-						{familyData?.children && familyData.children.length > 0 ? (
-							<div className="space-y-4">
-								{familyData.children.map((child) => (
-									<Card
-										key={child.id}
-										className={`cursor-pointer hover:border-primary transition-colors ${selectedChildren.some((c) => c.id === child.id)
-											? "border-primary bg-primary/5"
-											: ""
-											} ${child.isCheckedIn ? "opacity-70" : ""}`}
-										onClick={() => toggleChildSelection(child)}
-									>
-										<CardHeader className="p-4">
-											<CardTitle className="text-lg flex justify-between items-center">
-												<span>
-													{child.firstName} {child.lastName}
-												</span>
-												<div className="flex items-center">
-													{child.isCheckedIn && (
-														<Badge className="mr-2 bg-green-600">
-															Already Checked In
-															{child.checkedInRoom &&
-																` - ${child.checkedInRoom.name}`}
-														</Badge>
-													)}
-													{selectedChildren.some((c) => c.id === child.id) && (
-														<Check className="h-5 w-5 text-primary" />
-													)}
-												</div>
-											</CardTitle>
-											<CardDescription>
-												{new Date(child.dateOfBirth).toLocaleDateString()}
-												{child.isCheckedIn && child.checkedInRoom && (
-													<div className="mt-1 text-sm text-muted-foreground">
-														Room:{" "}
-														<span className="font-medium">
-															{child.checkedInRoom.name}
-														</span>
-													</div>
-												)}
-											</CardDescription>
-										</CardHeader>
-									</Card>
-								))}
-
-								{/* Check-in button for selected children */}
-								{selectedChildren.length > 0 && (
-									<Button className="w-full mt-4" onClick={handleCheckin}>
-										Check In {selectedChildren.length}{" "}
-										{selectedChildren.length === 1 ? "Child" : "Children"}
-									</Button>
-								)}
-
-								<div className="flex justify-between items-center mt-6">
-									<Button variant="outline" onClick={handleEditFamily}>
-										Manage Family
-									</Button>
-									<Button
-										variant="default"
-										onClick={() => {
-											setChildBeingEdited({});
-											setSearchParams({ step: "edit-family" });
-										}}
-									>
-										Add Child
-									</Button>
-								</div>
-								<Button
-									variant="outline"
-									className="w-full mt-4"
-									onClick={handleStartOver}
-								>
-									Start Over
-								</Button>
-							</div>
-						) : (
-							<div className="text-center p-4">
-								<p>No children found for this family.</p>
-								<Button
-									className="mt-4"
-									onClick={() => {
-										setChildBeingEdited({});
-										setShowEditFamily(true);
-										setSearchParams({ step: "edit-family" });
-									}}
-								>
-									<PlusIcon className="h-4 w-4 mr-2" />
-									Add Child
-								</Button>
-								<Button
-									variant="outline"
-									className="w-full mt-4"
-									onClick={handleStartOver}
-								>
-									Start Over
-								</Button>
-							</div>
-						)}
-					</div>
-				);
-
-			case "confirm":
-				return (
-					<div className="space-y-6">
-						<div className="text-center">
-							<h2 className="text-2xl font-bold">Confirm Check-in</h2>
-							<p className="text-sm text-muted-foreground">
-								Review and confirm check-in details
-							</p>
-						</div>
-						{selectedChildren.length > 0 ? (
-							<div className="space-y-4">
-								{selectedChildren.map((child) => (
-									<Card key={child.id}>
-										<CardHeader>
-											<CardTitle>Child</CardTitle>
-											<CardDescription>
-												{child.firstName} {child.lastName}
-											</CardDescription>
-										</CardHeader>
-										{child.allergies && (
-											<CardContent>
-												<p className="text-sm font-medium text-yellow-500">
-													Allergies: {child.allergies}
-												</p>
-											</CardContent>
-										)}
-									</Card>
-								))}
-								<div className="flex space-x-3 mt-6">
-									<Button
-										variant="outline"
-										className="flex-1"
-										onClick={() => setSearchParams({ step: "select-child" })}
-									>
-										Back
-									</Button>
-									<Button
-										className="flex-1"
-										onClick={handleCheckin}
-										disabled={fetcher.state !== "idle"}
-									>
-										{fetcher.state !== "idle" ? "Processing..." : "Check In"}
-									</Button>
-								</div>
-							</div>
-						) : (
-							<div className="text-center p-4">
-								<p>
-									Missing selection information. Please go back and try again.
-								</p>
-								<Button
-									variant="outline"
-									className="mt-4"
-									onClick={() => setSearchParams({ step: "select-child" })}
-								>
-									Back to Selection
-								</Button>
-							</div>
-						)}
-					</div>
+					<ChildSelectionStep
+						familyData={familyData}
+						selectedChildren={selectedChildren}
+						onChildToggle={toggleChildSelection}
+						onEditFamily={handleEditFamily}
+						onAddChild={handleStartAddChild}
+						findRoomForChild={findRoomForChild}
+						getChildAgeInMonths={getChildAgeInMonths}
+						onProceed={handleCheckin}
+						isLoading={fetcher.state !== "idle"}
+						rooms={rooms}
+					/>
 				);
 
 			case "confirmed":
 				return (
-					<div className="space-y-6 text-center">
-						<div>
-							<CheckCircleIcon className="w-16 h-16 mx-auto text-green-500" />
-							<h2 className="text-2xl font-bold mt-4">Check-in Complete!</h2>
-							<p className="text-muted-foreground mb-4">
-								{checkedInChildren.length === 1
-									? `${checkedInChildren[0]?.firstName} has been checked in`
-									: `${checkedInChildren.length} children have been checked in`}
-							</p>
-							{checkedInChildren.length > 0 && (
-								<div className="mt-4 space-y-3">
-									{checkedInChildren.map((child) => (
-										<Card key={child.id} className="text-left p-3">
-											<div className="flex justify-between items-center">
-												<div>
-													<p className="font-medium">
-														{child.firstName} {child.lastName}
-													</p>
-													<p className="text-sm text-muted-foreground">
-														Room:{" "}
-														<span className="font-medium">
-															{child.room?.name || "Unknown"}
-														</span>
-													</p>
-												</div>
-												<Badge className="bg-green-600">Checked In</Badge>
-											</div>
-										</Card>
-									))}
-								</div>
-							)}
-							{qrCodeUrl && (
-								<p className="text-sm text-muted-foreground mt-4">
-									A verification QR code has been sent to your phone for easy
-									pickup.
-								</p>
-							)}
-						</div>
-						<Button
-							className="w-full"
-							onClick={handleStartOver}
-						>
-							Check in Another Child
-						</Button>
-					</div>
-				);
-
-			case "edit-family":
-				return (
-					<div className="space-y-6">
-						<div className="text-center">
-							<h2 className="text-2xl font-bold">Manage Family</h2>
-							<p className="text-sm text-muted-foreground">
-								Add or edit family members
-							</p>
-						</div>
-						<Tabs defaultValue="children">
-							<TabsList className="grid w-full grid-cols-2">
-								<TabsTrigger value="children">Children</TabsTrigger>
-								<TabsTrigger value="guardians">Guardians</TabsTrigger>
-							</TabsList>
-							<TabsContent value="children" className="space-y-4 pt-4">
-								{childBeingEdited ? (
-									<Card>
-										<CardHeader>
-											<CardTitle>
-												{childBeingEdited.id ? "Edit Child" : "Add Child"}
-											</CardTitle>
-										</CardHeader>
-										<CardContent>
-											<form
-												onSubmit={
-													childBeingEdited.id
-														? handleUpdateChild
-														: handleAddChild
-												}
-												className="space-y-4"
-											>
-												<input
-													type="hidden"
-													name="intent"
-													value={
-														childBeingEdited.id
-															? "update-child"
-															: "add-child"
-													}
-												/>
-												{childBeingEdited.id && (
-													<input
-														type="hidden"
-														name="childId"
-														value={childBeingEdited.id}
-													/>
-												)}
-												<div className="space-y-2">
-													<Label htmlFor="firstName">First Name</Label>
-													<Input
-														id="firstName"
-														name="firstName"
-														defaultValue={childBeingEdited.firstName || ""}
-														required
-													/>
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="lastName">Last Name</Label>
-													<Input
-														id="lastName"
-														name="lastName"
-														defaultValue={childBeingEdited.lastName || ""}
-														required
-													/>
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="dateOfBirth">Date of Birth</Label>
-													<Input
-														id="dateOfBirth"
-														name="dateOfBirth"
-														type="date"
-														defaultValue={
-															childBeingEdited.dateOfBirth
-																? new Date(childBeingEdited.dateOfBirth)
-																	.toISOString()
-																	.split("T")[0]
-																: ""
-														}
-														required
-													/>
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="allergies">Allergies</Label>
-													<Input
-														id="allergies"
-														name="allergies"
-														defaultValue={childBeingEdited.allergies || ""}
-													/>
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="specialNotes">Special Notes</Label>
-													<Textarea
-														id="specialNotes"
-														name="specialNotes"
-														defaultValue={childBeingEdited.specialNotes || ""}
-													/>
-												</div>
-												<div className="flex space-x-3">
-													<Button
-														type="button"
-														variant="outline"
-														className="flex-1"
-														onClick={() => setChildBeingEdited(null)}
-													>
-														Cancel
-													</Button>
-													<Button type="submit" className="flex-1">
-														Save
-													</Button>
-												</div>
-											</form>
-										</CardContent>
-									</Card>
-								) : (
-									<>
-										{familyData?.children && familyData.children.length > 0 ? (
-											<div className="space-y-3">
-												{familyData.children.map((child) => (
-													<Card key={child.id}>
-														<CardHeader className="pb-2">
-															<CardTitle className="text-lg flex justify-between items-center">
-																<span>
-																	{child.firstName} {child.lastName}
-																</span>
-																<div className="flex space-x-2">
-																	<Button
-																		variant="ghost"
-																		size="icon"
-																		onClick={() => setChildBeingEdited(child)}
-																	>
-																		<PencilIcon className="h-4 w-4" />
-																	</Button>
-																	<Button
-																		variant="ghost"
-																		size="icon"
-																		onClick={() => handleRemoveChild(child.id)}
-																	>
-																		<TrashIcon className="h-4 w-4" />
-																	</Button>
-																</div>
-															</CardTitle>
-															<CardDescription>
-																{new Date(
-																	child.dateOfBirth,
-																).toLocaleDateString()}
-															</CardDescription>
-														</CardHeader>
-														{(child.allergies || child.specialNotes) && (
-															<CardContent className="pt-0">
-																{child.allergies && (
-																	<p className="text-sm text-yellow-500">
-																		<strong>Allergies:</strong>{" "}
-																		{child.allergies}
-																	</p>
-																)}
-																{child.specialNotes && (
-																	<p className="text-sm mt-1">
-																		<strong>Notes:</strong> {child.specialNotes}
-																	</p>
-																)}
-															</CardContent>
-														)}
-													</Card>
-												))}
-											</div>
-										) : (
-											<div className="text-center p-4">
-												<p>No children found for this family.</p>
-												<Button
-													className="mt-4"
-													onClick={() => {
-														setChildBeingEdited({});
-														setShowEditFamily(true);
-														setSearchParams({ step: "edit-family" });
-													}}
-												>
-													<PlusIcon className="h-4 w-4 mr-2" />
-													Add Child
-												</Button>
-												<Button
-													variant="outline"
-													className="w-full mt-4"
-													onClick={handleStartOver}
-												>
-													Start Over
-												</Button>
-											</div>
-										)}
-										<div className="mt-4">
-											<Button
-												className="w-full"
-												onClick={() => setChildBeingEdited({})}
-											>
-												<PlusIcon className="h-4 w-4 mr-2" />
-												Add Child
-											</Button>
-										</div>
-									</>
-								)}
-							</TabsContent>
-							<TabsContent value="guardians" className="space-y-4 pt-4">
-								{guardianBeingAdded ? (
-									<Card>
-										<CardHeader>
-											<CardTitle>Add Guardian</CardTitle>
-										</CardHeader>
-										<CardContent>
-											<form onSubmit={handleAddGuardian} className="space-y-4">
-												<input
-													type="hidden"
-													name="intent"
-													value="add-guardian"
-												/>
-												<div className="space-y-2">
-													<Label htmlFor="firstName">First Name</Label>
-													<Input id="firstName" name="firstName" required />
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="lastName">Last Name</Label>
-													<Input id="lastName" name="lastName" required />
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="phone">Phone Number</Label>
-													<Input
-														id="phone"
-														name="phone"
-														type="tel"
-														placeholder="(xxx) xxx-xxxx"
-														required
-													/>
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="email">Email (Optional)</Label>
-													<Input id="email" name="email" type="email" />
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="relationship">Relationship</Label>
-													<Select name="relationship" defaultValue="parent">
-														<SelectTrigger>
-															<SelectValue placeholder="Select relationship" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="parent">Parent</SelectItem>
-															<SelectItem value="grandparent">
-																Grandparent
-															</SelectItem>
-															<SelectItem value="aunt-uncle">
-																Aunt/Uncle
-															</SelectItem>
-															<SelectItem value="sibling">Sibling</SelectItem>
-															<SelectItem value="other">Other</SelectItem>
-														</SelectContent>
-													</Select>
-												</div>
-												<div className="flex space-x-3">
-													<Button
-														type="button"
-														variant="outline"
-														className="flex-1"
-														onClick={() => setGuardianBeingAdded(false)}
-													>
-														Cancel
-													</Button>
-													<Button type="submit" className="flex-1">
-														Save
-													</Button>
-												</div>
-											</form>
-										</CardContent>
-									</Card>
-								) : (
-									<>
-										{familyData?.guardians &&
-											familyData.guardians.length > 0 ? (
-											<div className="space-y-3">
-												{familyData.guardians.map((guardian) => (
-													<Card key={guardian.id}>
-														<CardHeader className="pb-2">
-															<CardTitle className="text-lg flex justify-between items-center">
-																<span>
-																	{guardian.firstName} {guardian.lastName}
-																</span>
-																{familyData.guardians.length > 1 && (
-																	<Button
-																		variant="ghost"
-																		size="icon"
-																		onClick={() =>
-																			handleRemoveGuardian(guardian.id)
-																		}
-																	>
-																		<TrashIcon className="h-4 w-4" />
-																	</Button>
-																)}
-															</CardTitle>
-															<CardDescription>
-																{guardian.phone}
-																{guardian.email && ` • ${guardian.email}`}
-															</CardDescription>
-														</CardHeader>
-													</Card>
-												))}
-											</div>
-										) : (
-											<div className="text-center p-4">
-												<p>No guardians found for this family.</p>
-											</div>
-										)}
-										<div className="mt-4">
-											<Button
-												className="w-full"
-												onClick={() => setGuardianBeingAdded(true)}
-											>
-												<PlusIcon className="h-4 w-4 mr-2" />
-												Add Guardian
-											</Button>
-										</div>
-									</>
-								)}
-							</TabsContent>
-						</Tabs>
-						<Button
-							variant="outline"
-							className="w-full"
-							onClick={() => {
-								setShowEditFamily(false);
-								setSearchParams({ step: "select-child" });
-							}}
-						>
-							Back to Check-in
-						</Button>
-						<Button
-							variant="outline"
-							className="w-full mt-2"
-							onClick={handleStartOver}
-						>
-							Start Over
-						</Button>
-					</div>
+					<ConfirmationStep
+						checkedInChildren={checkedInChildren}
+						findRoomForChild={findRoomForChild}
+						onStartOver={handleStartOver}
+						qrCodeUrl={qrCodeUrl}
+						rooms={rooms}
+					/>
 				);
 
 			default:
-				return (
-					<div className="text-center p-4">
-						<p>Unknown step. Please start over.</p>
-						<Button
-							className="mt-4"
-							onClick={handleStartOver}
-						>
-							Start Over
-						</Button>
-					</div>
-				);
+				return null;
 		}
 	};
 
+	// Process fetcher data with explicit handling for the add child response
+	useEffect(() => {
+		// Skip if there's no fetcher data or we're not in the idle state yet
+		if (!fetcher.data || fetcher.state !== 'idle') return;
+
+		// Handle response from phone search
+		if (fetcher.data._action === "searchPhone") {
+			if (fetcher.data.success) {
+				if (fetcher.data.verified) {
+					// User exists and is verified
+					setFamilyData(fetcher.data.familyData);
+					setSearchParams({ step: "select-child" });
+				} else {
+					// User exists but needs verification
+					setSearchParams({ step: "verify" });
+				}
+			} else {
+				toast.error(fetcher.data.error || "Error searching for phone number");
+			}
+		}
+
+		// Handle response from code verification
+		else if (fetcher.data._action === "verifyCode") {
+			if (fetcher.data.success) {
+				setFamilyData(fetcher.data.familyData);
+
+				if (fetcher.data.isNewUser) {
+					setIsNewUser(true);
+					setNewUserId(fetcher.data.userId);
+					setSearchParams({ step: "update-user-info" });
+				} else {
+					setSearchParams({ step: "select-child" });
+				}
+			} else {
+				toast.error(fetcher.data.error || "Invalid verification code");
+			}
+		}
+
+		// Handle response from check-in
+		else if (fetcher.data._action === "checkin") {
+			if (fetcher.data.success) {
+				setCheckedInChildren(selectedChildren);
+				setQrCodeUrl(fetcher.data.qrCodeUrl);
+				setSearchParams({ step: "confirmed" });
+				toast.success("Check-in successful!");
+			} else {
+				toast.error(fetcher.data.error || "Error during check-in");
+			}
+		}
+
+		// Handle response from adding/updating a child
+		else if (fetcher.data._action === "addChild" || fetcher.data._action === "updateChild") {
+			if (fetcher.data.success) {
+				// Update family data with the new child info
+				if (fetcher.data.familyData) {
+					setFamilyData(fetcher.data.familyData);
+				}
+
+				// Hide the form
+				setShowAddChildForm(false);
+				setChildBeingEdited(null);
+				resetPhoto?.();
+
+				// Show success message
+				toast.success(
+					fetcher.data._action === "addChild"
+						? "Child added successfully"
+						: "Child updated successfully"
+				);
+			} else {
+				toast.error(fetcher.data.error || "Error saving child information");
+			}
+		}
+
+		// We use fetcher.data._action to get the latest action - adding a ref to track the last action
+	}, [fetcher.data, fetcher.state]);
+
 	return (
 		<div className="container max-w-md mx-auto py-8 px-4">
-			{/* Step indicator */}
-			{!showEditFamily && (
-				<div className="mb-8">
-					<div className="flex justify-between">
-						{Object.keys(STEPS).map((step, index) => (
-							<div
-								key={step}
-								className={`flex flex-col items-center ${index <= currentStepIndex
-									? "text-primary"
-									: "text-muted-foreground"
-									}`}
-							>
-								<div
-									className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${index <= currentStepIndex
-										? "bg-primary text-white"
-										: "bg-muted text-muted-foreground"
-										}`}
-								>
-									{index + 1}
-								</div>
-								<span className="text-xs hidden sm:block">
-									{step.replace("_", " ").toLowerCase()}
-								</span>
-							</div>
-						))}
+			<Card className="w-full mb-8">
+				<CardHeader className="pb-4">
+					<CardTitle className="text-2xl text-center">
+						Children's Check-In
+					</CardTitle>
+					<CardDescription className="text-center">
+						{organization.name}
+					</CardDescription>
+					{/* Hidden debug toggle */}
+					<div className="absolute bottom-0 right-0 p-2">
+						<button
+							className="w-4 h-4 bg-transparent"
+							onClick={toggleDebug}
+							aria-label="Toggle debug mode"
+						/>
 					</div>
-					<div className="relative mt-2">
-						<div className="absolute top-0 left-0 right-0 h-1 bg-muted"></div>
-						<div
-							className="absolute top-0 left-0 h-1 bg-primary transition-all"
-							style={{
-								width: `${((currentStepIndex + 1) / Object.keys(STEPS).length) * 100}%`,
-							}}
-						></div>
-					</div>
+				</CardHeader>
+			</Card>
+
+			{/* Show stepper only for the main flow */}
+			{!showEditFamily && !showAddChildForm && !childBeingEdited && (
+				<div className="mb-6">
+					<Stepper
+						steps={STEP_NAMES}
+						currentStep={currentStepIndex}
+					/>
 				</div>
 			)}
 
-			{/* Main content card */}
-			<Card className="w-full">
-				<CardContent className="pt-6">{renderStepContent()}</CardContent>
-				<CardFooter className="flex justify-center border-t pt-6">
-					<div className="text-center text-xs text-muted-foreground">
-						{organization.name} • Child Check-in System
-					</div>
-				</CardFooter>
-			</Card>
+			{/* DEBUG INFO - only show when enabled */}
+			{showDebug && (
+				<Card className="mb-4 bg-blue-50 border-blue-200">
+					<CardHeader className="pb-2 pt-3">
+						<CardTitle className="text-sm text-blue-800">Debug Panel</CardTitle>
+					</CardHeader>
+					<CardContent className="py-2">
+						<div className="text-xs space-y-1 text-blue-700">
+							<p><span className="font-semibold">Current Step:</span> {currentStep}</p>
+							<p><span className="font-semibold">Step Index:</span> {currentStepIndex}</p>
+							<p><span className="font-semibold">Family Data:</span> {familyData ? "✅" : "❌"}</p>
+							<p><span className="font-semibold">Selected Children:</span> {selectedChildren.length}</p>
+							<p><span className="font-semibold">Add Child Form:</span> {showAddChildForm ? "✅" : "❌"}</p>
+							<p><span className="font-semibold">Child Being Edited:</span> {childBeingEdited ? "✅" : "❌"}</p>
+							<p><span className="font-semibold">Fetcher State:</span> {fetcher.state}</p>
+						</div>
+
+						<div className="mt-2 pt-2 border-t border-blue-200">
+							<div className="grid grid-cols-2 gap-2">
+								<Button
+									size="sm"
+									variant="outline"
+									className="text-xs h-8"
+									onClick={handleStartAddChild}
+								>
+									Add Child
+								</Button>
+								<Button
+									size="sm"
+									variant="outline"
+									className="text-xs h-8"
+									onClick={handleStartOver}
+								>
+									Reset Flow
+								</Button>
+							</div>
+						</div>
+					</CardContent>
+				</Card>
+			)}
+
+			{/* Main content - ensure we always render something visible */}
+			<div className="mb-6">
+				{/* Try to render the appropriate step content */}
+				{renderStepContent() || (
+					// Fallback if no content was rendered
+					<Card>
+						<CardContent className="pt-6">
+							<p className="text-center text-red-500 mb-4">
+								There was an issue displaying content for the current step: {currentStep}
+							</p>
+							<p className="text-sm text-muted-foreground mb-4">
+								This could be due to missing data or an unsupported step. You can try starting over.
+							</p>
+							<Button
+								className="w-full"
+								onClick={handleStartOver}
+							>
+								Start Over
+							</Button>
+						</CardContent>
+					</Card>
+				)}
+			</div>
+
+			{/* Render camera component */}
+			<CameraComponent />
 		</div>
 	);
 }

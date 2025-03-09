@@ -22,6 +22,7 @@ export interface ExtendedNewChild extends NewChild {
 	allergies?: string;
 	specialNotes?: string;
 	familyId?: string;
+	photoUrl?: string;
 }
 
 // Define interface for the result of findFamilyByPhone
