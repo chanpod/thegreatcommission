@@ -45,14 +45,15 @@ import { organizationService } from "~/services/OrganizationService";
 
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
-import { churchOrganization, users } from "@/server/db/schema";
+import { churchOrganization, users, familiesTable, childCheckinsTable } from "@/server/db/schema";
 
 // Define step names for the stepper
 const STEPS = {
 	PHONE: 0,
 	VERIFY: 1,
-	SELECT_CHILD: 2,
-	CONFIRM: 3,
+	UPDATE_USER_INFO: 2,
+	SELECT_CHILD: 3,
+	CONFIRM: 4,
 };
 
 // The stepper names that will be displayed to the user
@@ -194,6 +195,8 @@ export async function action({ params, request }) {
 					organization,
 				);
 
+				console.log("code", code);
+
 				// Send verification code
 				const smsSent = await verificationService.sendVerificationCodeSMS(
 					phone,
@@ -251,25 +254,75 @@ export async function action({ params, request }) {
 
 				// Find user and family by phone
 				const user = await childCheckinService.getUserByPhone(phone);
+				let familyResult;
 
 				if (!user) {
-					return data({
-						success: false,
-						error: "No user found with this phone number",
-						step: "phone",
+					// This is a first-time user, create a new user and family
+					// Create a new user with the phone number
+					const newUser = await childCheckinService.createUser({
+						phone,
+						firstName: "Guest", // Default name that can be updated later
+						lastName: "User",
+						churchOrganizationId: organization,
+						updatedAt: new Date(),
 					});
-				}
 
-				// Get family for this user
-				const familyResult = await childCheckinService.handlePhoneSearch(
-					phone,
-					organization,
-				);
+					// Create a new family for this user
+					const newFamily = await childCheckinService.createFamily({
+						name: "Guest Family", // Default name that can be updated later
+						churchOrganizationId: organization,
+						updatedAt: new Date(),
+					});
+
+					// Link the user to the family
+					await childCheckinService.linkUserToFamily({
+						userId: newUser.id,
+						familyId: newFamily.id,
+						relationship: "parent",
+						updatedAt: new Date(),
+					});
+
+					// Set the family result
+					familyResult = {
+						success: true,
+						family: newFamily,
+					};
+				} else {
+					// User exists, get their family
+					familyResult = await childCheckinService.handlePhoneSearch(
+						phone,
+						organization,
+					);
+
+					if (!familyResult.success || !familyResult.family) {
+						// User exists but has no family in this organization
+						// Create a new family for this existing user
+						const newFamily = await childCheckinService.createFamily({
+							name: `${user.lastName} Family`,
+							churchOrganizationId: organization,
+							updatedAt: new Date(),
+						});
+
+						// Link the user to the family
+						await childCheckinService.linkUserToFamily({
+							userId: user.id,
+							familyId: newFamily.id,
+							relationship: "parent",
+							updatedAt: new Date(),
+						});
+
+						// Set the family result
+						familyResult = {
+							success: true,
+							family: newFamily,
+						};
+					}
+				}
 
 				if (!familyResult.success || !familyResult.family) {
 					return data({
 						success: false,
-						error: familyResult.message || "No family found for this user",
+						error: familyResult.message || "Error creating or finding family",
 						step: "phone",
 					});
 				}
@@ -280,6 +333,16 @@ export async function action({ params, request }) {
 						familyResult.family.id,
 					);
 
+				// Ensure we have valid family data
+				if (!familyData || !familyData.guardians || familyData.guardians.length === 0) {
+					console.error("Failed to get complete family data with guardians");
+					return data({
+						success: false,
+						error: "Failed to get complete family data",
+						step: "phone",
+					});
+				}
+
 				// Create verification session
 				const cookieHeader =
 					await verificationService.createVerificationSession(
@@ -287,11 +350,18 @@ export async function action({ params, request }) {
 						organization,
 					);
 
+				// If this is a new user, we need to provide the user ID explicitly to update the info
+				// This prevents issues with familyData not being properly loaded
+				const isNewUser = !user;
+				const userId = isNewUser ? familyData.guardians[0].id : null;
+
 				return data(
 					{
 						success: true,
 						familyData,
-						step: "select-child",
+						step: isNewUser ? "update-user-info" : "select-child",
+						isNewUser,
+						userId, // Include the user ID for new users
 					},
 					{
 						headers: {
@@ -683,6 +753,110 @@ export async function action({ params, request }) {
 			}
 		}
 
+		case "update-user-info": {
+			// Get family ID from verification cookie
+			const verificationData =
+				await verificationService.getVerificationFromCookie(request);
+
+			if (!verificationData?.familyId) {
+				return data({
+					success: false,
+					error: "You must be verified to update user information",
+				});
+			}
+
+			const userId = formData.get("userId")?.toString();
+			const firstName = formData.get("firstName")?.toString();
+			const lastName = formData.get("lastName")?.toString();
+			const email = formData.get("email")?.toString();
+			const familyName = formData.get("familyName")?.toString();
+
+			if (!userId || !firstName || !lastName) {
+				return data({
+					success: false,
+					error: "User details are incomplete",
+				});
+			}
+
+			try {
+				// Verify the user exists and is associated with this family
+				const familyData = await childCheckinService.getFamilyWithChildrenAndGuardians(
+					verificationData.familyId
+				);
+
+				if (!familyData || !familyData.guardians || !familyData.guardians.some(g => g.id === userId)) {
+					return data({
+						success: false,
+						error: "User not found or not associated with this family",
+					});
+				}
+
+				// Update user information
+				await db.update(users)
+					.set({
+						firstName,
+						lastName,
+						email: email || null,
+						updatedAt: new Date(),
+					})
+					.where(eq(users.id, userId));
+
+				// Update family name if provided
+				if (familyName) {
+					await db.update(familiesTable)
+						.set({
+							name: familyName,
+							updatedAt: new Date(),
+						})
+						.where(eq(familiesTable.id, verificationData.familyId));
+				}
+
+				// Get updated family data
+				const updatedFamilyData =
+					await childCheckinService.getFamilyWithChildrenAndGuardians(
+						verificationData.familyId,
+					);
+
+				return data({
+					success: true,
+					familyData: updatedFamilyData,
+					step: "select-child",
+					resetNewUser: true,
+				});
+			} catch (error) {
+				console.error("Error updating user information:", error);
+				return data({
+					success: false,
+					error: "Error updating user information",
+				});
+			}
+		}
+
+		case "start-over": {
+			try {
+				// Clear the verification session
+				const cookieHeader = await verificationService.clearVerificationSession();
+
+				return data(
+					{
+						success: true,
+						step: "phone",
+					},
+					{
+						headers: {
+							"Set-Cookie": cookieHeader,
+						},
+					},
+				);
+			} catch (error) {
+				console.error("Error clearing session:", error);
+				return data({
+					success: false,
+					error: "Error clearing session",
+				});
+			}
+		}
+
 		default:
 			return data({
 				success: false,
@@ -703,8 +877,9 @@ function ChildCheckinContent({ organization, rooms }) {
 	const STEPS = {
 		PHONE: 0,
 		VERIFY: 1,
-		SELECT_CHILD: 2,
-		CONFIRM: 3,
+		UPDATE_USER_INFO: 2,
+		SELECT_CHILD: 3,
+		CONFIRM: 4,
 	};
 
 	// Use query param for step, default to "phone"
@@ -717,6 +892,8 @@ function ChildCheckinContent({ organization, rooms }) {
 				return STEPS.PHONE;
 			case "verify":
 				return STEPS.VERIFY;
+			case "update-user-info":
+				return STEPS.UPDATE_USER_INFO;
 			case "select-child":
 				return STEPS.SELECT_CHILD;
 			case "confirmed":
@@ -737,6 +914,8 @@ function ChildCheckinContent({ organization, rooms }) {
 	const [guardianBeingAdded, setGuardianBeingAdded] = useState(false);
 	const [qrCodeUrl, setQrCodeUrl] = useState("");
 	const [checkedInChildren, setCheckedInChildren] = useState([]);
+	const [isNewUser, setIsNewUser] = useState(false);
+	const [newUserId, setNewUserId] = useState(null);
 
 	// Get current step index
 	const currentStepIndex = getStepIndex(currentStep);
@@ -753,48 +932,58 @@ function ChildCheckinContent({ organization, rooms }) {
 		}
 	}, [loaderData, currentStep, setSearchParams]);
 
-	// Process fetcher results
+	// Check for fetcher data updates
 	useEffect(() => {
-		if (fetcher.state === "idle" && fetcher.data) {
+		if (fetcher.data) {
 			if (fetcher.data.success) {
 				// Handle successful actions
 				if (fetcher.data.step) {
 					setSearchParams({ step: fetcher.data.step });
 				}
 
-				// Update family data if provided
+				// Update family data if available
 				if (fetcher.data.familyData) {
-					setFamilyData(fetcher.data.familyData);
+					// Validate family data has guardians before updating state
+					if (fetcher.data.familyData.guardians && fetcher.data.familyData.guardians.length > 0) {
+						setFamilyData(fetcher.data.familyData);
+					} else {
+						console.error("Family data missing guardians:", fetcher.data.familyData);
+						toast.error("Unable to load complete family data. Please start over.");
+						// Automatically start over to recover from this state
+						handleStartOver();
+					}
 				}
 
-				// Handle phone verification specific data
+				// Handle phone verification
 				if (fetcher.data.phone) {
 					setPhoneNumber(fetcher.data.phone);
 				}
 
-				// Handle child selection
+				// Handle check-in confirmation
 				if (fetcher.data.checkin) {
-					// Reset selection after successful check-in
-					setSelectedChildren([]);
+					setCheckedInChildren((prev) => [...prev, fetcher.data.checkin]);
+					setQrCodeUrl(fetcher.data.qrCodeUrl);
+				}
+
+				// Handle new user flag
+				if (fetcher.data.isNewUser) {
+					setIsNewUser(true);
+					setNewUserId(fetcher.data.userId);
+					// Don't need to set step here since it's already set in the response
+				}
+
+				// Reset new user flag if requested
+				if (fetcher.data.resetNewUser) {
+					setIsNewUser(false);
+					setNewUserId(null);
 				}
 			} else if (fetcher.data.error) {
-				// Show error message
+				// Show error toast
 				toast.error(fetcher.data.error);
-			}
-		}
-	}, [fetcher.state, fetcher.data, setSearchParams]);
 
-	// Handle check-in responses
-	useEffect(() => {
-		if (fetcher.data && fetcher.data.success) {
-			// Handle check-in response
-			if (
-				fetcher.data.checkin &&
-				fetcher.formData?.get("intent") === "check-in"
-			) {
-				// If QR code URL is returned, store it
-				if (fetcher.data.qrCodeUrl) {
-					setQrCodeUrl(fetcher.data.qrCodeUrl);
+				// If there's a step to go back to, set it
+				if (fetcher.data.step) {
+					setSearchParams({ step: fetcher.data.step });
 				}
 			}
 		}
@@ -845,6 +1034,26 @@ function ChildCheckinContent({ organization, rooms }) {
 			{ method: "POST" },
 		);
 		toast.info("Verification code resent");
+	};
+
+	const handleUpdateUserInfo = (e) => {
+		e.preventDefault();
+		fetcher.submit(e.target, { method: "POST" });
+	};
+
+	const handleStartOver = () => {
+		if (window.confirm("Are you sure you want to start over? This will clear your current session.")) {
+			// Reset local state before submitting to avoid any potential race conditions
+			setIsNewUser(false);
+			setNewUserId(null);
+
+			fetcher.submit(
+				{
+					intent: "start-over",
+				},
+				{ method: "POST" },
+			);
+		}
 	};
 
 	// Replace handleChildSelect with toggleChildSelection for multi-select
@@ -1124,7 +1333,115 @@ function ChildCheckinContent({ organization, rooms }) {
 							>
 								Resend Code
 							</button>
+							<button
+								type="button"
+								className="w-full text-center text-sm text-muted-foreground hover:underline mt-2"
+								onClick={handleStartOver}
+							>
+								Start Over
+							</button>
 						</form>
+					</div>
+				);
+
+			case "update-user-info":
+				// Check if we have valid family data with guardians
+				if (familyData && familyData.guardians && familyData.guardians.length > 0) {
+					// Get the user ID from either the newUserId state, fetcher data, or the first guardian
+					const userId = newUserId || fetcher.data?.userId || familyData.guardians[0].id;
+
+					// Find the guardian with the matching ID
+					const guardian = familyData.guardians.find(g => g.id === userId) || familyData.guardians[0];
+
+					return (
+						<div className="space-y-6">
+							<div className="text-center">
+								<h2 className="text-2xl font-bold">Welcome!</h2>
+								<p className="text-sm text-muted-foreground">
+									Please provide some information about yourself
+								</p>
+							</div>
+							<form onSubmit={handleUpdateUserInfo} className="space-y-4">
+								<input type="hidden" name="intent" value="update-user-info" />
+								<input
+									type="hidden"
+									name="userId"
+									value={userId}
+								/>
+								<div className="space-y-2">
+									<Label htmlFor="firstName">First Name</Label>
+									<Input
+										id="firstName"
+										name="firstName"
+										placeholder="First Name"
+										defaultValue={guardian.firstName}
+										required
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="lastName">Last Name</Label>
+									<Input
+										id="lastName"
+										name="lastName"
+										placeholder="Last Name"
+										defaultValue={guardian.lastName}
+										required
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="email">Email (Optional)</Label>
+									<Input
+										id="email"
+										name="email"
+										type="email"
+										placeholder="Email"
+										defaultValue={guardian.email || ""}
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="familyName">Family Name</Label>
+									<Input
+										id="familyName"
+										name="familyName"
+										placeholder="Family Name"
+										defaultValue={familyData.name || ""}
+										required
+									/>
+								</div>
+								<Button
+									type="submit"
+									className="w-full"
+									disabled={fetcher.state !== "idle"}
+								>
+									{fetcher.state !== "idle" ? "Saving..." : "Continue"}
+								</Button>
+								<button
+									type="button"
+									className="w-full text-center text-sm text-muted-foreground hover:underline mt-2"
+									onClick={handleStartOver}
+								>
+									Start Over
+								</button>
+							</form>
+						</div>
+					);
+				}
+
+				// If we don't have valid family data, show an error and provide a way to start over
+				return (
+					<div className="space-y-6">
+						<div className="text-center">
+							<h2 className="text-2xl font-bold">Something went wrong</h2>
+							<p className="text-sm text-muted-foreground">
+								We couldn't find your family information. Please start over.
+							</p>
+						</div>
+						<Button
+							className="w-full"
+							onClick={handleStartOver}
+						>
+							Start Over
+						</Button>
 					</div>
 				);
 
@@ -1142,11 +1459,10 @@ function ChildCheckinContent({ organization, rooms }) {
 								{familyData.children.map((child) => (
 									<Card
 										key={child.id}
-										className={`cursor-pointer hover:border-primary transition-colors ${
-											selectedChildren.some((c) => c.id === child.id)
-												? "border-primary bg-primary/5"
-												: ""
-										} ${child.isCheckedIn ? "opacity-70" : ""}`}
+										className={`cursor-pointer hover:border-primary transition-colors ${selectedChildren.some((c) => c.id === child.id)
+											? "border-primary bg-primary/5"
+											: ""
+											} ${child.isCheckedIn ? "opacity-70" : ""}`}
 										onClick={() => toggleChildSelection(child)}
 									>
 										<CardHeader className="p-4">
@@ -1198,14 +1514,19 @@ function ChildCheckinContent({ organization, rooms }) {
 										variant="default"
 										onClick={() => {
 											setChildBeingEdited({});
-											setShowEditFamily(true);
 											setSearchParams({ step: "edit-family" });
 										}}
 									>
-										<PlusIcon className="h-4 w-4 mr-2" />
 										Add Child
 									</Button>
 								</div>
+								<Button
+									variant="outline"
+									className="w-full mt-4"
+									onClick={handleStartOver}
+								>
+									Start Over
+								</Button>
 							</div>
 						) : (
 							<div className="text-center p-4">
@@ -1220,6 +1541,13 @@ function ChildCheckinContent({ organization, rooms }) {
 								>
 									<PlusIcon className="h-4 w-4 mr-2" />
 									Add Child
+								</Button>
+								<Button
+									variant="outline"
+									className="w-full mt-4"
+									onClick={handleStartOver}
+								>
+									Start Over
 								</Button>
 							</div>
 						)}
@@ -1330,14 +1658,7 @@ function ChildCheckinContent({ organization, rooms }) {
 						</div>
 						<Button
 							className="w-full"
-							onClick={() => {
-								setSelectedChildren([]);
-								setCheckedInChildren([]);
-								setSearchParams({ step: "phone" });
-								setPhoneNumber("");
-								setVerificationCode("");
-								setFamilyData(null);
-							}}
+							onClick={handleStartOver}
 						>
 							Check in Another Child
 						</Button>
@@ -1379,7 +1700,9 @@ function ChildCheckinContent({ organization, rooms }) {
 													type="hidden"
 													name="intent"
 													value={
-														childBeingEdited.id ? "update-child" : "add-child"
+														childBeingEdited.id
+															? "update-child"
+															: "add-child"
 													}
 												/>
 												{childBeingEdited.id && (
@@ -1416,8 +1739,8 @@ function ChildCheckinContent({ organization, rooms }) {
 														defaultValue={
 															childBeingEdited.dateOfBirth
 																? new Date(childBeingEdited.dateOfBirth)
-																		.toISOString()
-																		.split("T")[0]
+																	.toISOString()
+																	.split("T")[0]
 																: ""
 														}
 														required
@@ -1510,6 +1833,24 @@ function ChildCheckinContent({ organization, rooms }) {
 										) : (
 											<div className="text-center p-4">
 												<p>No children found for this family.</p>
+												<Button
+													className="mt-4"
+													onClick={() => {
+														setChildBeingEdited({});
+														setShowEditFamily(true);
+														setSearchParams({ step: "edit-family" });
+													}}
+												>
+													<PlusIcon className="h-4 w-4 mr-2" />
+													Add Child
+												</Button>
+												<Button
+													variant="outline"
+													className="w-full mt-4"
+													onClick={handleStartOver}
+												>
+													Start Over
+												</Button>
 											</div>
 										)}
 										<div className="mt-4">
@@ -1597,7 +1938,7 @@ function ChildCheckinContent({ organization, rooms }) {
 								) : (
 									<>
 										{familyData?.guardians &&
-										familyData.guardians.length > 0 ? (
+											familyData.guardians.length > 0 ? (
 											<div className="space-y-3">
 												{familyData.guardians.map((guardian) => (
 													<Card key={guardian.id}>
@@ -1654,6 +1995,13 @@ function ChildCheckinContent({ organization, rooms }) {
 						>
 							Back to Check-in
 						</Button>
+						<Button
+							variant="outline"
+							className="w-full mt-2"
+							onClick={handleStartOver}
+						>
+							Start Over
+						</Button>
 					</div>
 				);
 
@@ -1663,7 +2011,7 @@ function ChildCheckinContent({ organization, rooms }) {
 						<p>Unknown step. Please start over.</p>
 						<Button
 							className="mt-4"
-							onClick={() => setSearchParams({ step: "phone" })}
+							onClick={handleStartOver}
 						>
 							Start Over
 						</Button>
@@ -1681,18 +2029,16 @@ function ChildCheckinContent({ organization, rooms }) {
 						{Object.keys(STEPS).map((step, index) => (
 							<div
 								key={step}
-								className={`flex flex-col items-center ${
-									index <= currentStepIndex
-										? "text-primary"
-										: "text-muted-foreground"
-								}`}
+								className={`flex flex-col items-center ${index <= currentStepIndex
+									? "text-primary"
+									: "text-muted-foreground"
+									}`}
 							>
 								<div
-									className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
-										index <= currentStepIndex
-											? "bg-primary text-white"
-											: "bg-muted text-muted-foreground"
-									}`}
+									className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${index <= currentStepIndex
+										? "bg-primary text-white"
+										: "bg-muted text-muted-foreground"
+										}`}
 								>
 									{index + 1}
 								</div>

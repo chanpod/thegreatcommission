@@ -55,6 +55,15 @@ class VerificationService {
 	}
 
 	/**
+	 * Clear the verification session cookie
+	 */
+	async clearVerificationSession() {
+		return await verificationCookie.serialize("", {
+			expires: new Date(0), // Set expiration to the past to clear the cookie
+		});
+	}
+
+	/**
 	 * Get or create a system user for tracking
 	 */
 	async getSystemUser(organizationId: string) {
