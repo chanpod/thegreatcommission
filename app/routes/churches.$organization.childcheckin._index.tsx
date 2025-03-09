@@ -243,11 +243,11 @@ export const action = createAuthLoader(async ({ params, request }) => {
 
 		// Handle family check-in
 		if (action === "familyCheckin") {
-			const roomId = formData.get("roomId");
 			const userId = formData.get("userId");
 			const childIds = formData.getAll("childIds[]");
+			const manualRoomId = formData.get("roomId"); // Optional override
 
-			if (!roomId || !userId || childIds.length === 0) {
+			if (!userId || childIds.length === 0) {
 				return data(
 					{
 						success: false,
@@ -259,16 +259,69 @@ export const action = createAuthLoader(async ({ params, request }) => {
 
 			// Check in each selected child
 			const checkins = [];
+			const errors = [];
+
 			for (const childId of childIds) {
+				// First check if the child is already checked in
+				const isCheckedIn = await childCheckinService.isChildCheckedIn(
+					childId.toString(),
+				);
+
+				if (isCheckedIn) {
+					errors.push(
+						`Child ID ${childId} is already checked in somewhere. Please check them out first.`,
+					);
+					continue;
+				}
+
+				let roomId;
+
+				// If a room ID was manually specified, use it, otherwise auto-assign
+				if (manualRoomId) {
+					roomId = manualRoomId.toString();
+				} else {
+					// Auto-assign room based on child's age
+					const bestRoom = await childCheckinService.findBestRoomForChild(
+						childId.toString(),
+						organization,
+					);
+
+					if (!bestRoom) {
+						errors.push(
+							`No suitable room found for child ID ${childId}. Please create a room first.`,
+						);
+						continue;
+					}
+
+					roomId = bestRoom.id;
+				}
+
 				const checkinData = {
 					childId: childId.toString(),
-					roomId: roomId.toString(),
+					roomId: roomId,
 					checkedInByUserId: userId.toString(),
 					updatedAt: new Date(),
 				};
 
-				const newCheckin = await childCheckinService.checkinChild(checkinData);
-				checkins.push(newCheckin);
+				try {
+					const newCheckin =
+						await childCheckinService.checkinChild(checkinData);
+					checkins.push(newCheckin);
+				} catch (error) {
+					errors.push(
+						`Failed to check in child ID ${childId}: ${error.message}`,
+					);
+				}
+			}
+
+			if (checkins.length === 0 && errors.length > 0) {
+				return data(
+					{
+						success: false,
+						error: errors.join(", "),
+					},
+					{ status: 400 },
+				);
 			}
 
 			// Generate QR code URL for the first check-in
@@ -660,6 +713,68 @@ export default function ChildCheckin() {
 		}
 	}, [fetcher.data]);
 
+	// Handle family check-in response
+	useEffect(() => {
+		// Only process if we have fetcher data
+		if (!fetcher.data) return;
+
+		// Check if this is a family check-in response
+		const isFamilyCheckin =
+			fetcher.data._action === "familyCheckin" ||
+			fetcher.formData?.get("_action") === "familyCheckin";
+
+		if (
+			fetcher.data.success &&
+			fetcher.data.message === "Children have been successfully checked in"
+		) {
+			// Reset selection after successful check-in
+			setSelectedChildren([]);
+
+			// Retrieve stored children info from sessionStorage
+			try {
+				const storedChildrenInfo = sessionStorage.getItem(
+					"selectedChildrenInfo",
+				);
+				if (storedChildrenInfo) {
+					const childrenInfo = JSON.parse(storedChildrenInfo);
+
+					// Create a success message with children's names
+					if (childrenInfo.length > 0) {
+						const childrenNames = childrenInfo
+							.map((child) => child.name)
+							.join(", ");
+						toast.success(`Successfully checked in: ${childrenNames}`);
+
+						// Clear the stored info
+						sessionStorage.removeItem("selectedChildrenInfo");
+					} else {
+						toast.success(
+							`Successfully checked in ${fetcher.data.checkins?.length || 0} children`,
+						);
+					}
+				} else {
+					toast.success(
+						`Successfully checked in ${fetcher.data.checkins?.length || 0} children`,
+					);
+				}
+			} catch (error) {
+				// Fallback if sessionStorage access fails
+				toast.success(
+					`Successfully checked in ${fetcher.data.checkins?.length || 0} children`,
+				);
+			}
+
+			// If QR code is available, show it
+			if (fetcher.data.qrCodeUrl) {
+				setQrCodeUrl(fetcher.data.qrCodeUrl);
+				setCheckinComplete(true);
+				setActiveTab("complete");
+			}
+		} else if (fetcher.data.error && isFamilyCheckin) {
+			toast.error(fetcher.data.error);
+		}
+	}, [fetcher.data, fetcher.formData]);
+
 	// Handle child info changes
 	const handleChildInfoChange = (
 		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -707,11 +822,6 @@ export default function ChildCheckin() {
 
 	// Handle family check-in submission
 	const handleFamilyCheckin = () => {
-		if (!activeRoom) {
-			toast.error("Please select a room first");
-			return;
-		}
-
 		if (selectedChildren.length === 0) {
 			toast.error("Please select at least one child");
 			return;
@@ -722,13 +832,37 @@ export default function ChildCheckin() {
 			return;
 		}
 
+		// Get the names of selected children for better success messaging
+		const selectedChildrenInfo = familyData.children
+			.filter((child) => selectedChildren.includes(child.id))
+			.map((child) => ({
+				id: child.id,
+				name: `${child.firstName} ${child.lastName}`,
+			}));
+
+		if (selectedChildrenInfo.length === 0) {
+			toast.error("Could not find selected children's information");
+			return;
+		}
+
 		const formData = new FormData();
 		formData.append("_action", "familyCheckin");
-		formData.append("roomId", activeRoom.id);
+		// Room ID is now optional - if provided, it will override auto-assignment
+		if (activeRoom) {
+			formData.append("roomId", activeRoom.id);
+		}
 		formData.append("userId", familyData.guardians[0].id);
-		selectedChildren.forEach((childId) => {
-			formData.append("childIds[]", childId);
-		});
+
+		// Store the selected children's info in sessionStorage for success message
+		sessionStorage.setItem(
+			"selectedChildrenInfo",
+			JSON.stringify(selectedChildrenInfo),
+		);
+
+		// Add selected child ids to form
+		for (const child of selectedChildrenInfo) {
+			formData.append("childIds[]", child.id);
+		}
 
 		fetcher.submit(formData, { method: "post" });
 	};
@@ -1051,19 +1185,6 @@ export default function ChildCheckin() {
 														>
 															Rename
 														</Button>
-														<Button
-															onClick={() => handleSelectRoom(room)}
-															variant={
-																activeRoom?.id === room.id
-																	? "secondary"
-																	: "default"
-															}
-															size="sm"
-														>
-															{activeRoom?.id === room.id
-																? "Selected"
-																: "Select"}
-														</Button>
 													</div>
 												</div>
 											</div>
@@ -1073,18 +1194,21 @@ export default function ChildCheckin() {
 							)}
 						</CardContent>
 						<CardFooter>
-							<Button
-								onClick={() => {
-									if (activeRoom) {
-										setActiveTab("child");
-									}
-								}}
-								disabled={!activeRoom}
-								variant={!activeRoom ? "outline" : "default"}
-								className={!activeRoom ? "opacity-50 cursor-not-allowed" : ""}
-							>
-								Next: Child Information
-							</Button>
+							<div className="w-full flex flex-col gap-2">
+								{activeRoom && (
+									<div className="text-sm text-muted-foreground">
+										Selected room:{" "}
+										<span className="font-medium">{activeRoom.name}</span>
+										<span className="text-xs">
+											{" "}
+											(will override auto-assignment)
+										</span>
+									</div>
+								)}
+								<Button onClick={() => setActiveTab("child")} variant="default">
+									Next: Child Information
+								</Button>
+							</div>
 						</CardFooter>
 					</Card>
 				</TabsContent>
@@ -1226,15 +1350,25 @@ export default function ChildCheckin() {
 														</p>
 													)}
 												</div>
+												<p className="text-xs text-muted-foreground mt-2">
+													This room will be used for all selected children
+													(overrides auto-assignment)
+												</p>
 											</div>
 										)}
 
 										<Button
 											onClick={handleFamilyCheckin}
-											disabled={selectedChildren.length === 0 || !activeRoom}
+											disabled={
+												selectedChildren.length === 0 ||
+												fetcher.state === "submitting"
+											}
 											className="w-full"
 										>
-											Check In Selected Children
+											{fetcher.state === "submitting" &&
+											fetcher.formData?.get("_action") === "familyCheckin"
+												? "Checking In..."
+												: "Check In Selected Children"}
 										</Button>
 									</div>
 								)}

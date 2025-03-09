@@ -17,9 +17,28 @@ import {
 } from "../../server/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
 
+// Extend NewChild to include allergies and specialNotes for TypeScript
+export interface ExtendedNewChild extends NewChild {
+	allergies?: string;
+	specialNotes?: string;
+	familyId?: string;
+}
+
+// Define interface for the result of findFamilyByPhone
+export interface FamilySearchResult {
+	user: any;
+	family: {
+		id: string;
+		name: string;
+		churchOrganizationId: string;
+		createdAt: Date;
+		updatedAt: Date;
+	};
+}
+
 export class ChildCheckinService {
 	// Child management
-	async createChild(childData: NewChild) {
+	async createChild(childData: ExtendedNewChild) {
 		const child = await db
 			.insert(childrenTable)
 			.values({
@@ -77,8 +96,9 @@ export class ChildCheckinService {
 
 	// User management (formerly Guardian management)
 	async createUser(userData: NewUser) {
-		const [user] = await db.insert(users).values(userData).returning();
-		return user;
+		const result = await db.insert(users).values(userData).returning();
+
+		return result[0];
 	}
 
 	async getUserById(userId: string) {
@@ -212,6 +232,8 @@ export class ChildCheckinService {
 				childrenTable,
 				eq(childCheckinsTable.childId, childrenTable.id),
 			)
+			// Join with users table to get the person who checked out the child
+			.leftJoin(users, eq(childCheckinsTable.checkedOutByUserId, users.id))
 			.where(
 				and(
 					eq(childCheckinsTable.roomId, roomId),
@@ -225,6 +247,14 @@ export class ChildCheckinService {
 		const formattedCheckins = checkins.map((row) => ({
 			...row.child_checkins,
 			child: row.children,
+			// Add information about who checked out the child
+			checkedOutBy: row.users
+				? {
+						id: row.users.id,
+						firstName: row.users.firstName,
+						lastName: row.users.lastName,
+					}
+				: null,
 		}));
 
 		return formattedCheckins;
@@ -292,17 +322,83 @@ export class ChildCheckinService {
 	}
 
 	async checkoutChild(checkinId: string, userId: string) {
-		const [updatedCheckin] = await db
-			.update(childCheckinsTable)
-			.set({
-				checkoutTime: new Date(),
-				checkedOutByUserId: userId,
-				status: "checked-out",
-				updatedAt: new Date(),
-			})
-			.where(eq(childCheckinsTable.id, checkinId))
-			.returning();
-		return updatedCheckin;
+		try {
+			// First, check if the child is already checked out
+			const existingCheckin = await db.query.childCheckinsTable.findFirst({
+				where: eq(childCheckinsTable.id, checkinId),
+			});
+
+			if (!existingCheckin) {
+				return { success: false, message: "Check-in record not found" };
+			}
+
+			if (existingCheckin.checkoutTime) {
+				return {
+					success: false,
+					message: "Child is already checked out",
+				};
+			}
+
+			// Update the checkin record
+			const result = await db
+				.update(childCheckinsTable)
+				.set({
+					// Use type assertion to work around the schema mismatch
+					checkoutTime: new Date() as any,
+					checkedOutByUserId: userId as any,
+					status: "checked-out" as any,
+					updatedAt: new Date(),
+				})
+				.where(eq(childCheckinsTable.id, checkinId))
+				.returning();
+
+			return {
+				success: true,
+				checkin: result[0],
+			};
+		} catch (error) {
+			console.error("Error checking out child:", error);
+			return { success: false, message: "Error checking out child" };
+		}
+	}
+
+	// Method to change a child's room assignment
+	async updateChildRoom(checkinId: string, newRoomId: string) {
+		try {
+			// Check if the check-in record exists and hasn't been checked out
+			const existingCheckin = await db.query.childCheckinsTable.findFirst({
+				where: eq(childCheckinsTable.id, checkinId),
+			});
+
+			if (!existingCheckin) {
+				return { success: false, message: "Check-in record not found" };
+			}
+
+			if (existingCheckin.checkoutTime) {
+				return {
+					success: false,
+					message: "Cannot move checked-out child to another room",
+				};
+			}
+
+			// Update the room assignment
+			const result = await db
+				.update(childCheckinsTable)
+				.set({
+					roomId: newRoomId,
+					updatedAt: new Date(),
+				})
+				.where(eq(childCheckinsTable.id, checkinId))
+				.returning();
+
+			return {
+				success: true,
+				checkin: result[0],
+			};
+		} catch (error) {
+			console.error("Error updating child room:", error);
+			return { success: false, message: "Error updating child room" };
+		}
 	}
 
 	// Authorized pickup persons
@@ -330,7 +426,10 @@ export class ChildCheckinService {
 	}
 
 	// Family check-in helpers
-	async findFamilyByPhone(phone: string, churchOrganizationId: string) {
+	async findFamilyByPhone(
+		phone: string,
+		churchOrganizationId: string,
+	): Promise<FamilySearchResult | null> {
 		// Find user by phone
 		const user = await this.getUserByPhone(phone);
 
@@ -372,6 +471,240 @@ export class ChildCheckinService {
 			children,
 			guardians,
 		};
+	}
+
+	async updateChild(childId: string, childData: Partial<ExtendedNewChild>) {
+		const [updatedChild] = await db
+			.update(childrenTable)
+			.set({
+				...childData,
+				updatedAt: new Date(),
+			})
+			.where(eq(childrenTable.id, childId))
+			.returning();
+		return updatedChild;
+	}
+
+	async removeChild(childId: string) {
+		// First check if there are any active check-ins for this child
+		const activeCheckins = await db.query.childCheckinsTable.findMany({
+			where: and(
+				eq(childCheckinsTable.childId, childId),
+				isNull(childCheckinsTable.checkoutTime),
+			),
+		});
+
+		// If there are active check-ins, don't allow deletion
+		if (activeCheckins.length > 0) {
+			return {
+				success: false,
+				message: "Cannot remove a child with active check-ins",
+			};
+		}
+
+		// Delete the child
+		await db.delete(childrenTable).where(eq(childrenTable.id, childId));
+		return { success: true };
+	}
+
+	async removeGuardian(userId: string, familyId: string) {
+		// First check if this is the last guardian for the family
+		const guardians = await this.getUsersForFamily(familyId);
+
+		if (guardians.length <= 1) {
+			return {
+				success: false,
+				message: "Cannot remove the last guardian from a family",
+			};
+		}
+
+		// Remove the guardian from the family
+		await db
+			.delete(usersToFamiliesTable)
+			.where(
+				and(
+					eq(usersToFamiliesTable.userId, userId),
+					eq(usersToFamiliesTable.familyId, familyId),
+				),
+			);
+
+		return { success: true };
+	}
+
+	async handlePhoneSearch(
+		phone: string,
+		organizationId: string,
+	): Promise<{
+		success: boolean;
+		message?: string;
+		family?: FamilySearchResult["family"];
+	}> {
+		try {
+			// First try to find a user with this phone number
+			const user = await this.getUserByPhone(phone);
+
+			if (!user) {
+				return {
+					success: false,
+					message: "No user found with this phone number",
+				};
+			}
+
+			// Now get the families for this user
+			const familyResult = await this.findFamilyByPhone(phone, organizationId);
+
+			if (!familyResult) {
+				return { success: false, message: "No family found for this user" };
+			}
+
+			// Return the family
+			return { success: true, family: familyResult.family };
+		} catch (error) {
+			console.error("Error in handlePhoneSearch:", error);
+			return { success: false, message: "Error searching for phone number" };
+		}
+	}
+
+	// Check if a child is already checked in somewhere (doesn't have a checkout time)
+	async isChildCheckedIn(childId: string) {
+		const activeCheckin = await db.query.childCheckinsTable.findFirst({
+			where: and(
+				eq(childCheckinsTable.childId, childId),
+				isNull(childCheckinsTable.checkoutTime),
+			),
+		});
+
+		return !!activeCheckin;
+	}
+
+	// Get the active check-in with room information for a specific child
+	async getActiveChildCheckin(childId: string) {
+		const checkin = await db
+			.select()
+			.from(childCheckinsTable)
+			.innerJoin(roomsTable, eq(childCheckinsTable.roomId, roomsTable.id))
+			.where(
+				and(
+					eq(childCheckinsTable.childId, childId),
+					isNull(childCheckinsTable.checkoutTime),
+				),
+			)
+			.limit(1);
+
+		if (!checkin || checkin.length === 0) {
+			return null;
+		}
+
+		// Transform the joined results to match expected format
+		return {
+			...checkin[0].child_checkins,
+			room: checkin[0].rooms,
+		};
+	}
+
+	async processCheckin(
+		childId: string,
+		roomId: string,
+		guardianId: string,
+		organizationId: string,
+	) {
+		try {
+			// First check if the child is already checked in
+			const isAlreadyCheckedIn = await this.isChildCheckedIn(childId);
+
+			if (isAlreadyCheckedIn) {
+				return {
+					success: false,
+					message:
+						"This child is already checked in. Please check them out first.",
+				};
+			}
+
+			// Create the checkin record using type assertion to work around schema mismatch
+			const checkin = await this.checkinChild({
+				childId,
+				roomId,
+				checkinTime: new Date() as any,
+				checkedInByUserId: guardianId as any,
+				status: "checked-in" as any,
+				secureId: crypto.randomUUID() as any,
+				churchOrganizationId: organizationId,
+				updatedAt: new Date(),
+			});
+
+			return { success: true, checkin };
+		} catch (error) {
+			console.error("Error in processCheckin:", error);
+			return { success: false, message: "Error checking in child" };
+		}
+	}
+
+	// Find the best room for a child based on age
+	async findBestRoomForChild(
+		childId: string,
+		churchOrganizationId: string,
+	): Promise<Room | null> {
+		try {
+			// First, get the child to determine their age
+			const child = await db.query.childrenTable.findFirst({
+				where: eq(childrenTable.id, childId),
+			});
+
+			if (!child || !child.dateOfBirth) {
+				return null;
+			}
+
+			// Calculate age in months
+			const dob = new Date(child.dateOfBirth);
+			const today = new Date();
+			const ageInMonths =
+				(today.getFullYear() - dob.getFullYear()) * 12 +
+				(today.getMonth() - dob.getMonth());
+
+			// Get all active rooms for this organization
+			const rooms = await this.getActiveRooms(churchOrganizationId);
+
+			if (rooms.length === 0) {
+				return null;
+			}
+
+			// First try to find a room with matching min and max age
+			let bestRoom = rooms.find((room) => {
+				// If both min and max age are specified
+				if (room.minAge !== null && room.maxAge !== null) {
+					return ageInMonths >= room.minAge && ageInMonths <= room.maxAge;
+				}
+				// If only min age is specified
+				else if (room.minAge !== null && room.maxAge === null) {
+					return ageInMonths >= room.minAge;
+				}
+				// If only max age is specified
+				else if (room.minAge === null && room.maxAge !== null) {
+					return ageInMonths <= room.maxAge;
+				}
+				return false;
+			});
+
+			// If we found an exact match, return it
+			if (bestRoom) {
+				return bestRoom;
+			}
+
+			// If no exact match, find a room with no age restrictions
+			bestRoom = rooms.find(
+				(room) => room.minAge === null && room.maxAge === null,
+			);
+
+			if (bestRoom) {
+				return bestRoom;
+			}
+
+			// If all else fails, return the first room
+			return rooms[0];
+		} catch (error) {
+			console.error("Error finding best room for child:", error);
+			return null;
+		}
 	}
 }
 

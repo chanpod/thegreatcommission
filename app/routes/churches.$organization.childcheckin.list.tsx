@@ -1,13 +1,10 @@
-import { Fragment, useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-	useParams,
-	useNavigate,
-	Link,
-	useLoaderData,
 	useFetcher,
+	useLoaderData,
+	useNavigate,
+	useParams,
 	useSearchParams,
-	useSubmit,
-	useActionData,
 } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
@@ -23,17 +20,24 @@ import { Label } from "~/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { childCheckinService } from "~/services/ChildCheckinService";
 
-import { createAuthLoader } from "~/server/auth/authLoader";
+import type {
+	AuthorizedPickupPerson,
+	ChildCheckin,
+	Room,
+	User,
+} from "@/server/db/schema";
+import {
+	ArrowRightCircle,
+	CheckIcon,
+	InfoIcon,
+	MessageSquare,
+	Search,
+	X,
+} from "lucide-react";
 import { data } from "react-router";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "~/components/ui/select";
 import {
 	Dialog,
 	DialogContent,
@@ -42,22 +46,15 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "~/components/ui/dialog";
-import type {
-	ChildCheckin,
-	User,
-	AuthorizedPickupPerson,
-	Room,
-} from "@/server/db/schema";
-import { toast } from "sonner";
-import { Switch } from "~/components/ui/switch";
-import { Textarea } from "~/components/ui/textarea";
 import {
-	X,
-	Search,
-	ArrowRightCircle,
-	InfoIcon,
-	MessageSquare,
-} from "lucide-react";
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "~/components/ui/select";
+import { Textarea } from "~/components/ui/textarea";
+import { createAuthLoader } from "~/server/auth/authLoader";
 
 // Define extended types for the checkin data with additional properties
 interface ExtendedChildCheckin extends ChildCheckin {
@@ -73,6 +70,11 @@ interface ExtendedChildCheckin extends ChildCheckin {
 		photoUrl?: string;
 		familyId?: string;
 	};
+	checkedOutBy?: {
+		id: string;
+		firstName?: string;
+		lastName?: string;
+	} | null;
 }
 
 // Define the loader data type
@@ -197,6 +199,7 @@ export const loader = createAuthLoader(async ({ params, request }) => {
 // Define the action data type
 interface ActionData {
 	success: boolean;
+	action?: string;
 	checkins?: ExtendedChildCheckin[];
 	checkedOutToday?: ExtendedChildCheckin[];
 	rooms?: Room[];
@@ -287,6 +290,7 @@ export const action = createAuthLoader(async ({ params, request }) => {
 				success: true,
 				message: "Child has been successfully checked out",
 				checkins,
+				action: "checkout",
 				checkedOutToday,
 			});
 		}
@@ -327,6 +331,74 @@ export const action = createAuthLoader(async ({ params, request }) => {
 				success: true,
 				message: "Room has been successfully renamed",
 				rooms: roomsWithCounts,
+			});
+		}
+
+		// Move child to different room
+		if (action === "moveToRoom") {
+			const checkinId = formData.get("checkinId");
+			const newRoomId = formData.get("newRoomId");
+
+			if (!checkinId || !newRoomId) {
+				return data(
+					{ success: false, error: "Check-in ID and new room ID are required" },
+					{ status: 400 },
+				);
+			}
+
+			const result = await childCheckinService.updateChildRoom(
+				checkinId.toString(),
+				newRoomId.toString(),
+			);
+
+			if (!result.success) {
+				return data({ success: false, error: result.message }, { status: 400 });
+			}
+
+			// Fetch updated checkins list for both the old and new rooms
+			const currentRoomId = formData.get("currentRoomId") || newRoomId;
+			const checkins = await childCheckinService.getActiveCheckins(
+				currentRoomId.toString(),
+			);
+
+			// Fetch today's checked out children
+			const checkedOutToday =
+				await childCheckinService.getCheckedOutChildrenToday(
+					currentRoomId.toString(),
+				);
+
+			// For each checkin, fetch the family information
+			for (const checkin of checkins) {
+				if (checkin.child?.familyId) {
+					const familyData =
+						await childCheckinService.getFamilyWithChildrenAndGuardians(
+							checkin.child.familyId,
+						);
+					if (familyData) {
+						(checkin as ExtendedChildCheckin).guardians = familyData.guardians;
+					}
+				}
+
+				// Fetch authorized pickup persons
+				const pickupPersons =
+					await childCheckinService.getAuthorizedPickupPersons(checkin.id);
+				(checkin as ExtendedChildCheckin).authorizedPickupPersons =
+					pickupPersons;
+			}
+
+			// Get updated rooms list with count
+			const rooms = await childCheckinService.getActiveRooms(organization);
+			for (const room of rooms) {
+				const count = await childCheckinService.getActiveCheckinsCount(room.id);
+				(room as any).activeCount = count;
+			}
+
+			return data({
+				success: true,
+				message: "Child has been moved to new room",
+				checkins,
+				checkedOutToday,
+				rooms,
 			});
 		}
 
@@ -399,18 +471,125 @@ function RenameRoomDialog({ isOpen, onClose, room }: RenameRoomDialogProps) {
 	);
 }
 
+// Move Room Dialog Component
+interface MoveRoomDialogProps {
+	isOpen: boolean;
+	onClose: () => void;
+	checkin: ExtendedChildCheckin | null;
+	rooms: any[];
+	currentRoomId: string;
+	onMove: (checkinId: string, newRoomId: string) => void;
+}
+
+function MoveRoomDialog({
+	isOpen,
+	onClose,
+	checkin,
+	rooms,
+	currentRoomId,
+	onMove,
+}: MoveRoomDialogProps) {
+	const [selectedRoomId, setSelectedRoomId] = useState("");
+
+	// Reset selected room when dialog opens with a new checkin
+	useEffect(() => {
+		if (isOpen && checkin) {
+			setSelectedRoomId("");
+		}
+	}, [isOpen, checkin]);
+
+	// Filter out the current room
+	const availableRooms = rooms.filter((room) => room.id !== currentRoomId);
+
+	return (
+		<Dialog open={isOpen} onOpenChange={onClose}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Move Child to Different Room</DialogTitle>
+					<DialogDescription>
+						Select a new room for {checkin?.child?.firstName}{" "}
+						{checkin?.child?.lastName}
+					</DialogDescription>
+				</DialogHeader>
+				<div className="py-4">
+					<h3 className="text-sm font-medium mb-2">Available Rooms</h3>
+					<div className="space-y-2">
+						{availableRooms.length === 0 ? (
+							<p className="text-sm text-muted-foreground">
+								No other rooms available. Please create a new room first.
+							</p>
+						) : (
+							availableRooms.map((room) => (
+								<div
+									key={room.id}
+									className={`p-3 border rounded-md cursor-pointer ${
+										selectedRoomId === room.id
+											? "border-primary bg-primary/5"
+											: "hover:bg-muted/50"
+									}`}
+									onClick={() => setSelectedRoomId(room.id)}
+								>
+									<div className="flex justify-between items-center">
+										<div>
+											<div className="font-medium">{room.name}</div>
+											<div className="text-sm text-muted-foreground">
+												{room.minAge !== null && room.maxAge !== null ? (
+													<span>
+														Ages: {room.minAge}-{room.maxAge} months
+													</span>
+												) : room.minAge !== null ? (
+													<span>Ages: {room.minAge}+ months</span>
+												) : room.maxAge !== null ? (
+													<span>Ages: Up to {room.maxAge} months</span>
+												) : (
+													<span>All ages</span>
+												)}
+											</div>
+											<div className="text-sm text-muted-foreground">
+												{room.activeCount} children checked in
+											</div>
+										</div>
+										{selectedRoomId === room.id && (
+											<CheckIcon className="h-4 w-4 text-primary" />
+										)}
+									</div>
+								</div>
+							))
+						)}
+					</div>
+				</div>
+				<DialogFooter>
+					<Button variant="outline" onClick={onClose}>
+						Cancel
+					</Button>
+					<Button
+						onClick={() => {
+							if (checkin && selectedRoomId) {
+								onMove(checkin.id, selectedRoomId);
+							}
+						}}
+						disabled={!selectedRoomId || !checkin}
+					>
+						Move to Room
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
 export default function ChildCheckinList() {
 	const loaderData = useLoaderData<LoaderData>();
 	const { rooms, checkins, checkedOutToday, error } = loaderData;
 	const navigate = useNavigate();
-	const submit = useSubmit();
+
 	const fetcher = useFetcher();
 
 	const [searchParams, setSearchParams] = useSearchParams();
 	const roomId = searchParams.get("roomId");
 	const activeRoom = rooms.find((r) => r.id === roomId);
 	const params = useParams();
-	const messageFetcher = useFetcher();
+
 	const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
 	const [roomToRename, setRoomToRename] = useState<{
 		id: string;
@@ -426,12 +605,9 @@ export default function ChildCheckinList() {
 		name: string;
 		phone: string;
 	} | null>(null);
-
-	// Calculate total active checkins across all rooms
-	const totalActiveCheckins = rooms.reduce(
-		(total, room) => total + room.activeCount,
-		0,
-	);
+	const [showMoveRoomDialog, setShowMoveRoomDialog] = useState(false);
+	const [checkinToMove, setCheckinToMove] =
+		useState<ExtendedChildCheckin | null>(null);
 
 	// Handle room change
 	const handleRoomChange = (roomId: string) => {
@@ -440,14 +616,62 @@ export default function ChildCheckinList() {
 
 	// Handle checkout
 	const handleCheckout = (checkinId: string, userId: string) => {
+		// Make sure we have a checkin to work with
+		if (!checkinToCheckout) {
+			toast.error("Unable to find check-in record");
+			return;
+		}
+
 		const formData = new FormData();
 		formData.append("_action", "checkout");
 		formData.append("checkinId", checkinId);
 		formData.append("userId", userId);
-		formData.append("roomId", roomId || "");
+
+		// Use the roomId from the checkin record itself, rather than from URL params
+		// This ensures we always have a valid roomId
+		formData.append("roomId", checkinToCheckout.roomId);
+
+		// Submit the form but don't close the dialog yet - we'll wait for the request to complete
 		fetcher.submit(formData, { method: "post" });
-		setShowCheckoutDialog(false);
-		setCheckinToCheckout(null);
+	};
+
+	// Monitor fetcher state for checkout actions
+	useEffect(() => {
+		// Check if fetcher has completed a request and it was a checkout action
+		if (fetcher.data?.success && fetcher.data.action === "checkout") {
+			const formAction = fetcher.formData?.get("_action");
+
+			// If it was a checkout action and it was successful, close the dialog
+			if (formAction === "checkout") {
+				// Close the dialog and reset state
+				setShowCheckoutDialog(false);
+				setCheckinToCheckout(null);
+
+				// Show success message
+				toast.success("Child checked out successfully");
+			}
+		} else if (
+			fetcher.state === "idle" &&
+			fetcher.data &&
+			!fetcher.data.success
+		) {
+			// If the checkout failed, show an error message but keep the dialog open
+			if (fetcher.formData?.get("_action") === "checkout") {
+				toast.error(fetcher.data.error || "Failed to check out child");
+			}
+		}
+	}, [fetcher.state, fetcher.data, fetcher.formData]);
+
+	// Handle move room
+	const handleMoveToRoom = (checkinId: string, newRoomId: string) => {
+		const formData = new FormData();
+		formData.append("_action", "moveToRoom");
+		formData.append("checkinId", checkinId);
+		formData.append("newRoomId", newRoomId);
+		formData.append("currentRoomId", roomId || "");
+		fetcher.submit(formData, { method: "post" });
+		setShowMoveRoomDialog(false);
+		setCheckinToMove(null);
 	};
 
 	// Handle rename room
@@ -717,8 +941,9 @@ export default function ChildCheckinList() {
 																					Age:{" "}
 																					{calculateAge(
 																						checkin.child.dateOfBirth,
-																					)}{" "}
-																					months
+																					) >= 24
+																						? `${Math.floor(calculateAge(checkin.child.dateOfBirth) / 12)} years`
+																						: `${calculateAge(checkin.child.dateOfBirth)} months`}
 																				</p>
 																			)}
 																			{checkin.child?.allergies && (
@@ -740,16 +965,30 @@ export default function ChildCheckinList() {
 																			</p>
 																		</div>
 																	</div>
-																	<Button
-																		variant="outline"
-																		size="sm"
-																		onClick={() => {
-																			setCheckinToCheckout(checkin);
-																			setShowCheckoutDialog(true);
-																		}}
-																	>
-																		Check Out
-																	</Button>
+																	<div className="space-x-2">
+																		<Button
+																			variant="outline"
+																			size="sm"
+																			className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+																			onClick={() => {
+																				setCheckinToMove(checkin);
+																				setShowMoveRoomDialog(true);
+																			}}
+																		>
+																			Change Room
+																		</Button>
+																		<Button
+																			variant="outline"
+																			size="sm"
+																			className="text-red-600 hover:text-red-700 hover:bg-red-50"
+																			onClick={() => {
+																				setCheckinToCheckout(checkin);
+																				setShowCheckoutDialog(true);
+																			}}
+																		>
+																			Check Out
+																		</Button>
+																	</div>
 																</div>
 
 																<div className="mt-4 pt-4 border-t">
@@ -891,6 +1130,15 @@ export default function ChildCheckinList() {
 																								checkin.checkoutTime,
 																							).toLocaleTimeString()
 																						: "Unknown"}
+																					{checkin.checkedOutBy && (
+																						<span className="ml-1">
+																							by{" "}
+																							{checkin.checkedOutBy.firstName ||
+																								""}{" "}
+																							{checkin.checkedOutBy.lastName ||
+																								""}
+																						</span>
+																					)}
 																				</span>
 																			</div>
 																		</div>
@@ -955,8 +1203,16 @@ export default function ChildCheckinList() {
 												handleCheckout(checkinToCheckout.id, user.id);
 											}
 										}}
+										disabled={
+											fetcher.state !== "idle" &&
+											fetcher.formData?.get("_action") === "checkout"
+										}
 									>
-										Select
+										{fetcher.state !== "idle" &&
+										fetcher.formData?.get("_action") === "checkout" &&
+										fetcher.formData.get("userId") === user.id
+											? "Checking out..."
+											: "Select"}
 									</Button>
 								</div>
 							))}
@@ -991,6 +1247,10 @@ export default function ChildCheckinList() {
 						<Button
 							variant="outline"
 							onClick={() => setShowCheckoutDialog(false)}
+							disabled={
+								fetcher.state !== "idle" &&
+								fetcher.formData?.get("_action") === "checkout"
+							}
 						>
 							Cancel
 						</Button>
@@ -1004,41 +1264,41 @@ export default function ChildCheckinList() {
 					<DialogHeader>
 						<DialogTitle>Send Message</DialogTitle>
 						<DialogDescription>
-							Send a text message to {messageRecipient?.name}
+							Send a message to {messageRecipient?.name}
 						</DialogDescription>
 					</DialogHeader>
-					<div className="py-4">
-						<Label htmlFor="messageText">Message</Label>
-						<Textarea
-							id="messageText"
-							value={messageText}
-							onChange={(e) => setMessageText(e.target.value)}
-							placeholder="Enter your message here..."
-							className="mt-2"
-							rows={4}
-						/>
-					</div>
-					<DialogFooter>
-						<Button
-							variant="outline"
-							onClick={() => {
-								setMessageDialogOpen(false);
-								setMessageText("");
-							}}
-						>
-							Cancel
-						</Button>
-						<Button
-							onClick={() => {
-								// Handle sending message
-								toast.success(`Message sent to ${messageRecipient?.name}`);
-								setMessageDialogOpen(false);
-								setMessageText("");
-							}}
-						>
-							Send Message
-						</Button>
-					</DialogFooter>
+					<form>
+						<div className="space-y-4 py-4">
+							<div className="space-y-2">
+								<Label htmlFor="message">Message</Label>
+								<Textarea
+									id="message"
+									value={messageText}
+									onChange={(e) => setMessageText(e.target.value)}
+									placeholder="Enter your message here..."
+									rows={5}
+								/>
+							</div>
+						</div>
+						<DialogFooter>
+							<Button
+								variant="outline"
+								onClick={() => setMessageDialogOpen(false)}
+							>
+								Cancel
+							</Button>
+							<Button
+								onClick={() => {
+									// TODO: Implement message sending
+									toast.success("Message sent successfully");
+									setMessageDialogOpen(false);
+									setMessageText("");
+								}}
+							>
+								Send Message
+							</Button>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 
@@ -1047,6 +1307,16 @@ export default function ChildCheckinList() {
 				isOpen={isRenameDialogOpen}
 				onClose={() => setIsRenameDialogOpen(false)}
 				room={roomToRename}
+			/>
+
+			{/* Move Room Dialog */}
+			<MoveRoomDialog
+				isOpen={showMoveRoomDialog}
+				onClose={() => setShowMoveRoomDialog(false)}
+				checkin={checkinToMove}
+				rooms={rooms}
+				currentRoomId={roomId || ""}
+				onMove={handleMoveToRoom}
 			/>
 		</div>
 	);
