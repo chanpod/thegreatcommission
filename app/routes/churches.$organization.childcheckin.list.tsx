@@ -85,6 +85,25 @@ interface LoaderData {
 	error?: string;
 }
 
+// Add this helper function somewhere appropriate in the file, like near the top or with other utility functions
+export function formatAge(ageInMonths: number): string {
+	if (ageInMonths < 12) {
+		return `${ageInMonths} ${ageInMonths === 1 ? 'month' : 'months'}`;
+	} else if (ageInMonths < 36) {
+		const years = Math.floor(ageInMonths / 12);
+		const months = ageInMonths % 12;
+
+		if (months === 0) {
+			return `${years} ${years === 1 ? 'year' : 'years'}`;
+		} else {
+			return `${years} ${years === 1 ? 'year' : 'years'} ${months} ${months === 1 ? 'month' : 'months'}`;
+		}
+	} else {
+		const years = Math.round(ageInMonths / 12);
+		return `${years} ${years === 1 ? 'year' : 'years'}`;
+	}
+}
+
 // Loader to fetch rooms and checkins
 export const loader = createAuthLoader(async ({ params, request }) => {
 	const { organization } = params;
@@ -522,11 +541,10 @@ function MoveRoomDialog({
 							availableRooms.map((room) => (
 								<div
 									key={room.id}
-									className={`p-3 border rounded-md cursor-pointer ${
-										selectedRoomId === room.id
-											? "border-primary bg-primary/5"
-											: "hover:bg-muted/50"
-									}`}
+									className={`p-3 border rounded-md cursor-pointer ${selectedRoomId === room.id
+										? "border-primary bg-primary/5"
+										: "hover:bg-muted/50"
+										}`}
 									onClick={() => setSelectedRoomId(room.id)}
 								>
 									<div className="flex justify-between items-center">
@@ -719,6 +737,8 @@ export default function ChildCheckinList() {
 		});
 	};
 
+
+
 	return (
 		<div className="container mx-auto py-8">
 			<div className="flex justify-between items-center mb-6">
@@ -800,14 +820,14 @@ export default function ChildCheckinList() {
 											</div>
 											<div className="text-sm text-muted-foreground mt-1">
 												{activeRoom.minAge !== null &&
-												activeRoom.maxAge !== null ? (
+													activeRoom.maxAge !== null ? (
 													<span>
-														Ages: {activeRoom.minAge}-{activeRoom.maxAge} months
+														Ages: {formatAge(activeRoom.minAge)}-{formatAge(activeRoom.maxAge)}
 													</span>
 												) : activeRoom.minAge !== null ? (
-													<span>Ages: {activeRoom.minAge}+ months</span>
+													<span>Ages: {formatAge(activeRoom.minAge)}+</span>
 												) : activeRoom.maxAge !== null ? (
-													<span>Ages: Up to {activeRoom.maxAge} months</span>
+													<span>Ages: Up to {formatAge(activeRoom.maxAge)}</span>
 												) : (
 													<span>All ages</span>
 												)}
@@ -830,11 +850,10 @@ export default function ChildCheckinList() {
 											{rooms.map((room) => (
 												<div
 													key={room.id}
-													className={`p-3 border rounded-md cursor-pointer ${
-														room.id === roomId
-															? "border-primary bg-primary/5"
-															: "hover:bg-muted/50"
-													}`}
+													className={`p-3 border rounded-md cursor-pointer ${room.id === roomId
+														? "border-primary bg-primary/5"
+														: "hover:bg-muted/50"
+														}`}
 													onClick={() => handleRoomChange(room.id)}
 												>
 													<div className="flex justify-between items-center">
@@ -1049,7 +1068,7 @@ export default function ChildCheckinList() {
 
 																	{checkin.authorizedPickupPersons &&
 																		checkin.authorizedPickupPersons.length >
-																			0 && (
+																		0 && (
 																			<div className="mt-4">
 																				<h4 className="text-sm font-medium mb-2">
 																					Authorized for Pickup
@@ -1127,8 +1146,8 @@ export default function ChildCheckinList() {
 																					Checked out:{" "}
 																					{checkin.checkoutTime
 																						? new Date(
-																								checkin.checkoutTime,
-																							).toLocaleTimeString()
+																							checkin.checkoutTime,
+																						).toLocaleTimeString()
 																						: "Unknown"}
 																					{checkin.checkedOutBy && (
 																						<span className="ml-1">
@@ -1209,8 +1228,8 @@ export default function ChildCheckinList() {
 										}
 									>
 										{fetcher.state !== "idle" &&
-										fetcher.formData?.get("_action") === "checkout" &&
-										fetcher.formData.get("userId") === user.id
+											fetcher.formData?.get("_action") === "checkout" &&
+											fetcher.formData.get("userId") === user.id
 											? "Checking out..."
 											: "Select"}
 									</Button>

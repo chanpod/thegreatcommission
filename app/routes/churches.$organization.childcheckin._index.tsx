@@ -35,6 +35,7 @@ import {
 } from "~/components/ui/dialog";
 import { Badge } from "~/components/ui/badge";
 import { Checkbox } from "~/components/ui/checkbox";
+import { formatAge } from "./churches.$organization.childcheckin.list";
 
 // Loader to fetch initial data
 export const loader = createAuthLoader(async ({ params }) => {
@@ -506,6 +507,8 @@ export const action = createAuthLoader(async ({ params, request }) => {
 		if (action === "renameRoom") {
 			const roomId = formData.get("roomId");
 			const newName = formData.get("newName");
+			const minAge = formData.get("minAge");
+			const maxAge = formData.get("maxAge");
 
 			if (!roomId || !newName) {
 				return data(
@@ -517,6 +520,8 @@ export const action = createAuthLoader(async ({ params, request }) => {
 			const updatedRoom = await childCheckinService.updateRoomName(
 				roomId.toString(),
 				newName.toString(),
+				minAge ? parseInt(minAge.toString()) : 0,
+				maxAge ? parseInt(maxAge.toString()) : 12,
 			);
 
 			return data({
@@ -543,8 +548,8 @@ export const action = createAuthLoader(async ({ params, request }) => {
 interface RenameSessionDialogProps {
 	isOpen: boolean;
 	onClose: () => void;
-	session: Session | null;
-	onRename: (sessionId: string, newName: string) => void;
+	session: Room | null;
+	onRename: (sessionId: string, newName: string, minAge: number, maxAge: number) => void;
 }
 
 function RenameSessionDialog({
@@ -554,6 +559,8 @@ function RenameSessionDialog({
 	onRename,
 }: RenameSessionDialogProps) {
 	const [newName, setNewName] = useState("");
+	const [minAge, setMinAge] = useState(session?.minAge ?? 0);
+	const [maxAge, setMaxAge] = useState(session?.maxAge ?? 12);
 
 	useEffect(() => {
 		if (session) {
@@ -565,7 +572,7 @@ function RenameSessionDialog({
 		e.preventDefault();
 
 		if (session && newName.trim()) {
-			onRename(session.id, newName);
+			onRename(session.id, newName, minAge, maxAge);
 			onClose();
 		}
 	};
@@ -581,17 +588,52 @@ function RenameSessionDialog({
 				</DialogHeader>
 				<form onSubmit={handleSubmit}>
 					<div className="grid gap-4 py-4">
-						<div className="grid grid-cols-4 items-center gap-4">
-							<Label htmlFor="name" className="text-right">
-								Name
-							</Label>
-							<Input
-								id="name"
-								value={newName}
-								onChange={(e) => setNewName(e.target.value)}
-								className="col-span-3"
-								autoFocus
-							/>
+						<div className="flex flex-col gap-4">
+							<div>
+
+								<Label htmlFor="name" className="text-right">
+									Name
+								</Label>
+								<Input
+									id="name"
+									value={newName}
+									onChange={(e) => setNewName(e.target.value)}
+									className="col-span-3"
+									autoFocus
+								/>
+							</div>
+							<div className="flex  gap-4">
+
+								<div className="">
+									<Label htmlFor="minAge" className="text-right">
+										Min Age (months)
+									</Label>
+									<Input
+										id="minAge"
+										type="number"
+										value={minAge}
+										defaultValue={session?.minAge ?? ""}
+										onChange={(e) => setMinAge(parseInt(e.target.value))}
+										className="col-span-3"
+										placeholder="e.g., 0"
+									/>
+								</div>
+								<div className="">
+									<Label htmlFor="maxAge" className="text-right">
+										Max Age (months)
+									</Label>
+
+									<Input
+										id="maxAge"
+										type="number"
+										value={maxAge}
+										defaultValue={session?.maxAge ?? ""}
+										onChange={(e) => setMaxAge(parseInt(e.target.value))}
+										className="col-span-3"
+										placeholder="e.g., 24"
+									/>
+								</div>
+							</div>
 						</div>
 					</div>
 					<DialogFooter>
@@ -1042,12 +1084,14 @@ export default function ChildCheckin() {
 	};
 
 	// Function to submit room rename
-	const submitRenameRoom = (newName: string) => {
+	const submitRenameRoom = (roomId: string, newName: string, minAge: number, maxAge: number) => {
 		if (roomToRename && newName) {
 			const formData = new FormData();
 			formData.append("_action", "renameRoom");
-			formData.append("roomId", roomToRename.id);
+			formData.append("roomId", roomId);
 			formData.append("newName", newName);
+			formData.append("minAge", minAge.toString());
+			formData.append("maxAge", maxAge.toString());
 			fetcher.submit(formData, { method: "post" });
 		}
 	};
@@ -1143,11 +1187,10 @@ export default function ChildCheckin() {
 										{rooms.map((room) => (
 											<div
 												key={room.id}
-												className={`p-4 border rounded-lg ${
-													activeRoom?.id === room.id
-														? "border-primary bg-primary/5"
-														: ""
-												}`}
+												className={`p-4 border rounded-lg ${activeRoom?.id === room.id
+													? "border-primary bg-primary/5"
+													: ""
+													}`}
 											>
 												<div className="flex justify-between items-center">
 													<div>
@@ -1155,7 +1198,7 @@ export default function ChildCheckin() {
 														<div className="text-sm text-muted-foreground">
 															{room.minAge !== null && room.maxAge !== null ? (
 																<span>
-																	Ages: {room.minAge}-{room.maxAge} months
+																	Ages: {formatAge(room.minAge)}-{formatAge(room.maxAge)}
 																</span>
 															) : room.minAge !== null ? (
 																<span>Ages: {room.minAge}+ months</span>
@@ -1183,7 +1226,7 @@ export default function ChildCheckin() {
 															size="sm"
 															onClick={() => handleOpenRenameDialog(room)}
 														>
-															Rename
+															Edit
 														</Button>
 													</div>
 												</div>
@@ -1293,11 +1336,10 @@ export default function ChildCheckin() {
 													{familyData.children.map((child) => (
 														<div
 															key={child.id}
-															className={`p-4 border rounded-md flex justify-between items-center cursor-pointer ${
-																selectedChildren.includes(child.id)
-																	? "border-primary bg-primary/5"
-																	: ""
-															}`}
+															className={`p-4 border rounded-md flex justify-between items-center cursor-pointer ${selectedChildren.includes(child.id)
+																? "border-primary bg-primary/5"
+																: ""
+																}`}
 															onClick={() => handleChildSelection(child.id)}
 														>
 															<div>
@@ -1339,16 +1381,16 @@ export default function ChildCheckin() {
 													</p>
 													{(activeRoom.minAge !== null ||
 														activeRoom.maxAge !== null) && (
-														<p>
-															<span className="font-medium">Age Range:</span>{" "}
-															{activeRoom.minAge !== null &&
-															activeRoom.maxAge !== null
-																? `${activeRoom.minAge}-${activeRoom.maxAge} months`
-																: activeRoom.minAge !== null
-																	? `${activeRoom.minAge}+ months`
-																	: `Up to ${activeRoom.maxAge} months`}
-														</p>
-													)}
+															<p>
+																<span className="font-medium">Age Range:</span>{" "}
+																{activeRoom.minAge !== null &&
+																	activeRoom.maxAge !== null
+																	? `${activeRoom.minAge}-${activeRoom.maxAge} months`
+																	: activeRoom.minAge !== null
+																		? `${activeRoom.minAge}+ months`
+																		: `Up to ${activeRoom.maxAge} months`}
+															</p>
+														)}
 												</div>
 												<p className="text-xs text-muted-foreground mt-2">
 													This room will be used for all selected children
@@ -1366,7 +1408,7 @@ export default function ChildCheckin() {
 											className="w-full"
 										>
 											{fetcher.state === "submitting" &&
-											fetcher.formData?.get("_action") === "familyCheckin"
+												fetcher.formData?.get("_action") === "familyCheckin"
 												? "Checking In..."
 												: "Check In Selected Children"}
 										</Button>
@@ -1487,16 +1529,16 @@ export default function ChildCheckin() {
 												</p>
 												{(activeRoom.minAge !== null ||
 													activeRoom.maxAge !== null) && (
-													<p>
-														<span className="font-medium">Age Range:</span>{" "}
-														{activeRoom.minAge !== null &&
-														activeRoom.maxAge !== null
-															? `${activeRoom.minAge}-${activeRoom.maxAge} months`
-															: activeRoom.minAge !== null
-																? `${activeRoom.minAge}+ months`
-																: `Up to ${activeRoom.maxAge} months`}
-													</p>
-												)}
+														<p>
+															<span className="font-medium">Age Range:</span>{" "}
+															{activeRoom.minAge !== null &&
+																activeRoom.maxAge !== null
+																? `${activeRoom.minAge}-${activeRoom.maxAge} months`
+																: activeRoom.minAge !== null
+																	? `${activeRoom.minAge}+ months`
+																	: `Up to ${activeRoom.maxAge} months`}
+														</p>
+													)}
 											</div>
 										</div>
 									)}

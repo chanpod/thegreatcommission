@@ -173,11 +173,13 @@ export class ChildCheckinService {
 		return rooms;
 	}
 
-	async updateRoomName(roomId: string, newName: string) {
+	async updateRoomName(roomId: string, newName: string, minAge: number, maxAge: number) {
 		const [updatedRoom] = await db
 			.update(roomsTable)
 			.set({
 				name: newName,
+				minAge: minAge,
+				maxAge: maxAge,
 				updatedAt: new Date(),
 			})
 			.where(eq(roomsTable.id, roomId))

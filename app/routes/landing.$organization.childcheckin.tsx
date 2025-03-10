@@ -43,6 +43,17 @@ import type {
 } from "~/components/checkin/types";
 import { UpdateUserInfoStep } from "~/components/checkin/UpdateUserInfoStep";
 import { VerificationCodeStep } from "~/components/checkin/VerificationCodeStep";
+import { FamilyEditorForm } from "~/components/checkin/FamilyEditorForm";
+
+export const ChildCheckinActions = {
+	ADD_CHILD: "add-child",
+	UPDATE_CHILD: "update-child",
+	ADD_GUARDIAN: "add-guardian",
+	REMOVE_GUARDIAN: "remove-guardian",
+	UPDATE_USER_INFO: "update-user-info",
+	UPDATE_FAMILY: "update-family",
+	CHECK_IN: "check-in",
+};
 
 // Define step names for the stepper
 const STEPS: CheckInSteps = {
@@ -380,7 +391,7 @@ export async function action({ params, request }) {
 					{
 						success: true,
 						familyData,
-						step: isNewUser ? "update-user-info" : "select-child",
+						step: isNewUser ? ChildCheckinActions.UPDATE_USER_INFO : "select-child",
 						isNewUser,
 						userId, // Include the user ID for new users
 					},
@@ -399,7 +410,7 @@ export async function action({ params, request }) {
 			}
 		}
 
-		case "check-in": {
+		case ChildCheckinActions.CHECK_IN: {
 			const childId = formData.get("childId")?.toString();
 			const roomId = formData.get("roomId")?.toString();
 			const guardianId = formData.get("guardianId")?.toString();
@@ -477,8 +488,8 @@ export async function action({ params, request }) {
 			}
 		}
 
-		case "addChild":
-		case "add-child": {
+
+		case ChildCheckinActions.ADD_CHILD: {
 			// Get family ID from verification cookie
 			const verificationData =
 				await verificationService.getVerificationFromCookie(request);
@@ -487,7 +498,7 @@ export async function action({ params, request }) {
 				return data({
 					success: false,
 					error: "You must be verified to add a child",
-					_action: "addChild"
+					_action: ChildCheckinActions.ADD_CHILD
 				});
 			}
 
@@ -503,7 +514,7 @@ export async function action({ params, request }) {
 				return data({
 					success: false,
 					error: "Child details are incomplete",
-					_action: "addChild"
+					_action: ChildCheckinActions.ADD_CHILD
 				});
 			}
 
@@ -529,7 +540,7 @@ export async function action({ params, request }) {
 				const newChild = await childCheckinService.createChild({
 					firstName: firstName.toString(),
 					lastName: lastName.toString(),
-					dateOfBirth: dateOfBirth.toString(),
+					dateOfBirth: new Date(dateOfBirth.toString()),
 					allergies: allergies?.toString() || "",
 					specialNotes: specialNotes?.toString() || "",
 					photoUrl,
@@ -542,7 +553,7 @@ export async function action({ params, request }) {
 					return data({
 						success: false,
 						error: "Failed to add child",
-						_action: "addChild"
+						_action: ChildCheckinActions.ADD_CHILD
 					});
 				}
 
@@ -554,7 +565,7 @@ export async function action({ params, request }) {
 				return data({
 					success: true,
 					message: "Child added successfully",
-					_action: "addChild",
+					_action: ChildCheckinActions.ADD_CHILD,
 					familyData: updatedFamilyData
 				});
 			} catch (error) {
@@ -562,12 +573,12 @@ export async function action({ params, request }) {
 				return data({
 					success: false,
 					error: "Error adding child",
-					_action: "addChild"
+					_action: ChildCheckinActions.ADD_CHILD
 				});
 			}
 		}
 
-		case "update-child": {
+		case ChildCheckinActions.UPDATE_CHILD: {
 			// Get family ID from verification cookie
 			const verificationData =
 				await verificationService.getVerificationFromCookie(request);
@@ -650,6 +661,7 @@ export async function action({ params, request }) {
 				return data({
 					success: true,
 					child: updatedChild,
+					action: ChildCheckinActions.UPDATE_CHILD,
 					familyData,
 					step: "select-child",
 				});
@@ -714,7 +726,7 @@ export async function action({ params, request }) {
 			}
 		}
 
-		case "add-guardian": {
+		case ChildCheckinActions.ADD_GUARDIAN: {
 			// Get family ID from verification cookie
 			const verificationData =
 				await verificationService.getVerificationFromCookie(request);
@@ -784,7 +796,7 @@ export async function action({ params, request }) {
 			}
 		}
 
-		case "remove-guardian": {
+		case ChildCheckinActions.REMOVE_GUARDIAN: {
 			// Get family ID from verification cookie
 			const verificationData =
 				await verificationService.getVerificationFromCookie(request);
@@ -839,7 +851,7 @@ export async function action({ params, request }) {
 			}
 		}
 
-		case "update-user-info": {
+		case ChildCheckinActions.UPDATE_USER_INFO: {
 			// Get family ID from verification cookie
 			const verificationData =
 				await verificationService.getVerificationFromCookie(request);
@@ -856,6 +868,7 @@ export async function action({ params, request }) {
 			const lastName = formData.get("lastName")?.toString();
 			const email = formData.get("email")?.toString();
 			const familyName = formData.get("familyName")?.toString();
+			const phone = formData.get("phone")?.toString();
 
 			if (!userId || !firstName || !lastName) {
 				return data({
@@ -882,6 +895,7 @@ export async function action({ params, request }) {
 					.set({
 						firstName,
 						lastName,
+						phone: phone || null,
 						email: email || null,
 						updatedAt: new Date(),
 					})
@@ -889,6 +903,7 @@ export async function action({ params, request }) {
 
 				// Update family name if provided
 				if (familyName) {
+					console.log("Updating family name:", familyName);
 					await db.update(familiesTable)
 						.set({
 							name: familyName,
@@ -943,6 +958,156 @@ export async function action({ params, request }) {
 			}
 		}
 
+		case ChildCheckinActions.UPDATE_FAMILY: {
+			// Get family ID from verification cookie
+			const verificationData =
+				await verificationService.getVerificationFromCookie(request);
+
+			if (!verificationData?.familyId) {
+				return data({
+					success: false,
+					error: "You must be verified to update family information",
+				});
+			}
+
+			const familyId = formData.get("familyId")?.toString();
+			const familyName = formData.get("familyName")?.toString();
+
+			// Create an array to hold guardian updates
+			const guardianUpdates = [];
+
+			// Process each existing guardian from the form data
+			const formEntries = Array.from(formData.entries()) as [string, FormDataEntryValue][];
+
+			// Find all guardian ids for existing guardians
+			const guardianIdEntries = formEntries
+				.filter(([key]) => key.match(/guardians\[\d+\]\.id/));
+
+			// For each existing guardian id, build an update object
+			for (const [key, value] of guardianIdEntries) {
+				const match = key.match(/guardians\[(\d+)\]\.id/);
+				if (!match) continue;
+
+				const index = match[1];
+				const guardianId = value.toString();
+
+				const firstName = formData.get(`guardians[${index}].firstName`)?.toString();
+				const lastName = formData.get(`guardians[${index}].lastName`)?.toString();
+				const phone = formData.get(`guardians[${index}].phone`)?.toString();
+				const email = formData.get(`guardians[${index}].email`)?.toString();
+
+				if (guardianId && firstName && lastName && phone) {
+					guardianUpdates.push({
+						id: guardianId,
+						firstName,
+						lastName,
+						phone,
+						email: email || undefined,
+						updatedAt: new Date()
+					});
+				}
+			}
+
+			// Process new guardians from form data
+			const newGuardians = [];
+			const newGuardianFirstNameEntries = formEntries
+				.filter(([key]) => key.match(/newGuardians\[\d+\]\.firstName/));
+
+			for (const [key, value] of newGuardianFirstNameEntries) {
+				const match = key.match(/newGuardians\[(\d+)\]\.firstName/);
+				if (!match) continue;
+
+				const index = match[1];
+				const firstName = value.toString();
+				const lastName = formData.get(`newGuardians[${index}].lastName`)?.toString();
+				const phone = formData.get(`newGuardians[${index}].phone`)?.toString();
+				const email = formData.get(`newGuardians[${index}].email`)?.toString();
+
+				if (firstName && lastName && phone) {
+					newGuardians.push({
+						firstName,
+						lastName,
+						phone,
+						email: email || undefined,
+						churchOrganizationId: organization,
+						createdAt: new Date(),
+						updatedAt: new Date()
+					});
+				}
+			}
+
+			try {
+				// Update family name if provided
+				if (familyId && familyName) {
+					// Update the family name directly in the database
+					await db.update(familiesTable)
+						.set({
+							name: familyName,
+							updatedAt: new Date()
+						})
+						.where(eq(familiesTable.id, familyId));
+				}
+
+				// Update each existing guardian
+				for (const guardianUpdate of guardianUpdates) {
+					console.log("Updating guardian:", guardianUpdate);
+					await db.update(users)
+						.set({
+							firstName: guardianUpdate.firstName,
+							lastName: guardianUpdate.lastName,
+							phone: guardianUpdate.phone,
+							email: guardianUpdate.email,
+							updatedAt: guardianUpdate.updatedAt
+						})
+						.where(eq(users.id, guardianUpdate.id));
+				}
+
+				// Create new guardians
+				for (const newGuardian of newGuardians) {
+					// First create the user/guardian
+					const createdGuardian = await childCheckinService.createUser({
+						firstName: newGuardian.firstName,
+						lastName: newGuardian.lastName,
+						phone: newGuardian.phone,
+						email: newGuardian.email,
+						churchOrganizationId: organization,
+						isGuardian: true,
+						createdAt: new Date(),
+						updatedAt: new Date()
+					});
+
+					// Then link them to the family
+					if (createdGuardian) {
+						await childCheckinService.linkUserToFamily({
+							userId: createdGuardian.id,
+							familyId: verificationData.familyId,
+							relationship: "Guardian",
+							updatedAt: new Date()
+						});
+					}
+				}
+
+				// Get updated family data
+				const updatedFamilyData = await childCheckinService.getFamilyWithChildrenAndGuardians(
+					verificationData.familyId
+				);
+
+				return data({
+					success: true,
+					message: "Family information updated successfully",
+					_action: ChildCheckinActions.UPDATE_FAMILY,
+					familyData: updatedFamilyData
+				});
+			} catch (error) {
+				console.error("Error updating family:", error);
+				return data({
+					success: false,
+					error: "Error updating family information",
+					_action: ChildCheckinActions.UPDATE_FAMILY
+				});
+			}
+		}
+
 		default:
 			return data({
 				success: false,
@@ -958,10 +1123,9 @@ function ChildCheckinContent({ organization, rooms }) {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const { organization: orgId } = useParams();
 
-	// State variables
-	const [phoneNumber, setPhoneNumber] = useState("");
+	// State variables that truly need to be local state
+	const [phone, setPhoneNumber] = useState("");
 	const [verificationCode, setVerificationCode] = useState("");
-	const [familyData, setFamilyData] = useState(loaderData.familyData || null);
 	const [selectedChildren, setSelectedChildren] = useState([]);
 	const [isWorkerMode, setIsWorkerMode] = useState(false);
 	const [showEditFamily, setShowEditFamily] = useState(false);
@@ -973,6 +1137,9 @@ function ChildCheckinContent({ organization, rooms }) {
 	const [newUserId, setNewUserId] = useState(null);
 	const [showAddChildForm, setShowAddChildForm] = useState(false);
 	const [showDebug, setShowDebug] = useState(false);
+
+	// Access familyData directly from loaderData instead of duplicating in state
+	const familyData = loaderData.familyData || null;
 
 	// Use our camera hook
 	const {
@@ -1004,7 +1171,7 @@ function ChildCheckinContent({ organization, rooms }) {
 				return STEPS.PHONE;
 			case "verify":
 				return STEPS.VERIFY;
-			case "update-user-info":
+			case ChildCheckinActions.UPDATE_USER_INFO:
 				return STEPS.UPDATE_USER_INFO;
 			case "select-child":
 				return STEPS.SELECT_CHILD;
@@ -1018,28 +1185,6 @@ function ChildCheckinContent({ organization, rooms }) {
 	// Get current step index
 	const currentStepIndex = getStepIndex(currentStep);
 
-	// Check for pre-verified session from loader
-	useEffect(() => {
-		// Skip this effect if we're not on the initial steps
-		if (currentStep === 'select-child' ||
-			currentStep === 'confirmed' ||
-			currentStep === 'edit-family' ||
-			showAddChildForm ||
-			childBeingEdited) {
-			return;
-		}
-
-		// Only set family data and redirect if appropriate
-		if (loaderData?.familyData?.verified) {
-			setFamilyData(loaderData.familyData);
-
-			// Avoid causing a navigation loop by checking current step
-			if (currentStep === 'phone' || currentStep === 'verify') {
-				setSearchParams({ step: "select-child" });
-			}
-		}
-	}, [loaderData?.familyData?.verified, currentStep]);
-
 	// Handle phone search
 	const handlePhoneSearch = (e) => {
 		e.preventDefault();
@@ -1047,7 +1192,7 @@ function ChildCheckinContent({ organization, rooms }) {
 		fetcher.submit(
 			{
 				_action: "searchPhone",
-				phoneNumber,
+				phone,
 				organizationId: orgId,
 			},
 			{ method: "post" }
@@ -1061,7 +1206,7 @@ function ChildCheckinContent({ organization, rooms }) {
 		fetcher.submit(
 			{
 				_action: "verifyCode",
-				phoneNumber,
+				phone,
 				verificationCode,
 				organizationId: orgId,
 			},
@@ -1069,39 +1214,26 @@ function ChildCheckinContent({ organization, rooms }) {
 		);
 	};
 
-	// Handle resending verification code
+	// Handle resend code
 	const handleResendCode = () => {
 		fetcher.submit(
 			{
 				_action: "resendCode",
-				phoneNumber,
+				phone,
 				organizationId: orgId,
 			},
 			{ method: "post" }
 		);
 	};
 
-	// Handle updating user info
-	const handleUpdateUserInfo = (e) => {
-		e.preventDefault();
-		const formData = new FormData(e.target);
-		formData.append("_action", "updateUserInfo");
-		formData.append("organizationId", orgId);
-
-		fetcher.submit(formData, { method: "post" });
-	};
-
-	// Handle starting over
+	// Handle start over
 	const handleStartOver = () => {
+		// Clear state
 		setPhoneNumber("");
 		setVerificationCode("");
-		setFamilyData(null);
 		setSelectedChildren([]);
-		setCheckedInChildren([]);
-		setQrCodeUrl("");
-		setIsNewUser(false);
-		setNewUserId(null);
-		setSearchParams({ step: "phone" });
+		// Navigate to phone step instead of manually updating search params
+		navigate(`/landing/${orgId}/childcheckin?step=phone`);
 	};
 
 	// Handle toggling child selection
@@ -1221,7 +1353,7 @@ function ChildCheckinContent({ organization, rooms }) {
 	const handleAddChild = (e) => {
 		e.preventDefault();
 		const formData = new FormData(e.target);
-		formData.append("_action", "addChild");
+		formData.append("_action", ChildCheckinActions.ADD_CHILD);
 		formData.append("organizationId", orgId);
 
 		fetcher.submit(formData, { method: "post" });
@@ -1238,11 +1370,20 @@ function ChildCheckinContent({ organization, rooms }) {
 	const handleUpdateChild = (e) => {
 		e.preventDefault();
 		const formData = new FormData(e.target);
-		formData.append("_action", "updateChild");
+		formData.append("_action", ChildCheckinActions.UPDATE_CHILD);
 		formData.append("organizationId", orgId);
 
 		fetcher.submit(formData, { method: "post" });
-		setChildBeingEdited(null);
+	};
+
+	// Handle updating user info
+	const handleUpdateUserInfo = (e) => {
+		e.preventDefault();
+		const formData = new FormData(e.target);
+		formData.append("_action", ChildCheckinActions.UPDATE_USER_INFO);
+		formData.append("organizationId", orgId);
+
+		fetcher.submit(formData, { method: "post" });
 	};
 
 	// toggle debug panel
@@ -1252,6 +1393,30 @@ function ChildCheckinContent({ organization, rooms }) {
 
 	// Render content based on current step
 	const renderStepContent = () => {
+		// If we're editing the family
+		if (showEditFamily) {
+			return (
+				<FamilyEditorForm
+					familyData={familyData}
+					onClose={() => setShowEditFamily(false)}
+					onSave={(formData) => {
+						formData.append("_action", ChildCheckinActions.UPDATE_FAMILY);
+						formData.append("organizationId", orgId);
+						fetcher.submit(formData, { method: "post" });
+					}}
+					onEditChild={(child) => {
+						setChildBeingEdited(child);
+						setShowEditFamily(false);
+					}}
+					onAddChild={() => {
+						handleStartAddChild(undefined);
+						setShowEditFamily(false);
+					}}
+					isLoading={fetcher.state !== "idle"}
+				/>
+			);
+		}
+
 		// If we're adding/editing a child, show that form instead of the normal step content
 		if (showAddChildForm || childBeingEdited) {
 			return (
@@ -1271,7 +1436,7 @@ function ChildCheckinContent({ organization, rooms }) {
 			case "phone":
 				return (
 					<PhoneVerificationStep
-						phoneNumber={phoneNumber}
+						phone={phone}
 						onPhoneNumberChange={setPhoneNumber}
 						onSubmit={handlePhoneSearch}
 						isLoading={fetcher.state !== "idle"}
@@ -1286,11 +1451,11 @@ function ChildCheckinContent({ organization, rooms }) {
 						onSubmit={handleVerifyCode}
 						onResendCode={handleResendCode}
 						isLoading={fetcher.state !== "idle"}
-						phoneNumber={phoneNumber}
+						phone={phone}
 					/>
 				);
 
-			case "update-user-info":
+			case ChildCheckinActions.UPDATE_USER_INFO:
 				return (
 					<UpdateUserInfoStep
 						familyData={familyData}
@@ -1334,21 +1499,23 @@ function ChildCheckinContent({ organization, rooms }) {
 		}
 	};
 
-	// Process fetcher data with explicit handling for the add child response
+	// Update after fetcher completes
 	useEffect(() => {
-		// Skip if there's no fetcher data or we're not in the idle state yet
-		if (!fetcher.data || fetcher.state !== 'idle') return;
+		if (!fetcher.data || fetcher.state === "loading") return;
 
 		// Handle response from phone search
 		if (fetcher.data._action === "searchPhone") {
 			if (fetcher.data.success) {
 				if (fetcher.data.verified) {
-					// User exists and is verified
-					setFamilyData(fetcher.data.familyData);
-					setSearchParams({ step: "select-child" });
+					// User exists and is verified - navigate instead of setting state
+					navigate(`/landing/${orgId}/childcheckin?step=select-child`, {
+						replace: true
+					});
 				} else {
 					// User exists but needs verification
-					setSearchParams({ step: "verify" });
+					navigate(`/landing/${orgId}/childcheckin?step=verify`, {
+						replace: true
+					});
 				}
 			} else {
 				toast.error(fetcher.data.error || "Error searching for phone number");
@@ -1358,14 +1525,16 @@ function ChildCheckinContent({ organization, rooms }) {
 		// Handle response from code verification
 		else if (fetcher.data._action === "verifyCode") {
 			if (fetcher.data.success) {
-				setFamilyData(fetcher.data.familyData);
-
 				if (fetcher.data.isNewUser) {
 					setIsNewUser(true);
 					setNewUserId(fetcher.data.userId);
-					setSearchParams({ step: "update-user-info" });
+					navigate(`/landing/${orgId}/childcheckin?step=${ChildCheckinActions.UPDATE_USER_INFO}`, {
+						replace: true
+					});
 				} else {
-					setSearchParams({ step: "select-child" });
+					navigate(`/landing/${orgId}/childcheckin?step=select-child`, {
+						replace: true
+					});
 				}
 			} else {
 				toast.error(fetcher.data.error || "Invalid verification code");
@@ -1377,21 +1546,28 @@ function ChildCheckinContent({ organization, rooms }) {
 			if (fetcher.data.success) {
 				setCheckedInChildren(selectedChildren);
 				setQrCodeUrl(fetcher.data.qrCodeUrl);
-				setSearchParams({ step: "confirmed" });
+				navigate(`/landing/${orgId}/childcheckin?step=confirmed`, {
+					replace: true
+				});
 				toast.success("Check-in successful!");
 			} else {
 				toast.error(fetcher.data.error || "Error during check-in");
 			}
 		}
 
-		// Handle response from adding/updating a child
-		else if (fetcher.data._action === "addChild" || fetcher.data._action === "updateChild") {
+		// Handle response from family update
+		else if (fetcher.data._action === ChildCheckinActions.UPDATE_FAMILY) {
 			if (fetcher.data.success) {
-				// Update family data with the new child info
-				if (fetcher.data.familyData) {
-					setFamilyData(fetcher.data.familyData);
-				}
+				setShowEditFamily(false);
+				toast.success("Family information updated successfully");
+			} else {
+				toast.error(fetcher.data.error || "Error updating family information");
+			}
+		}
 
+		// Handle response from adding/updating a child
+		else if (fetcher.data._action === ChildCheckinActions.ADD_CHILD || fetcher.data._action === ChildCheckinActions.UPDATE_CHILD) {
+			if (fetcher.data.success) {
 				// Hide the form
 				setShowAddChildForm(false);
 				setChildBeingEdited(null);
@@ -1399,7 +1575,7 @@ function ChildCheckinContent({ organization, rooms }) {
 
 				// Show success message
 				toast.success(
-					fetcher.data._action === "addChild"
+					fetcher.data._action === ChildCheckinActions.ADD_CHILD
 						? "Child added successfully"
 						: "Child updated successfully"
 				);
@@ -1407,9 +1583,30 @@ function ChildCheckinContent({ organization, rooms }) {
 				toast.error(fetcher.data.error || "Error saving child information");
 			}
 		}
+	}, [fetcher.data, fetcher.state, orgId, navigate]);
 
-		// We use fetcher.data._action to get the latest action - adding a ref to track the last action
-	}, [fetcher.data, fetcher.state]);
+	// Update step based on loader data
+	useEffect(() => {
+		const currentStep = searchParams.get("step") || "phone";
+
+		// Don't redirect if in certain steps
+		if (currentStep === 'success' ||
+			currentStep === 'edit-family' ||
+			showAddChildForm ||
+			childBeingEdited) {
+			return;
+		}
+
+		// Only redirect if appropriate
+		if (loaderData?.familyData?.verified) {
+			// Avoid causing a navigation loop by checking current step
+			if (currentStep === 'phone' || currentStep === 'verify') {
+				navigate(`/landing/${orgId}/childcheckin?step=select-child`, {
+					replace: true
+				});
+			}
+		}
+	}, [loaderData?.familyData?.verified, searchParams, orgId, showAddChildForm, childBeingEdited, navigate]);
 
 	return (
 		<div className="container max-w-md mx-auto py-8 px-4">
@@ -1515,6 +1712,7 @@ function ChildCheckinContent({ organization, rooms }) {
 
 export default function PublicChildCheckin() {
 	const loaderData = useLoaderData();
+	console.log("loaderData", loaderData);
 
 	// Verify we have the required data before rendering the content
 	if (!loaderData?.success) {
