@@ -1285,7 +1285,7 @@ export default function ChildCheckin() {
 										</div>
 										<Button
 											type="submit"
-											className="mt-8"
+											className="mt-5"
 											disabled={isSearchingFamily}
 										>
 											{isSearchingFamily ? "Searching..." : "Find Family"}
