@@ -3,6 +3,7 @@ import {
 	useFetcher,
 	useLoaderData,
 	useNavigate,
+	useNavigation,
 	useParams,
 	useSearchParams,
 } from "react-router";
@@ -33,6 +34,7 @@ import {
 	MessageSquare,
 	Search,
 	X,
+	Loader2,
 } from "lucide-react";
 import { data } from "react-router";
 import { toast } from "sonner";
@@ -83,6 +85,13 @@ interface LoaderData {
 	checkins: ExtendedChildCheckin[];
 	checkedOutToday: ExtendedChildCheckin[];
 	error?: string;
+}
+
+// Define RenameRoomDialogProps interface
+interface RenameRoomDialogProps {
+	isOpen: boolean;
+	onClose: () => void;
+	room: { id: string; name: string } | null;
 }
 
 // Add this helper function somewhere appropriate in the file, like near the top or with other utility functions
@@ -325,9 +334,22 @@ export const action = createAuthLoader(async ({ params, request }) => {
 				);
 			}
 
+			// Get the current room to preserve its age range
+			const currentRoom = await childCheckinService.getActiveRooms(organization)
+				.then(rooms => rooms.find(room => room.id === roomId.toString()));
+
+			if (!currentRoom) {
+				return data(
+					{ success: false, error: "Room not found" },
+					{ status: 404 },
+				);
+			}
+
 			const updatedRoom = await childCheckinService.updateRoomName(
 				roomId.toString(),
 				newName.toString(),
+				currentRoom.minAge || 0,
+				currentRoom.maxAge || 999
 			);
 
 			// Fetch updated rooms list
@@ -437,7 +459,8 @@ export const action = createAuthLoader(async ({ params, request }) => {
 // Rename Room Dialog Component
 function RenameRoomDialog({ isOpen, onClose, room }: RenameRoomDialogProps) {
 	const [newName, setNewName] = useState("");
-	const fetcher = useFetcher();
+	const fetcher = useFetcher<ActionData>();
+	const isSubmitting = fetcher.state !== "idle" && fetcher.formData?.get("_action") === "renameRoom";
 
 	const { organization } = useParams();
 
@@ -462,6 +485,11 @@ function RenameRoomDialog({ isOpen, onClose, room }: RenameRoomDialogProps) {
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent>
+				{isSubmitting && (
+					<div className="absolute top-0 left-0 right-0">
+						<div className="h-1 w-full bg-gradient-to-r from-primary via-primary/80 to-primary/20 animate-pulse"></div>
+					</div>
+				)}
 				<DialogHeader>
 					<DialogTitle>Rename Room</DialogTitle>
 					<DialogDescription>Enter a new name for this room.</DialogDescription>
@@ -475,14 +503,20 @@ function RenameRoomDialog({ isOpen, onClose, room }: RenameRoomDialogProps) {
 								value={newName}
 								onChange={(e) => setNewName(e.target.value)}
 								required
+								disabled={isSubmitting}
 							/>
 						</div>
 					</div>
 					<DialogFooter>
-						<Button type="button" variant="outline" onClick={onClose}>
+						<Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
 							Cancel
 						</Button>
-						<Button type="submit">Save Changes</Button>
+						<Button type="submit" disabled={isSubmitting} className="relative">
+							{isSubmitting && (
+								<Loader2 className="h-4 w-4 animate-spin mr-2" />
+							)}
+							Save Changes
+						</Button>
 					</DialogFooter>
 				</form>
 			</DialogContent>
@@ -497,6 +531,7 @@ interface MoveRoomDialogProps {
 	checkin: ExtendedChildCheckin | null;
 	rooms: any[];
 	currentRoomId: string;
+	isMoving: boolean;
 	onMove: (checkinId: string, newRoomId: string) => void;
 }
 
@@ -506,9 +541,12 @@ function MoveRoomDialog({
 	checkin,
 	rooms,
 	currentRoomId,
+	isMoving,
 	onMove,
 }: MoveRoomDialogProps) {
 	const [selectedRoomId, setSelectedRoomId] = useState("");
+
+
 
 	// Reset selected room when dialog opens with a new checkin
 	useEffect(() => {
@@ -523,6 +561,11 @@ function MoveRoomDialog({
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent>
+				{isMoving && (
+					<div className="absolute top-0 left-0 right-0">
+						<div className="h-1 w-full bg-gradient-to-r from-primary via-primary/80 to-primary/20 animate-pulse"></div>
+					</div>
+				)}
 				<DialogHeader>
 					<DialogTitle>Move Child to Different Room</DialogTitle>
 					<DialogDescription>
@@ -545,7 +588,7 @@ function MoveRoomDialog({
 										? "border-primary bg-primary/5"
 										: "hover:bg-muted/50"
 										}`}
-									onClick={() => setSelectedRoomId(room.id)}
+									onClick={() => !isMoving && setSelectedRoomId(room.id)}
 								>
 									<div className="flex justify-between items-center">
 										<div>
@@ -577,7 +620,11 @@ function MoveRoomDialog({
 					</div>
 				</div>
 				<DialogFooter>
-					<Button variant="outline" onClick={onClose}>
+					<Button
+						variant="outline"
+						onClick={onClose}
+						disabled={isMoving}
+					>
 						Cancel
 					</Button>
 					<Button
@@ -586,8 +633,12 @@ function MoveRoomDialog({
 								onMove(checkin.id, selectedRoomId);
 							}
 						}}
-						disabled={!selectedRoomId || !checkin}
+						disabled={!selectedRoomId || !checkin || isMoving}
+						className="relative"
 					>
+						{isMoving && (
+							<Loader2 className="h-4 w-4 animate-spin mr-2" />
+						)}
 						Move to Room
 					</Button>
 				</DialogFooter>
@@ -600,11 +651,31 @@ export default function ChildCheckinList() {
 	const loaderData = useLoaderData<LoaderData>();
 	const { rooms, checkins, checkedOutToday, error } = loaderData;
 	const navigate = useNavigate();
+	const navigation = useNavigation();
+	const isNavigating = navigation.state !== "idle";
 
-	const fetcher = useFetcher();
+	const fetcher = useFetcher<ActionData>();
+	const isLoading = fetcher.state !== "idle";
+	const isCheckingOut = isLoading && fetcher.formData?.get("_action") === "checkout";
+	const isMovingRoom = isLoading && fetcher.formData?.get("_action") === "moveToRoom";
+	const isRenamingRoom = isLoading && fetcher.formData?.get("_action") === "renameRoom";
 
+	// Track room changes
 	const [searchParams, setSearchParams] = useSearchParams();
 	const roomId = searchParams.get("roomId");
+	const [previousRoomId, setPreviousRoomId] = useState(roomId);
+	const isChangingRoom = isNavigating && previousRoomId !== roomId;
+
+	// Update previousRoomId when roomId changes
+	useEffect(() => {
+		if (roomId !== previousRoomId && navigation.state === "idle") {
+			setPreviousRoomId(roomId);
+		}
+	}, [roomId, previousRoomId, navigation.state]);
+
+	// Combined loading state
+	const isPageLoading = isLoading || isNavigating;
+
 	const activeRoom = rooms.find((r) => r.id === roomId);
 	const params = useParams();
 
@@ -629,6 +700,7 @@ export default function ChildCheckinList() {
 
 	// Handle room change
 	const handleRoomChange = (roomId: string) => {
+		setPreviousRoomId(searchParams.get("roomId"));
 		setSearchParams({ roomId });
 	};
 
@@ -674,7 +746,7 @@ export default function ChildCheckinList() {
 			!fetcher.data.success
 		) {
 			// If the checkout failed, show an error message but keep the dialog open
-			if (fetcher.formData?.get("_action") === "checkout") {
+			if (fetcher.formData && fetcher.formData.get("_action") === "checkout") {
 				toast.error(fetcher.data.error || "Failed to check out child");
 			}
 		}
@@ -688,8 +760,7 @@ export default function ChildCheckinList() {
 		formData.append("newRoomId", newRoomId);
 		formData.append("currentRoomId", roomId || "");
 		fetcher.submit(formData, { method: "post" });
-		setShowMoveRoomDialog(false);
-		setCheckinToMove(null);
+		// Dialog will be closed after the action completes successfully
 	};
 
 	// Handle rename room
@@ -737,10 +808,33 @@ export default function ChildCheckinList() {
 		});
 	};
 
+	// Effect to close dialogs when actions complete successfully
+	useEffect(() => {
+		if (fetcher.state === "idle" && fetcher.data?.success) {
+			// Handle successful room move
+			if (fetcher.data.message === "Child has been moved to new room") {
+				setShowMoveRoomDialog(false);
+				setCheckinToMove(null);
+				toast.success("Child moved to new room successfully");
+			}
 
+			// Handle successful room rename
+			if (fetcher.data.message === "Room has been successfully renamed") {
+				setIsRenameDialogOpen(false);
+				setRoomToRename(null);
+				toast.success("Room renamed successfully");
+			}
+		}
+	}, [fetcher.state, fetcher.data]);
 
 	return (
-		<div className="container mx-auto py-8">
+		<div className="container mx-auto py-8 relative">
+			{/* Subtle loading indicator at the top of the page */}
+
+			{isPageLoading && (
+				<div className="absolute top-0 left-0 right-0 h-1 w-full bg-gradient-to-r from-primary via-primary/90 to-primary/20 animate-pulse" />
+			)}
+
 			<div className="flex justify-between items-center mb-6">
 				<h1 className="text-3xl font-bold">Child Check-in List</h1>
 				<Button
@@ -787,8 +881,9 @@ export default function ChildCheckinList() {
 										<Select
 											value={roomId || rooms[0]?.id || ""}
 											onValueChange={handleRoomChange}
+											disabled={isChangingRoom}
 										>
-											<SelectTrigger id="roomSelect">
+											<SelectTrigger id="roomSelect" className={isChangingRoom ? "animate-pulse" : ""}>
 												<SelectValue placeholder="Select a room" />
 											</SelectTrigger>
 											<SelectContent>
@@ -814,6 +909,7 @@ export default function ChildCheckinList() {
 													variant="ghost"
 													size="sm"
 													onClick={() => handleRenameRoom(activeRoom)}
+													disabled={isChangingRoom || isRenamingRoom}
 												>
 													Rename
 												</Button>
@@ -853,8 +949,8 @@ export default function ChildCheckinList() {
 													className={`p-3 border rounded-md cursor-pointer ${room.id === roomId
 														? "border-primary bg-primary/5"
 														: "hover:bg-muted/50"
-														}`}
-													onClick={() => handleRoomChange(room.id)}
+														} ${isChangingRoom && room.id === roomId ? "animate-pulse" : ""}`}
+													onClick={() => !isChangingRoom && handleRoomChange(room.id)}
 												>
 													<div className="flex justify-between items-center">
 														<div>
@@ -897,6 +993,7 @@ export default function ChildCheckinList() {
 											className="pl-8"
 											value={searchTerm}
 											onChange={(e) => setSearchTerm(e.target.value)}
+											disabled={isChangingRoom}
 										/>
 										{searchTerm && (
 											<Button
@@ -904,6 +1001,7 @@ export default function ChildCheckinList() {
 												size="sm"
 												className="absolute right-1 top-1 h-7 w-7 p-0"
 												onClick={() => setSearchTerm("")}
+												disabled={isChangingRoom}
 											>
 												<X className="h-4 w-4" />
 											</Button>
@@ -912,17 +1010,22 @@ export default function ChildCheckinList() {
 
 									<Tabs defaultValue="active">
 										<TabsList className="mb-4">
-											<TabsTrigger value="active">
+											<TabsTrigger value="active" disabled={isChangingRoom}>
 												Active ({filterCheckins(checkins).length})
 											</TabsTrigger>
-											<TabsTrigger value="checked-out">
+											<TabsTrigger value="checked-out" disabled={isChangingRoom}>
 												Checked Out Today (
 												{filterCheckins(checkedOutToday).length})
 											</TabsTrigger>
 										</TabsList>
 
 										<TabsContent value="active">
-											{filterCheckins(checkins).length === 0 ? (
+											{isChangingRoom ? (
+												<div className="flex flex-col items-center justify-center py-12 space-y-4">
+													<Loader2 className="h-8 w-8 animate-spin text-primary" />
+													<p className="text-muted-foreground">Loading check-ins...</p>
+												</div>
+											) : filterCheckins(checkins).length === 0 ? (
 												<div className="text-center py-8 text-muted-foreground">
 													{searchTerm
 														? "No matching check-ins found"
@@ -988,23 +1091,35 @@ export default function ChildCheckinList() {
 																		<Button
 																			variant="outline"
 																			size="sm"
-																			className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+																			className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 relative"
 																			onClick={() => {
 																				setCheckinToMove(checkin);
 																				setShowMoveRoomDialog(true);
 																			}}
+																			disabled={isMovingRoom}
 																		>
+																			{isMovingRoom && fetcher.formData?.get("checkinId") === checkin.id && (
+																				<div className="absolute inset-0 flex items-center justify-center bg-amber-50 rounded">
+																					<Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+																				</div>
+																			)}
 																			Change Room
 																		</Button>
 																		<Button
 																			variant="outline"
 																			size="sm"
-																			className="text-red-600 hover:text-red-700 hover:bg-red-50"
+																			className="text-red-600 hover:text-red-700 hover:bg-red-50 relative"
 																			onClick={() => {
 																				setCheckinToCheckout(checkin);
 																				setShowCheckoutDialog(true);
 																			}}
+																			disabled={isCheckingOut}
 																		>
+																			{isCheckingOut && fetcher.formData?.get("checkinId") === checkin.id && (
+																				<div className="absolute inset-0 flex items-center justify-center bg-red-50 rounded">
+																					<Loader2 className="h-4 w-4 animate-spin text-red-600" />
+																				</div>
+																			)}
 																			Check Out
 																		</Button>
 																	</div>
@@ -1098,7 +1213,12 @@ export default function ChildCheckinList() {
 										</TabsContent>
 
 										<TabsContent value="checked-out">
-											{filterCheckins(checkedOutToday).length === 0 ? (
+											{isChangingRoom ? (
+												<div className="flex flex-col items-center justify-center py-12 space-y-4">
+													<Loader2 className="h-8 w-8 animate-spin text-primary" />
+													<p className="text-muted-foreground">Loading checked-out children...</p>
+												</div>
+											) : filterCheckins(checkedOutToday).length === 0 ? (
 												<div className="text-center py-8 text-muted-foreground">
 													{searchTerm
 														? "No matching checked-out children found"
@@ -1180,6 +1300,11 @@ export default function ChildCheckinList() {
 			{/* Checkout Dialog */}
 			<Dialog open={showCheckoutDialog} onOpenChange={setShowCheckoutDialog}>
 				<DialogContent>
+					{isCheckingOut && (
+						<div className="absolute top-0 left-0 right-0">
+							<div className="h-1 w-full bg-gradient-to-r from-primary via-primary/80 to-primary/20 animate-pulse"></div>
+						</div>
+					)}
 					<DialogHeader>
 						<DialogTitle>Check Out Child</DialogTitle>
 						<DialogDescription>
@@ -1222,16 +1347,13 @@ export default function ChildCheckinList() {
 												handleCheckout(checkinToCheckout.id, user.id);
 											}
 										}}
-										disabled={
-											fetcher.state !== "idle" &&
-											fetcher.formData?.get("_action") === "checkout"
-										}
+										disabled={isCheckingOut}
+										className="relative"
 									>
-										{fetcher.state !== "idle" &&
-											fetcher.formData?.get("_action") === "checkout" &&
-											fetcher.formData.get("userId") === user.id
-											? "Checking out..."
-											: "Select"}
+										{isCheckingOut && fetcher.formData?.get("userId") === user.id && (
+											<Loader2 className="h-4 w-4 animate-spin mr-2" />
+										)}
+										Select
 									</Button>
 								</div>
 							))}
@@ -1335,6 +1457,7 @@ export default function ChildCheckinList() {
 				checkin={checkinToMove}
 				rooms={rooms}
 				currentRoomId={roomId || ""}
+				isMoving={isMovingRoom}
 				onMove={handleMoveToRoom}
 			/>
 		</div>
