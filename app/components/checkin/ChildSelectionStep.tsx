@@ -102,6 +102,8 @@ export function ChildSelectionStep({
                             ageDisplay = `${ageMonths}mo`;
                         }
 
+                        const alreadyCheckedIn = child.checkedInRoom !== null && child.checkedInRoom !== undefined;
+
                         return (
                             <div
                                 key={child.id}
@@ -114,8 +116,13 @@ export function ChildSelectionStep({
                                             <Badge variant="outline" className="ml-2">
                                                 {ageDisplay}
                                             </Badge>
+
                                         </div>
-                                        {room ? (
+                                        {alreadyCheckedIn ? (
+                                            <Badge variant="default" className="ml-2">
+                                                Checked In Room: {child.checkedInRoom.name}
+                                            </Badge>
+                                        ) : room ? (
                                             <p className="text-sm text-muted-foreground mt-1">
                                                 Assigned room: {room.name}
                                             </p>
@@ -129,17 +136,21 @@ export function ChildSelectionStep({
                                                 Allergies: {child.allergies}
                                             </p>
                                         )}
+
                                     </div>
-                                    <Button
-                                        variant={isSelected ? "default" : "outline"}
-                                        size="sm"
-                                        className="ml-4"
-                                        onClick={() => onChildToggle(child)}
-                                        disabled={!room}
-                                    >
-                                        {isSelected && <Check className="h-4 w-4 mr-2" />}
-                                        {isSelected ? "Selected" : "Select"}
-                                    </Button>
+                                    {!alreadyCheckedIn && (
+
+                                        <Button
+                                            variant={isSelected ? "default" : "outline"}
+                                            size="sm"
+                                            className="ml-4"
+                                            onClick={() => onChildToggle(child)}
+                                            disabled={!room}
+                                        >
+                                            {isSelected && <Check className="h-4 w-4 mr-2" />}
+                                            {isSelected ? "Selected" : "Select"}
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
                         );

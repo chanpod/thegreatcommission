@@ -616,10 +616,12 @@ export class ChildCheckinService {
 			const isAlreadyCheckedIn = await this.isChildCheckedIn(childId);
 
 			if (isAlreadyCheckedIn) {
+				const child = await db.query.childrenTable.findFirst({
+					where: eq(childrenTable.id, childId),
+				});
 				return {
 					success: false,
-					message:
-						"This child is already checked in. Please check them out first.",
+					message: `${child.firstName} ${child.lastName} is already checked in. Please check them out first.`,
 				};
 			}
 

@@ -416,31 +416,54 @@ export async function action({ params, request }) {
 		}
 
 		case ChildCheckinActions.CHECK_IN: {
-			const childId = formData.get("childId")?.toString();
-			const roomId = formData.get("roomId")?.toString();
-			const guardianId = formData.get("guardianId")?.toString();
-
-			if (!childId || !roomId || !guardianId) {
-				return data({
-					success: false,
-					_action: ChildCheckinActions.CHECK_IN,
-					error: "Child, room, and guardian are required",
-				});
-			}
-
 			try {
-				// Process the check-in
-				const checkinResult = await childCheckinService.processCheckin(
-					childId,
-					roomId,
-					guardianId,
-					organization,
-				);
+				// Get the children data from the form
+				const childrenData = formData.get("children")?.toString();
+				const guardianId = formData.get("guardianId")?.toString();
+				const organizationId = formData.get("organizationId")?.toString() || organization;
 
-				if (!checkinResult.success) {
+				if (!childrenData || !guardianId) {
 					return data({
 						success: false,
-						error: checkinResult.message || "Failed to check in child",
+						_action: ChildCheckinActions.CHECK_IN,
+						error: "Children data and guardian are required",
+					});
+				}
+
+				// Parse the children data
+				const children = JSON.parse(childrenData);
+
+				if (!Array.isArray(children) || children.length === 0) {
+					return data({
+						success: false,
+						_action: ChildCheckinActions.CHECK_IN,
+						error: "No children selected for check-in",
+					});
+				}
+
+				// Process check-in for each child
+				const checkinResults = await Promise.all(
+					children.map(async (child) => {
+						const { childId, roomId } = child;
+						if (!childId || !roomId) {
+							return {
+								success: false,
+								childId,
+								message: "Child ID and room ID are required",
+							};
+						}
+
+						return await processChildCheckin(childId, roomId, guardianId, organizationId);
+					})
+				);
+
+				// Check if any check-ins failed
+				const failedCheckins = checkinResults.filter(result => !result.success);
+				if (failedCheckins.length > 0) {
+					const errorMessages = failedCheckins.map(result => result.message).join("; ");
+					return data({
+						success: false,
+						error: `Failed to check in some children: ${errorMessages}`,
 						_action: ChildCheckinActions.CHECK_IN,
 					});
 				}
@@ -450,9 +473,21 @@ export async function action({ params, request }) {
 					where: eq(users.id, guardianId),
 				});
 
+				// Get the first successful check-in to use for QR code
+				const successfulCheckins = checkinResults.filter(result => result.success && result.checkin);
+				if (successfulCheckins.length === 0) {
+					return data({
+						success: false,
+						error: "No successful check-ins were processed",
+						_action: ChildCheckinActions.CHECK_IN,
+					});
+				}
+
+				const firstCheckin = successfulCheckins[0].checkin;
+
 				// Generate QR code URL
 				const host = new URL(request.url).origin;
-				const qrCodeUrl = `${host}/landing/${organization}/childcheckin/verify/${checkinResult.checkin.secureId}`;
+				const qrCodeUrl = `${host}/landing/${organizationId}/childcheckin/verify/${firstCheckin.secureId}`;
 
 				// Send verification QR code as text message to guardian if phone is available
 				if (guardian?.phone) {
@@ -462,10 +497,10 @@ export async function action({ params, request }) {
 					// Send SMS via MessagingService
 					await MessagingService.sendSMS(
 						{
-							churchOrganizationId: organization,
+							churchOrganizationId: organizationId,
 							messageType: "sms",
 							message,
-							senderUserId: guardianId, // Use the guardian's ID instead of "system"
+							senderUserId: guardianId,
 						},
 						{
 							phone: guardian.phone,
@@ -482,16 +517,16 @@ export async function action({ params, request }) {
 
 				return data({
 					success: true,
-					checkin: checkinResult.checkin,
+					checkins: checkinResults.map(result => result.checkin),
 					_action: ChildCheckinActions.CHECK_IN,
 					step: "confirmed",
 					qrCodeUrl,
 				});
 			} catch (error) {
-				console.error("Error checking in child:", error);
+				console.error("Error checking in children:", error);
 				return data({
 					success: false,
-					error: "Error checking in child",
+					error: "Error checking in children",
 				});
 			}
 		}
@@ -1124,6 +1159,47 @@ export async function action({ params, request }) {
 	}
 }
 
+// Helper function to process a single child check-in
+interface CheckinResult {
+	success: boolean;
+	childId: string;
+	checkin?: any;
+	message?: string;
+}
+
+async function processChildCheckin(childId: string, roomId: string, guardianId: string, organizationId: string): Promise<CheckinResult> {
+	try {
+		// Process the check-in
+		const checkinResult = await childCheckinService.processCheckin(
+			childId,
+			roomId,
+			guardianId,
+			organizationId,
+		);
+
+		if (!checkinResult.success) {
+			return {
+				success: false,
+				childId,
+				message: checkinResult.message || "Failed to check in child",
+			};
+		}
+
+		return {
+			success: true,
+			childId,
+			checkin: checkinResult.checkin,
+		};
+	} catch (error) {
+		console.error("Error checking in child:", error);
+		return {
+			success: false,
+			childId,
+			message: "Error checking in child",
+		};
+	}
+}
+
 function ChildCheckinContent({ organization, rooms }) {
 	const loaderData = useLoaderData();
 	const fetcher = useFetcher();
@@ -1273,37 +1349,35 @@ function ChildCheckinContent({ organization, rooms }) {
 		}
 	};
 
-	// Find appropriate room for child
-	const findRoomForChild = (child, availableRooms: Room[]) => {
-
-		if (!child.dateOfBirth || !availableRooms || availableRooms.length === 0) {
-			return null;
-		}
-
+	// Find the best room for a child based on age
+	const findRoomForChild = (child, availableRooms: any[]) => {
+		// Calculate child's age in months
 		const ageInMonths = getChildAgeInMonths(child.dateOfBirth);
-		console.log("ageInMonths", ageInMonths);
-		// First find rooms where the child's age fits within the min and max age range
-		const eligibleRooms = availableRooms.filter(
-			room => ageInMonths >= room.minAge && ageInMonths <= room.maxAge
-		);
+
+		// Filter rooms by age range
+		const eligibleRooms = availableRooms.filter(room => {
+			return ageInMonths >= room.minAge && ageInMonths <= room.maxAge;
+		});
 
 		if (eligibleRooms.length === 0) {
 			return null;
 		}
 
-		// If multiple rooms are eligible, prioritize rooms with fewer children
-		// but still below capacity
+		// Sort rooms by capacity and current count
 		return eligibleRooms.sort((a, b) => {
 			// If one room is at capacity and the other isn't, prioritize the one that's not at capacity
-			if ((a.activeCount || 0) >= a.capacity && (b.activeCount || 0) < b.capacity) {
+			const aCount = a.currentCount || 0;
+			const bCount = b.currentCount || 0;
+
+			if (aCount >= a.capacity && bCount < b.capacity) {
 				return 1;
 			}
-			if ((b.activeCount || 0) >= b.capacity && (a.activeCount || 0) < a.capacity) {
+			if (bCount >= b.capacity && aCount < a.capacity) {
 				return -1;
 			}
 
 			// Otherwise, choose the room with fewer children
-			return (a.activeCount || 0) - (b.activeCount || 0);
+			return aCount - bCount;
 		})[0];
 	};
 
