@@ -6,19 +6,16 @@ import { eq, gte, lte, desc, sql, count } from "drizzle-orm";
 const MESSAGE_COSTS = {
 	sms: 1, // $0.01 per SMS
 	phone: 10, // $0.10 per phone call
-	email: 0.5, // $0.005 per email - not used anymore as we don't track emails
 };
 
 // Interface for message tracking data
 export interface MessageTrackingData {
 	churchOrganizationId: string;
-	messageType: "sms" | "phone" | "email";
+	messageType: "sms" | "phone";
 	recipientId?: string;
 	recipientPhone?: string;
-	recipientEmail?: string;
 	sentByUserId?: string;
 	messageContent?: string;
-	messageSubject?: string;
 	messageLength?: number;
 	callDuration?: number;
 	status?: string;
@@ -33,12 +30,6 @@ export class MessageTrackerService {
 	 * @returns The tracked message record
 	 */
 	static async trackMessage(data: MessageTrackingData) {
-		// Skip tracking for email messages
-		if (data.messageType === "email") {
-			console.log("Skipping tracking for email message");
-			return null;
-		}
-
 		// Calculate cost based on message type
 		const cost = MESSAGE_COSTS[data.messageType] || 0;
 
@@ -65,10 +56,8 @@ export class MessageTrackerService {
 				messageType: data.messageType,
 				recipientId: data.recipientId,
 				recipientPhone: data.recipientPhone,
-				recipientEmail: data.recipientEmail,
 				sentByUserId: data.sentByUserId,
 				messageContent: data.messageContent,
-				messageSubject: data.messageSubject,
 				messageLength: data.messageLength,
 				callDuration: data.callDuration,
 				status: data.status || "sent",
