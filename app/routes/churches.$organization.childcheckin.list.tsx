@@ -57,6 +57,11 @@ import {
 } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
 import { createAuthLoader } from "~/server/auth/authLoader";
+import { MessagingService } from "@/server/services/MessagingService";
+import { eq } from "drizzle-orm";
+import { db } from "@/server/db";
+import { churchOrganization } from "@/server/db/schema";
+
 
 // Define extended types for the checkin data with additional properties
 interface ExtendedChildCheckin extends ChildCheckin {
@@ -91,7 +96,7 @@ interface LoaderData {
 interface RenameRoomDialogProps {
 	isOpen: boolean;
 	onClose: () => void;
-	room: { id: string; name: string } | null;
+	room: { id: string; name: string; minAge: number; maxAge: number } | null;
 }
 
 // Add this helper function somewhere appropriate in the file, like near the top or with other utility functions
@@ -236,7 +241,7 @@ interface ActionData {
 }
 
 // Action to handle form submissions
-export const action = createAuthLoader(async ({ params, request }) => {
+export const action = createAuthLoader(async ({ params, request, userContext }) => {
 	const { organization } = params;
 
 	if (!organization) {
@@ -326,6 +331,9 @@ export const action = createAuthLoader(async ({ params, request }) => {
 		if (action === "renameRoom") {
 			const roomId = formData.get("roomId");
 			const newName = formData.get("newName");
+			const minAge = formData.get("minAge");
+			const maxAge = formData.get("maxAge");
+
 
 			if (!roomId || !newName) {
 				return data(
@@ -348,8 +356,8 @@ export const action = createAuthLoader(async ({ params, request }) => {
 			const updatedRoom = await childCheckinService.updateRoomName(
 				roomId.toString(),
 				newName.toString(),
-				currentRoom.minAge || 0,
-				currentRoom.maxAge || 999
+				minAge ? parseInt(minAge.toString()) : currentRoom.minAge || 0,
+				maxAge ? parseInt(maxAge.toString()) : currentRoom.maxAge || 999
 			);
 
 			// Fetch updated rooms list
@@ -443,6 +451,84 @@ export const action = createAuthLoader(async ({ params, request }) => {
 			});
 		}
 
+		// Send message to guardian
+		if (action === "sendMessage") {
+			const recipientPhone = formData.get("recipientPhone");
+			const recipientName = formData.get("recipientName");
+			const message = formData.get("message");
+			const recipientId = formData.get("recipientId");
+
+			if (!recipientPhone || !message) {
+				return data(
+					{ success: false, error: "Phone number and message are required" },
+					{ status: 400 },
+				);
+			}
+
+			// Get organization info for the message
+			const organizationData = await db
+				.select()
+				.from(churchOrganization)
+				.where(eq(churchOrganization.id, organization))
+				.then((res) => res[0]);
+
+			if (!organizationData) {
+				return data(
+					{ success: false, error: "Organization not found" },
+					{ status: 404 },
+				);
+			}
+
+			// Get the current user for tracking
+			const userId = userContext?.user?.id;
+
+			try {
+				// Send the message using MessagingService
+				const result = await MessagingService.sendSMS(
+					{
+						churchOrganizationId: organization,
+						messageType: "sms",
+						message: message.toString(),
+						senderUserId: userId,
+					},
+					{
+						phone: recipientPhone.toString(),
+						userId: recipientId?.toString(),
+						firstName: recipientName ? recipientName.toString().split(' ')[0] : undefined,
+						lastName: recipientName ? recipientName.toString().split(' ')[1] : undefined,
+						preferences: {
+							// Override preferences for child check-in messages
+							smsNotifications: true,
+						},
+					},
+					organizationData.name,
+				);
+
+				if (!result.success) {
+					return data(
+						{
+							success: false,
+							error: "Failed to send message",
+							details: result.error
+						},
+						{ status: 500 },
+					);
+				}
+
+				return data({
+					success: true,
+					message: "Message sent successfully",
+					action: "sendMessage",
+				});
+			} catch (error) {
+				console.error("Error sending message:", error);
+				return data(
+					{ success: false, error: "Failed to send message" },
+					{ status: 500 },
+				);
+			}
+		}
+
 		return data({ success: false, error: "Invalid action" }, { status: 400 });
 	} catch (error) {
 		console.error("Error in child checkin list action:", error);
@@ -461,12 +547,15 @@ function RenameRoomDialog({ isOpen, onClose, room }: RenameRoomDialogProps) {
 	const [newName, setNewName] = useState("");
 	const fetcher = useFetcher<ActionData>();
 	const isSubmitting = fetcher.state !== "idle" && fetcher.formData?.get("_action") === "renameRoom";
+	const [minAge, setMinAge] = useState(room?.minAge);
+	const [maxAge, setMaxAge] = useState(room?.maxAge);
 
-	const { organization } = useParams();
 
 	useEffect(() => {
 		if (room) {
 			setNewName(room.name);
+			setMinAge(room.minAge);
+			setMaxAge(room.maxAge);
 		}
 	}, [room]);
 
@@ -477,6 +566,8 @@ function RenameRoomDialog({ isOpen, onClose, room }: RenameRoomDialogProps) {
 			formData.append("_action", "renameRoom");
 			formData.append("roomId", room.id);
 			formData.append("newName", newName);
+			formData.append("minAge", minAge.toString());
+			formData.append("maxAge", maxAge.toString());
 			fetcher.submit(formData, { method: "post" });
 			onClose();
 		}
@@ -495,16 +586,53 @@ function RenameRoomDialog({ isOpen, onClose, room }: RenameRoomDialogProps) {
 					<DialogDescription>Enter a new name for this room.</DialogDescription>
 				</DialogHeader>
 				<form onSubmit={handleSubmit}>
-					<div className="space-y-4 py-4">
-						<div className="space-y-2">
-							<Label htmlFor="newRoomName">Room Name</Label>
-							<Input
-								id="newRoomName"
-								value={newName}
-								onChange={(e) => setNewName(e.target.value)}
-								required
-								disabled={isSubmitting}
-							/>
+					<div className="grid gap-4 py-4">
+						<div className="flex flex-col gap-4">
+							<div>
+
+								<Label htmlFor="name" className="text-right">
+									Name
+								</Label>
+								<Input
+									id="name"
+									value={newName}
+									onChange={(e) => setNewName(e.target.value)}
+									className="col-span-3"
+									autoFocus
+								/>
+							</div>
+							<div className="flex  gap-4">
+
+								<div className="">
+									<Label htmlFor="minAge" className="text-right">
+										Min Age (months)
+									</Label>
+									<Input
+										id="minAge"
+										type="number"
+										value={minAge}
+										defaultValue={room?.minAge ?? ""}
+										onChange={(e) => setMinAge(parseInt(e.target.value))}
+										className="col-span-3"
+										placeholder="e.g., 0"
+									/>
+								</div>
+								<div className="">
+									<Label htmlFor="maxAge" className="text-right">
+										Max Age (months)
+									</Label>
+
+									<Input
+										id="maxAge"
+										type="number"
+										value={maxAge}
+										defaultValue={room?.maxAge ?? ""}
+										onChange={(e) => setMaxAge(parseInt(e.target.value))}
+										className="col-span-3"
+										placeholder="e.g., 24"
+									/>
+								</div>
+							</div>
 						</div>
 					</div>
 					<DialogFooter>
@@ -545,8 +673,6 @@ function MoveRoomDialog({
 	onMove,
 }: MoveRoomDialogProps) {
 	const [selectedRoomId, setSelectedRoomId] = useState("");
-
-
 
 	// Reset selected room when dialog opens with a new checkin
 	useEffect(() => {
@@ -659,6 +785,7 @@ export default function ChildCheckinList() {
 	const isCheckingOut = isLoading && fetcher.formData?.get("_action") === "checkout";
 	const isMovingRoom = isLoading && fetcher.formData?.get("_action") === "moveToRoom";
 	const isRenamingRoom = isLoading && fetcher.formData?.get("_action") === "renameRoom";
+	const isSendingMessage = isLoading && fetcher.formData?.get("_action") === "sendMessage";
 
 	// Track room changes
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -683,6 +810,8 @@ export default function ChildCheckinList() {
 	const [roomToRename, setRoomToRename] = useState<{
 		id: string;
 		name: string;
+		minAge: number;
+		maxAge: number;
 	} | null>(null);
 	const [searchTerm, setSearchTerm] = useState("");
 	const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
@@ -693,10 +822,20 @@ export default function ChildCheckinList() {
 	const [messageRecipient, setMessageRecipient] = useState<{
 		name: string;
 		phone: string;
+		id?: string;
 	} | null>(null);
 	const [showMoveRoomDialog, setShowMoveRoomDialog] = useState(false);
 	const [checkinToMove, setCheckinToMove] =
 		useState<ExtendedChildCheckin | null>(null);
+
+	// Preset messages for quick selection
+	const presetMessages = [
+		"Your child is ready for pickup.",
+		"Please come to the check-in desk.",
+		"Your child needs assistance.",
+		"Your child is not feeling well. Please come to the classroom.",
+		"Just checking in - your child is doing great!",
+	];
 
 	// Handle room change
 	const handleRoomChange = (roomId: string) => {
@@ -827,6 +966,46 @@ export default function ChildCheckinList() {
 		}
 	}, [fetcher.state, fetcher.data]);
 
+	// Monitor fetcher state for message actions
+	useEffect(() => {
+		if (fetcher.state === "idle" && fetcher.data?.success) {
+			// Handle successful message sending
+			if (fetcher.data.action === "sendMessage") {
+				setMessageDialogOpen(false);
+				setMessageText("");
+				toast.success("Message sent successfully");
+			}
+		} else if (
+			fetcher.state === "idle" &&
+			fetcher.data &&
+			!fetcher.data.success &&
+			fetcher.formData &&
+			fetcher.formData.get("_action") === "sendMessage"
+		) {
+			toast.error(fetcher.data.error || "Failed to send message");
+		}
+	}, [fetcher.state, fetcher.data, fetcher.formData]);
+
+	// Handle sending a message
+	const handleSendMessage = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!messageRecipient || !messageText) {
+			toast.error("Please enter a message");
+			return;
+		}
+
+		const formData = new FormData();
+		formData.append("_action", "sendMessage");
+		formData.append("recipientPhone", messageRecipient.phone);
+		formData.append("recipientName", messageRecipient.name);
+		formData.append("message", messageText);
+		if (messageRecipient.id) {
+			formData.append("recipientId", messageRecipient.id);
+		}
+
+		fetcher.submit(formData, { method: "post" });
+	};
+
 	return (
 		<div className="container mx-auto py-8 relative">
 			{/* Subtle loading indicator at the top of the page */}
@@ -891,7 +1070,7 @@ export default function ChildCheckinList() {
 													<SelectItem key={room.id} value={room.id}>
 														{room.name}{" "}
 														<span className="text-muted-foreground">
-															({room.activeCount})
+															({room.activeCount}) - Ages: {formatAge(room.minAge)}-{formatAge(room.maxAge)}
 														</span>
 													</SelectItem>
 												))}
@@ -940,35 +1119,7 @@ export default function ChildCheckinList() {
 										</div>
 									)}
 
-									<div className="mt-6">
-										<h3 className="text-lg font-medium mb-2">All Rooms</h3>
-										<div className="space-y-2">
-											{rooms.map((room) => (
-												<div
-													key={room.id}
-													className={`p-3 border rounded-md cursor-pointer ${room.id === roomId
-														? "border-primary bg-primary/5"
-														: "hover:bg-muted/50"
-														} ${isChangingRoom && room.id === roomId ? "animate-pulse" : ""}`}
-													onClick={() => !isChangingRoom && handleRoomChange(room.id)}
-												>
-													<div className="flex justify-between items-center">
-														<div>
-															<div className="font-medium">{room.name}</div>
-															<div className="text-sm text-muted-foreground">
-																{room.activeCount} children
-															</div>
-														</div>
-														{room.activeCount > 0 && (
-															<Badge variant="outline">
-																{room.activeCount}
-															</Badge>
-														)}
-													</div>
-												</div>
-											))}
-										</div>
-									</div>
+
 								</CardContent>
 							</Card>
 						</div>
@@ -1061,11 +1212,7 @@ export default function ChildCheckinList() {
 																			{checkin.child?.dateOfBirth && (
 																				<p className="text-sm text-muted-foreground">
 																					Age:{" "}
-																					{calculateAge(
-																						checkin.child.dateOfBirth,
-																					) >= 24
-																						? `${Math.floor(calculateAge(checkin.child.dateOfBirth) / 12)} years`
-																						: `${calculateAge(checkin.child.dateOfBirth)} months`}
+																					{formatAge(calculateAge(checkin.child.dateOfBirth))}
 																				</p>
 																			)}
 																			{checkin.child?.allergies && (
@@ -1170,6 +1317,7 @@ export default function ChildCheckinList() {
 																							setMessageRecipient({
 																								name: `${user.firstName} ${user.lastName}`,
 																								phone: user.phone,
+																								id: user.id
 																							});
 																							setMessageDialogOpen(true);
 																						}}
@@ -1254,10 +1402,7 @@ export default function ChildCheckinList() {
 																			{checkin.child?.dateOfBirth && (
 																				<p className="text-sm text-muted-foreground">
 																					Age:{" "}
-																					{calculateAge(
-																						checkin.child.dateOfBirth,
-																					)}{" "}
-																					months
+																					{formatAge(calculateAge(checkin.child.dateOfBirth))}
 																				</p>
 																			)}
 																			<div className="flex items-center text-sm text-green-600 mt-1">
@@ -1283,6 +1428,91 @@ export default function ChildCheckinList() {
 																		</div>
 																	</div>
 																</div>
+
+																{/* Add guardians section to checked out children */}
+																{checkin.guardians && checkin.guardians.length > 0 && (
+																	<div className="mt-4 pt-4 border-t">
+																		<h4 className="text-sm font-medium mb-2">
+																			Guardians
+																		</h4>
+																		<div className="space-y-2">
+																			{checkin.guardians.map((user) => (
+																				<div
+																					key={user.id}
+																					className="flex justify-between items-center"
+																				>
+																					<div className="flex items-center space-x-2">
+																						<Avatar className="h-8 w-8">
+																							{user.photoUrl ? (
+																								<AvatarImage
+																									src={user.photoUrl}
+																									alt={`${user.firstName} ${user.lastName}`}
+																								/>
+																							) : (
+																								<AvatarFallback>
+																									{getInitials(
+																										user.firstName,
+																										user.lastName,
+																									)}
+																								</AvatarFallback>
+																							)}
+																						</Avatar>
+																						<div>
+																							<p className="text-sm font-medium">
+																								{user.firstName} {user.lastName}
+																							</p>
+																							{user.phone && (
+																								<p className="text-xs text-muted-foreground">
+																									{user.phone}
+																								</p>
+																							)}
+																						</div>
+																					</div>
+																					{user.phone && (
+																						<Button
+																							variant="ghost"
+																							size="sm"
+																							onClick={() => {
+																								setMessageRecipient({
+																									name: `${user.firstName} ${user.lastName}`,
+																									phone: user.phone,
+																									id: user.id
+																								});
+																								setMessageDialogOpen(true);
+																							}}
+																						>
+																							<MessageSquare className="h-4 w-4" />
+																						</Button>
+																					)}
+																				</div>
+																			))}
+																		</div>
+																	</div>
+																)}
+
+																{/* Add authorized pickup persons section to checked out children */}
+																{checkin.authorizedPickupPersons &&
+																	checkin.authorizedPickupPersons.length > 0 && (
+																		<div className="mt-4 pt-4 border-t">
+																			<h4 className="text-sm font-medium mb-2">
+																				Authorized for Pickup
+																			</h4>
+																			<div className="space-y-1">
+																				{checkin.authorizedPickupPersons.map(
+																					(person) => (
+																						<div
+																							key={person.id}
+																							className="text-sm"
+																						>
+																							{person.firstName}{" "}
+																							{person.lastName} (
+																							{person.relationship})
+																						</div>
+																					),
+																				)}
+																			</div>
+																		</div>
+																	)}
 															</CardContent>
 														</Card>
 													))}
@@ -1299,7 +1529,7 @@ export default function ChildCheckinList() {
 
 			{/* Checkout Dialog */}
 			<Dialog open={showCheckoutDialog} onOpenChange={setShowCheckoutDialog}>
-				<DialogContent>
+				<DialogContent className="max-w-md">
 					{isCheckingOut && (
 						<div className="absolute top-0 left-0 right-0">
 							<div className="h-1 w-full bg-gradient-to-r from-primary via-primary/80 to-primary/20 animate-pulse"></div>
@@ -1308,21 +1538,56 @@ export default function ChildCheckinList() {
 					<DialogHeader>
 						<DialogTitle>Check Out Child</DialogTitle>
 						<DialogDescription>
-							Are you sure you want to check out{" "}
-							{checkinToCheckout?.child?.firstName}{" "}
-							{checkinToCheckout?.child?.lastName}?
+							Select a guardian to check out this child
 						</DialogDescription>
 					</DialogHeader>
+
+					{/* Child information with prominent image */}
+					<div className="py-4 flex flex-col items-center border-b">
+						{checkinToCheckout?.child?.photoUrl ? (
+							<div className="mb-3 relative w-40 h-40 overflow-hidden rounded-md border-2 border-primary/20">
+								<img
+									src={checkinToCheckout.child.photoUrl}
+									alt={`${checkinToCheckout.child?.firstName} ${checkinToCheckout.child?.lastName}`}
+									className="w-full h-full object-cover"
+								/>
+							</div>
+						) : (
+							<div className="mb-3 flex items-center justify-center w-40 h-40 bg-muted rounded-md border-2 border-primary/20">
+								<span className="text-3xl font-semibold text-muted-foreground">
+									{getInitials(
+										checkinToCheckout?.child?.firstName,
+										checkinToCheckout?.child?.lastName
+									)}
+								</span>
+							</div>
+						)}
+						<h2 className="text-xl font-semibold text-center">
+							{checkinToCheckout?.child?.firstName}{" "}
+							{checkinToCheckout?.child?.lastName}
+						</h2>
+						{checkinToCheckout?.child?.dateOfBirth && (
+							<p className="text-sm text-muted-foreground">
+								Age: {formatAge(calculateAge(checkinToCheckout.child.dateOfBirth))}
+							</p>
+						)}
+						{checkinToCheckout?.child?.allergies && (
+							<p className="text-sm text-red-500 mt-1">
+								Allergies: {checkinToCheckout.child.allergies}
+							</p>
+						)}
+					</div>
+
 					<div className="py-4">
-						<h3 className="text-sm font-medium mb-2">Select Guardian</h3>
-						<div className="space-y-2">
+						<h3 className="text-sm font-medium mb-3">Select Guardian for Pickup</h3>
+						<div className="space-y-3">
 							{checkinToCheckout?.guardians?.map((user) => (
 								<div
 									key={user.id}
-									className="flex items-center justify-between p-2 border rounded-md"
+									className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 transition-colors"
 								>
-									<div className="flex items-center space-x-2">
-										<Avatar className="h-8 w-8">
+									<div className="flex items-center space-x-3">
+										<Avatar className="h-12 w-12">
 											{user.photoUrl ? (
 												<AvatarImage
 													src={user.photoUrl}
@@ -1335,9 +1600,14 @@ export default function ChildCheckinList() {
 											)}
 										</Avatar>
 										<div>
-											<p className="text-sm font-medium">
+											<p className="font-medium">
 												{user.firstName} {user.lastName}
 											</p>
+											{user.phone && (
+												<p className="text-xs text-muted-foreground">
+													{user.phone}
+												</p>
+											)}
 										</div>
 									</div>
 									<Button
@@ -1361,10 +1631,10 @@ export default function ChildCheckinList() {
 							{checkinToCheckout?.authorizedPickupPersons &&
 								checkinToCheckout.authorizedPickupPersons.length > 0 && (
 									<>
-										<h3 className="text-sm font-medium mt-4 mb-2">
+										<h3 className="text-sm font-medium mt-5 mb-2">
 											Authorized Pickup Persons
 										</h3>
-										<div className="text-sm text-muted-foreground">
+										<div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-md">
 											<p>
 												The following people are authorized for pickup but are
 												not in the system as guardians:
@@ -1402,13 +1672,18 @@ export default function ChildCheckinList() {
 			{/* Message Dialog */}
 			<Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
 				<DialogContent>
+					{isSendingMessage && (
+						<div className="absolute top-0 left-0 right-0">
+							<div className="h-1 w-full bg-gradient-to-r from-primary via-primary/80 to-primary/20 animate-pulse"></div>
+						</div>
+					)}
 					<DialogHeader>
 						<DialogTitle>Send Message</DialogTitle>
 						<DialogDescription>
 							Send a message to {messageRecipient?.name}
 						</DialogDescription>
 					</DialogHeader>
-					<form>
+					<form onSubmit={handleSendMessage}>
 						<div className="space-y-4 py-4">
 							<div className="space-y-2">
 								<Label htmlFor="message">Message</Label>
@@ -1420,23 +1695,38 @@ export default function ChildCheckinList() {
 									rows={5}
 								/>
 							</div>
+
+							<div className="space-y-2">
+								<Label>Preset Messages</Label>
+								<div className="grid grid-cols-1 gap-2">
+									{presetMessages.map((message, index) => (
+										<Button
+											key={index}
+											type="button"
+											variant="outline"
+											className="justify-start h-auto py-2 px-3 text-left"
+											onClick={() => setMessageText(message)}
+										>
+											{message}
+										</Button>
+									))}
+								</div>
+							</div>
 						</div>
 						<DialogFooter>
 							<Button
 								variant="outline"
+								type="button"
 								onClick={() => setMessageDialogOpen(false)}
+								disabled={isSendingMessage}
 							>
 								Cancel
 							</Button>
 							<Button
-								onClick={() => {
-									// TODO: Implement message sending
-									toast.success("Message sent successfully");
-									setMessageDialogOpen(false);
-									setMessageText("");
-								}}
+								type="submit"
+								disabled={!messageText || isSendingMessage}
 							>
-								Send Message
+								{isSendingMessage ? "Sending..." : "Send Message"}
 							</Button>
 						</DialogFooter>
 					</form>
