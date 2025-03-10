@@ -1,27 +1,34 @@
 {
-	"version": "5",
-	"dialect": "pg",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "5",
-			"when": 1709311705111,
-			"tag": "0000_lyrical_photon",
-			"breakpoints": false
-		},
-		{
-			"idx": 1,
-			"version": "5",
-			"when": 1709362655520,
-			"tag": "0001_child_checkin_tables",
-			"breakpoints": false
-		},
-		{
-			"idx": 2,
-			"version": "5",
-			"when": 1709397856520,
-			"tag": "0002_add_guardian_id_to_message_tracker",
-			"breakpoints": false
-		}
-	]
+  "version": "5",
+  "dialect": "pg",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1709311705111,
+      "tag": "0000_lyrical_photon",
+      "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1709362655520,
+      "tag": "0001_child_checkin_tables",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1709397856520,
+      "tag": "0002_add_guardian_id_to_message_tracker",
+      "breakpoints": false
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1741615000557,
+      "tag": "0003_unknown_daredevil",
+      "breakpoints": true
+    }
+  ]
 }

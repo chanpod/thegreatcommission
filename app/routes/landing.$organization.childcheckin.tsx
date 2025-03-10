@@ -28,7 +28,8 @@ import { db } from "@/server/db";
 import {
 	churchOrganization,
 	familiesTable,
-	users
+	users,
+	type Room
 } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { useCamera } from "~/components/CameraCapture";
@@ -53,6 +54,9 @@ export const ChildCheckinActions = {
 	UPDATE_USER_INFO: "update-user-info",
 	UPDATE_FAMILY: "update-family",
 	CHECK_IN: "check-in",
+	VERIFY_PHONE: "verify-phone",
+	VERIFY_CODE: "verify-code",
+
 };
 
 // Define step names for the stepper
@@ -213,7 +217,7 @@ export async function action({ params, request }) {
 	}
 
 	switch (actionType) {
-		case "verify-phone": {
+		case ChildCheckinActions.VERIFY_PHONE: {
 			const phone = formData.get("phone")?.toString().trim();
 
 			if (!phone) {
@@ -246,6 +250,7 @@ export async function action({ params, request }) {
 
 				return data({
 					success: true,
+					_action: ChildCheckinActions.VERIFY_PHONE,
 					phone,
 					step: "verify",
 				});
@@ -258,7 +263,7 @@ export async function action({ params, request }) {
 			}
 		}
 
-		case "verify-code": {
+		case ChildCheckinActions.VERIFY_CODE: {
 			const phone = formData.get("phone")?.toString().trim();
 			const code = formData.get("verificationCode")?.toString().trim();
 
@@ -418,6 +423,7 @@ export async function action({ params, request }) {
 			if (!childId || !roomId || !guardianId) {
 				return data({
 					success: false,
+					_action: ChildCheckinActions.CHECK_IN,
 					error: "Child, room, and guardian are required",
 				});
 			}
@@ -435,6 +441,7 @@ export async function action({ params, request }) {
 					return data({
 						success: false,
 						error: checkinResult.message || "Failed to check in child",
+						_action: ChildCheckinActions.CHECK_IN,
 					});
 				}
 
@@ -476,6 +483,7 @@ export async function action({ params, request }) {
 				return data({
 					success: true,
 					checkin: checkinResult.checkin,
+					_action: ChildCheckinActions.CHECK_IN,
 					step: "confirmed",
 					qrCodeUrl,
 				});
@@ -1140,7 +1148,7 @@ function ChildCheckinContent({ organization, rooms }) {
 
 	// Access familyData directly from loaderData instead of duplicating in state
 	const familyData = loaderData.familyData || null;
-
+	console.log("familyData", familyData);
 	// Use our camera hook
 	const {
 		showCamera,
@@ -1191,7 +1199,7 @@ function ChildCheckinContent({ organization, rooms }) {
 
 		fetcher.submit(
 			{
-				_action: "searchPhone",
+				_action: ChildCheckinActions.VERIFY_PHONE,
 				phone,
 				organizationId: orgId,
 			},
@@ -1205,7 +1213,7 @@ function ChildCheckinContent({ organization, rooms }) {
 
 		fetcher.submit(
 			{
-				_action: "verifyCode",
+				_action: ChildCheckinActions.VERIFY_CODE,
 				phone,
 				verificationCode,
 				organizationId: orgId,
@@ -1266,16 +1274,17 @@ function ChildCheckinContent({ organization, rooms }) {
 	};
 
 	// Find appropriate room for child
-	const findRoomForChild = (child, availableRooms) => {
+	const findRoomForChild = (child, availableRooms: Room[]) => {
+
 		if (!child.dateOfBirth || !availableRooms || availableRooms.length === 0) {
 			return null;
 		}
 
 		const ageInMonths = getChildAgeInMonths(child.dateOfBirth);
-
+		console.log("ageInMonths", ageInMonths);
 		// First find rooms where the child's age fits within the min and max age range
 		const eligibleRooms = availableRooms.filter(
-			room => ageInMonths >= room.minAgeMonths && ageInMonths <= room.maxAgeMonths
+			room => ageInMonths >= room.minAge && ageInMonths <= room.maxAge
 		);
 
 		if (eligibleRooms.length === 0) {
@@ -1286,15 +1295,15 @@ function ChildCheckinContent({ organization, rooms }) {
 		// but still below capacity
 		return eligibleRooms.sort((a, b) => {
 			// If one room is at capacity and the other isn't, prioritize the one that's not at capacity
-			if ((a.currentCount || 0) >= a.capacity && (b.currentCount || 0) < b.capacity) {
+			if ((a.activeCount || 0) >= a.capacity && (b.activeCount || 0) < b.capacity) {
 				return 1;
 			}
-			if ((b.currentCount || 0) >= b.capacity && (a.currentCount || 0) < a.capacity) {
+			if ((b.activeCount || 0) >= b.capacity && (a.activeCount || 0) < a.capacity) {
 				return -1;
 			}
 
 			// Otherwise, choose the room with fewer children
-			return (a.currentCount || 0) - (b.currentCount || 0);
+			return (a.activeCount || 0) - (b.activeCount || 0);
 		})[0];
 	};
 
@@ -1323,8 +1332,9 @@ function ChildCheckinContent({ organization, rooms }) {
 
 		fetcher.submit(
 			{
-				_action: "checkin",
+				_action: ChildCheckinActions.CHECK_IN,
 				children: JSON.stringify(childrenWithRooms),
+				guardianId: familyData.guardians[0].id,
 				organizationId: orgId,
 			},
 			{ method: "post" }
@@ -1436,7 +1446,7 @@ function ChildCheckinContent({ organization, rooms }) {
 			case "phone":
 				return (
 					<PhoneVerificationStep
-						phone={phone}
+						phoneNumber={phone}
 						onPhoneNumberChange={setPhoneNumber}
 						onSubmit={handlePhoneSearch}
 						isLoading={fetcher.state !== "idle"}
@@ -1451,7 +1461,7 @@ function ChildCheckinContent({ organization, rooms }) {
 						onSubmit={handleVerifyCode}
 						onResendCode={handleResendCode}
 						isLoading={fetcher.state !== "idle"}
-						phone={phone}
+						phoneNumber={phone}
 					/>
 				);
 
@@ -1504,7 +1514,7 @@ function ChildCheckinContent({ organization, rooms }) {
 		if (!fetcher.data || fetcher.state === "loading") return;
 
 		// Handle response from phone search
-		if (fetcher.data._action === "searchPhone") {
+		if (fetcher.data._action === ChildCheckinActions.VERIFY_PHONE) {
 			if (fetcher.data.success) {
 				if (fetcher.data.verified) {
 					// User exists and is verified - navigate instead of setting state
@@ -1523,7 +1533,7 @@ function ChildCheckinContent({ organization, rooms }) {
 		}
 
 		// Handle response from code verification
-		else if (fetcher.data._action === "verifyCode") {
+		else if (fetcher.data._action === ChildCheckinActions.VERIFY_CODE) {
 			if (fetcher.data.success) {
 				if (fetcher.data.isNewUser) {
 					setIsNewUser(true);
@@ -1542,7 +1552,7 @@ function ChildCheckinContent({ organization, rooms }) {
 		}
 
 		// Handle response from check-in
-		else if (fetcher.data._action === "checkin") {
+		else if (fetcher.data._action === ChildCheckinActions.CHECK_IN) {
 			if (fetcher.data.success) {
 				setCheckedInChildren(selectedChildren);
 				setQrCodeUrl(fetcher.data.qrCodeUrl);

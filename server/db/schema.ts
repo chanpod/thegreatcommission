@@ -486,6 +486,7 @@ export const roomsTable = pgTable("rooms", {
 	name: text("name").notNull(), // Name of the room (e.g., "Nursery", "Toddlers", "Elementary")
 	minAge: integer("min_age"), // Minimum age in months
 	maxAge: integer("max_age"), // Maximum age in months
+	capacity: integer("capacity").default(10), // Maximum number of children allowed in the room
 	churchOrganizationId: text("church_organization_id")
 		.notNull()
 		.references(() => churchOrganization.id),

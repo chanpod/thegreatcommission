@@ -150,6 +150,7 @@ export function ChildSelectionStep({
                 <Button
                     className="w-full"
                     disabled={selectedChildren.length === 0 || isLoading}
+                    loading={isLoading}
                     onClick={onProceed}
                 >
                     Check In {selectedChildren.length > 0 ? `(${selectedChildren.length})` : ""}
