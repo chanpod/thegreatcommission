@@ -34,6 +34,12 @@ export const links: Route.LinksFunction = () => [
 
 export const loader = createAuthLoader(
 	async ({ request, auth, params, userContext }) => {
+		const user = userContext.user;
+		console.log("=======");
+		if (!user?.id) {
+			throw redirect(`/landing/${user?.churchId}`);
+		}
+
 		const organization = await db
 			.select()
 			.from(churchOrganization)

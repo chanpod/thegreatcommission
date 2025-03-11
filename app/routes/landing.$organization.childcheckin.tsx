@@ -15,7 +15,7 @@ import {
 	CardContent,
 	CardDescription,
 	CardHeader,
-	CardTitle
+	CardTitle,
 } from "~/components/ui/card";
 import { Stepper } from "~/components/ui/stepper";
 // Import services
@@ -29,7 +29,7 @@ import {
 	churchOrganization,
 	familiesTable,
 	users,
-	type Room
+	type Room,
 } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { useCamera } from "~/components/CameraCapture";
@@ -39,9 +39,7 @@ import { ChildSelectionStep } from "~/components/checkin/ChildSelectionStep";
 import { ConfirmationStep } from "~/components/checkin/ConfirmationStep";
 import { EditChildForm } from "~/components/checkin/EditChildForm";
 import { PhoneVerificationStep } from "~/components/checkin/PhoneVerificationStep";
-import type {
-	CheckInSteps
-} from "~/components/checkin/types";
+import type { CheckInSteps } from "~/components/checkin/types";
 import { UpdateUserInfoStep } from "~/components/checkin/UpdateUserInfoStep";
 import { VerificationCodeStep } from "~/components/checkin/VerificationCodeStep";
 import { FamilyEditorForm } from "~/components/checkin/FamilyEditorForm";
@@ -56,7 +54,6 @@ export const ChildCheckinActions = {
 	CHECK_IN: "check-in",
 	VERIFY_PHONE: "verify-phone",
 	VERIFY_CODE: "verify-code",
-
 };
 
 // Define step names for the stepper
@@ -90,7 +87,7 @@ export async function loader({ params, request }) {
 		loaderCache.data &&
 		loaderCache.organizationId === organization &&
 		now - loaderCache.timestamp < 5000 && // 5 seconds cache
-		!request.headers.get('Cache-Control')?.includes('no-cache') // Allow bypassing cache
+		!request.headers.get("Cache-Control")?.includes("no-cache") // Allow bypassing cache
 	) {
 		return loaderCache.data;
 	}
@@ -223,7 +220,7 @@ export async function action({ params, request }) {
 			if (!phone) {
 				return data({ success: false, error: "Phone number is required" });
 			}
-
+			console.log("Sending code");
 			try {
 				// Generate and store verification code
 				const code = verificationService.storeVerificationCode(
@@ -371,7 +368,11 @@ export async function action({ params, request }) {
 					);
 
 				// Ensure we have valid family data
-				if (!familyData || !familyData.guardians || familyData.guardians.length === 0) {
+				if (
+					!familyData ||
+					!familyData.guardians ||
+					familyData.guardians.length === 0
+				) {
 					console.error("Failed to get complete family data with guardians");
 					return data({
 						success: false,
@@ -396,7 +397,9 @@ export async function action({ params, request }) {
 					{
 						success: true,
 						familyData,
-						step: isNewUser ? ChildCheckinActions.UPDATE_USER_INFO : "select-child",
+						step: isNewUser
+							? ChildCheckinActions.UPDATE_USER_INFO
+							: "select-child",
 						isNewUser,
 						userId, // Include the user ID for new users
 					},
@@ -420,7 +423,8 @@ export async function action({ params, request }) {
 				// Get the children data from the form
 				const childrenData = formData.get("children")?.toString();
 				const guardianId = formData.get("guardianId")?.toString();
-				const organizationId = formData.get("organizationId")?.toString() || organization;
+				const organizationId =
+					formData.get("organizationId")?.toString() || organization;
 
 				if (!childrenData || !guardianId) {
 					return data({
@@ -453,14 +457,23 @@ export async function action({ params, request }) {
 							};
 						}
 
-						return await processChildCheckin(childId, roomId, guardianId, organizationId);
-					})
+						return await processChildCheckin(
+							childId,
+							roomId,
+							guardianId,
+							organizationId,
+						);
+					}),
 				);
 
 				// Check if any check-ins failed
-				const failedCheckins = checkinResults.filter(result => !result.success);
+				const failedCheckins = checkinResults.filter(
+					(result) => !result.success,
+				);
 				if (failedCheckins.length > 0) {
-					const errorMessages = failedCheckins.map(result => result.message).join("; ");
+					const errorMessages = failedCheckins
+						.map((result) => result.message)
+						.join("; ");
 					return data({
 						success: false,
 						error: `Failed to check in some children: ${errorMessages}`,
@@ -474,7 +487,9 @@ export async function action({ params, request }) {
 				});
 
 				// Get the first successful check-in to use for QR code
-				const successfulCheckins = checkinResults.filter(result => result.success && result.checkin);
+				const successfulCheckins = checkinResults.filter(
+					(result) => result.success && result.checkin,
+				);
 				if (successfulCheckins.length === 0) {
 					return data({
 						success: false,
@@ -517,7 +532,7 @@ export async function action({ params, request }) {
 
 				return data({
 					success: true,
-					checkins: checkinResults.map(result => result.checkin),
+					checkins: checkinResults.map((result) => result.checkin),
 					_action: ChildCheckinActions.CHECK_IN,
 					step: "confirmed",
 					qrCodeUrl,
@@ -531,7 +546,6 @@ export async function action({ params, request }) {
 			}
 		}
 
-
 		case ChildCheckinActions.ADD_CHILD: {
 			// Get family ID from verification cookie
 			const verificationData =
@@ -541,7 +555,7 @@ export async function action({ params, request }) {
 				return data({
 					success: false,
 					error: "You must be verified to add a child",
-					_action: ChildCheckinActions.ADD_CHILD
+					_action: ChildCheckinActions.ADD_CHILD,
 				});
 			}
 
@@ -557,7 +571,7 @@ export async function action({ params, request }) {
 				return data({
 					success: false,
 					error: "Child details are incomplete",
-					_action: ChildCheckinActions.ADD_CHILD
+					_action: ChildCheckinActions.ADD_CHILD,
 				});
 			}
 
@@ -575,7 +589,7 @@ export async function action({ params, request }) {
 					photoUrl = await FileUploadService.uploadChildPhoto(
 						childPhoto,
 						organization,
-						`${firstName}-${lastName}-${Date.now()}`
+						`${firstName}-${lastName}-${Date.now()}`,
 					);
 				}
 
@@ -596,27 +610,28 @@ export async function action({ params, request }) {
 					return data({
 						success: false,
 						error: "Failed to add child",
-						_action: ChildCheckinActions.ADD_CHILD
+						_action: ChildCheckinActions.ADD_CHILD,
 					});
 				}
 
 				// Get updated family data
-				const updatedFamilyData = await childCheckinService.getFamilyWithChildrenAndGuardians(
-					verificationData.familyId
-				);
+				const updatedFamilyData =
+					await childCheckinService.getFamilyWithChildrenAndGuardians(
+						verificationData.familyId,
+					);
 
 				return data({
 					success: true,
 					message: "Child added successfully",
 					_action: ChildCheckinActions.ADD_CHILD,
-					familyData: updatedFamilyData
+					familyData: updatedFamilyData,
 				});
 			} catch (error) {
 				console.error("Error adding child:", error);
 				return data({
 					success: false,
 					error: "Error adding child",
-					_action: ChildCheckinActions.ADD_CHILD
+					_action: ChildCheckinActions.ADD_CHILD,
 				});
 			}
 		}
@@ -663,7 +678,7 @@ export async function action({ params, request }) {
 					photoUrl = await FileUploadService.uploadChildPhoto(
 						childPhoto,
 						organization,
-						`${firstName}-${lastName}-${Date.now()}`
+						`${firstName}-${lastName}-${Date.now()}`,
 					);
 
 					if (!photoUrl) {
@@ -692,7 +707,7 @@ export async function action({ params, request }) {
 				// Update child
 				const updatedChild = await childCheckinService.updateChild(
 					childId.toString(),
-					updateData
+					updateData,
 				);
 
 				// Get updated family data
@@ -922,11 +937,16 @@ export async function action({ params, request }) {
 
 			try {
 				// Verify the user exists and is associated with this family
-				const familyData = await childCheckinService.getFamilyWithChildrenAndGuardians(
-					verificationData.familyId
-				);
+				const familyData =
+					await childCheckinService.getFamilyWithChildrenAndGuardians(
+						verificationData.familyId,
+					);
 
-				if (!familyData || !familyData.guardians || !familyData.guardians.some(g => g.id === userId)) {
+				if (
+					!familyData ||
+					!familyData.guardians ||
+					!familyData.guardians.some((g) => g.id === userId)
+				) {
 					return data({
 						success: false,
 						error: "User not found or not associated with this family",
@@ -934,7 +954,8 @@ export async function action({ params, request }) {
 				}
 
 				// Update user information
-				await db.update(users)
+				await db
+					.update(users)
 					.set({
 						firstName,
 						lastName,
@@ -947,7 +968,8 @@ export async function action({ params, request }) {
 				// Update family name if provided
 				if (familyName) {
 					console.log("Updating family name:", familyName);
-					await db.update(familiesTable)
+					await db
+						.update(familiesTable)
 						.set({
 							name: familyName,
 							updatedAt: new Date(),
@@ -979,7 +1001,8 @@ export async function action({ params, request }) {
 		case "start-over": {
 			try {
 				// Clear the verification session
-				const cookieHeader = await verificationService.clearVerificationSession();
+				const cookieHeader =
+					await verificationService.clearVerificationSession();
 
 				return data(
 					{
@@ -1020,11 +1043,15 @@ export async function action({ params, request }) {
 			const guardianUpdates = [];
 
 			// Process each existing guardian from the form data
-			const formEntries = Array.from(formData.entries()) as [string, FormDataEntryValue][];
+			const formEntries = Array.from(formData.entries()) as [
+				string,
+				FormDataEntryValue,
+			][];
 
 			// Find all guardian ids for existing guardians
-			const guardianIdEntries = formEntries
-				.filter(([key]) => key.match(/guardians\[\d+\]\.id/));
+			const guardianIdEntries = formEntries.filter(([key]) =>
+				key.match(/guardians\[\d+\]\.id/),
+			);
 
 			// For each existing guardian id, build an update object
 			for (const [key, value] of guardianIdEntries) {
@@ -1034,8 +1061,12 @@ export async function action({ params, request }) {
 				const index = match[1];
 				const guardianId = value.toString();
 
-				const firstName = formData.get(`guardians[${index}].firstName`)?.toString();
-				const lastName = formData.get(`guardians[${index}].lastName`)?.toString();
+				const firstName = formData
+					.get(`guardians[${index}].firstName`)
+					?.toString();
+				const lastName = formData
+					.get(`guardians[${index}].lastName`)
+					?.toString();
 				const phone = formData.get(`guardians[${index}].phone`)?.toString();
 				const email = formData.get(`guardians[${index}].email`)?.toString();
 
@@ -1046,15 +1077,16 @@ export async function action({ params, request }) {
 						lastName,
 						phone,
 						email: email || undefined,
-						updatedAt: new Date()
+						updatedAt: new Date(),
 					});
 				}
 			}
 
 			// Process new guardians from form data
 			const newGuardians = [];
-			const newGuardianFirstNameEntries = formEntries
-				.filter(([key]) => key.match(/newGuardians\[\d+\]\.firstName/));
+			const newGuardianFirstNameEntries = formEntries.filter(([key]) =>
+				key.match(/newGuardians\[\d+\]\.firstName/),
+			);
 
 			for (const [key, value] of newGuardianFirstNameEntries) {
 				const match = key.match(/newGuardians\[(\d+)\]\.firstName/);
@@ -1062,7 +1094,9 @@ export async function action({ params, request }) {
 
 				const index = match[1];
 				const firstName = value.toString();
-				const lastName = formData.get(`newGuardians[${index}].lastName`)?.toString();
+				const lastName = formData
+					.get(`newGuardians[${index}].lastName`)
+					?.toString();
 				const phone = formData.get(`newGuardians[${index}].phone`)?.toString();
 				const email = formData.get(`newGuardians[${index}].email`)?.toString();
 
@@ -1074,7 +1108,7 @@ export async function action({ params, request }) {
 						email: email || undefined,
 						churchOrganizationId: organization,
 						createdAt: new Date(),
-						updatedAt: new Date()
+						updatedAt: new Date(),
 					});
 				}
 			}
@@ -1083,10 +1117,11 @@ export async function action({ params, request }) {
 				// Update family name if provided
 				if (familyId && familyName) {
 					// Update the family name directly in the database
-					await db.update(familiesTable)
+					await db
+						.update(familiesTable)
 						.set({
 							name: familyName,
-							updatedAt: new Date()
+							updatedAt: new Date(),
 						})
 						.where(eq(familiesTable.id, familyId));
 				}
@@ -1094,13 +1129,14 @@ export async function action({ params, request }) {
 				// Update each existing guardian
 				for (const guardianUpdate of guardianUpdates) {
 					console.log("Updating guardian:", guardianUpdate);
-					await db.update(users)
+					await db
+						.update(users)
 						.set({
 							firstName: guardianUpdate.firstName,
 							lastName: guardianUpdate.lastName,
 							phone: guardianUpdate.phone,
 							email: guardianUpdate.email,
-							updatedAt: guardianUpdate.updatedAt
+							updatedAt: guardianUpdate.updatedAt,
 						})
 						.where(eq(users.id, guardianUpdate.id));
 				}
@@ -1116,7 +1152,7 @@ export async function action({ params, request }) {
 						churchOrganizationId: organization,
 						isGuardian: true,
 						createdAt: new Date(),
-						updatedAt: new Date()
+						updatedAt: new Date(),
 					});
 
 					// Then link them to the family
@@ -1125,28 +1161,29 @@ export async function action({ params, request }) {
 							userId: createdGuardian.id,
 							familyId: verificationData.familyId,
 							relationship: "Guardian",
-							updatedAt: new Date()
+							updatedAt: new Date(),
 						});
 					}
 				}
 
 				// Get updated family data
-				const updatedFamilyData = await childCheckinService.getFamilyWithChildrenAndGuardians(
-					verificationData.familyId
-				);
+				const updatedFamilyData =
+					await childCheckinService.getFamilyWithChildrenAndGuardians(
+						verificationData.familyId,
+					);
 
 				return data({
 					success: true,
 					message: "Family information updated successfully",
 					_action: ChildCheckinActions.UPDATE_FAMILY,
-					familyData: updatedFamilyData
+					familyData: updatedFamilyData,
 				});
 			} catch (error) {
 				console.error("Error updating family:", error);
 				return data({
 					success: false,
 					error: "Error updating family information",
-					_action: ChildCheckinActions.UPDATE_FAMILY
+					_action: ChildCheckinActions.UPDATE_FAMILY,
 				});
 			}
 		}
@@ -1167,7 +1204,12 @@ interface CheckinResult {
 	message?: string;
 }
 
-async function processChildCheckin(childId: string, roomId: string, guardianId: string, organizationId: string): Promise<CheckinResult> {
+async function processChildCheckin(
+	childId: string,
+	roomId: string,
+	guardianId: string,
+	organizationId: string,
+): Promise<CheckinResult> {
 	try {
 		// Process the check-in
 		const checkinResult = await childCheckinService.processCheckin(
@@ -1233,7 +1275,7 @@ function ChildCheckinContent({ organization, rooms }) {
 		openCamera,
 		closeCamera,
 		resetPhoto,
-		CameraComponent
+		CameraComponent,
 	} = useCamera();
 
 	// Define steps
@@ -1269,6 +1311,28 @@ function ChildCheckinContent({ organization, rooms }) {
 	// Get current step index
 	const currentStepIndex = getStepIndex(currentStep);
 
+	// Initialize phone from URL on component mount and persist changes
+	useEffect(() => {
+		// Initialize phone from URL param if available
+		const phoneParam = searchParams.get("phone");
+		if (phoneParam && phoneParam !== phone) {
+			setPhoneNumber(phoneParam);
+		}
+	}, [searchParams, phone]);
+
+	// Custom setPhoneNumber handler to update both state and URL
+	const updatePhoneNumber = (newPhone) => {
+		setPhoneNumber(newPhone);
+		// Always update URL params to persist phone across steps
+		const newParams = new URLSearchParams(searchParams);
+		if (newPhone) {
+			newParams.set("phone", newPhone);
+		} else {
+			newParams.delete("phone");
+		}
+		setSearchParams(newParams, { replace: true });
+	};
+
 	// Handle phone search
 	const handlePhoneSearch = (e) => {
 		e.preventDefault();
@@ -1279,7 +1343,7 @@ function ChildCheckinContent({ organization, rooms }) {
 				phone,
 				organizationId: orgId,
 			},
-			{ method: "post" }
+			{ method: "post" },
 		);
 	};
 
@@ -1294,7 +1358,7 @@ function ChildCheckinContent({ organization, rooms }) {
 				verificationCode,
 				organizationId: orgId,
 			},
-			{ method: "post" }
+			{ method: "post" },
 		);
 	};
 
@@ -1302,30 +1366,32 @@ function ChildCheckinContent({ organization, rooms }) {
 	const handleResendCode = () => {
 		fetcher.submit(
 			{
-				_action: "resendCode",
+				_action: ChildCheckinActions.VERIFY_PHONE,
 				phone,
 				organizationId: orgId,
 			},
-			{ method: "post" }
+			{ method: "post" },
 		);
 	};
 
 	// Handle start over
 	const handleStartOver = () => {
 		// Clear state
-		setPhoneNumber("");
+		updatePhoneNumber(""); // Use our custom updater to also update URL
 		setVerificationCode("");
 		setSelectedChildren([]);
-		// Navigate to phone step instead of manually updating search params
-		navigate(`/landing/${orgId}/childcheckin?step=phone`);
+		// Navigate to phone step with clean URL
+		navigate(`/landing/${orgId}/childcheckin?step=phone`, {
+			replace: true,
+		});
 	};
 
 	// Handle toggling child selection
 	const toggleChildSelection = (child) => {
-		const isSelected = selectedChildren.some(sc => sc.id === child.id);
+		const isSelected = selectedChildren.some((sc) => sc.id === child.id);
 
 		if (isSelected) {
-			setSelectedChildren(selectedChildren.filter(sc => sc.id !== child.id));
+			setSelectedChildren(selectedChildren.filter((sc) => sc.id !== child.id));
 		} else {
 			setSelectedChildren([...selectedChildren, child]);
 		}
@@ -1355,7 +1421,7 @@ function ChildCheckinContent({ organization, rooms }) {
 		const ageInMonths = getChildAgeInMonths(child.dateOfBirth);
 
 		// Filter rooms by age range
-		const eligibleRooms = availableRooms.filter(room => {
+		const eligibleRooms = availableRooms.filter((room) => {
 			return ageInMonths >= room.minAge && ageInMonths <= room.maxAge;
 		});
 
@@ -1389,7 +1455,7 @@ function ChildCheckinContent({ organization, rooms }) {
 		}
 
 		// Get room assignments for each child
-		const childrenWithRooms = selectedChildren.map(child => {
+		const childrenWithRooms = selectedChildren.map((child) => {
 			const room = findRoomForChild(child, rooms);
 			return {
 				childId: child.id,
@@ -1398,7 +1464,7 @@ function ChildCheckinContent({ organization, rooms }) {
 		});
 
 		// Check if any child doesn't have a room
-		const missingRooms = childrenWithRooms.filter(c => !c.roomId);
+		const missingRooms = childrenWithRooms.filter((c) => !c.roomId);
 		if (missingRooms.length > 0) {
 			toast.error("Some children don't have appropriate rooms available");
 			return;
@@ -1411,7 +1477,7 @@ function ChildCheckinContent({ organization, rooms }) {
 				guardianId: familyData.guardians[0].id,
 				organizationId: orgId,
 			},
-			{ method: "post" }
+			{ method: "post" },
 		);
 	};
 
@@ -1472,7 +1538,7 @@ function ChildCheckinContent({ organization, rooms }) {
 
 	// toggle debug panel
 	const toggleDebug = useCallback(() => {
-		setShowDebug(prev => !prev);
+		setShowDebug((prev) => !prev);
 	}, []);
 
 	// Render content based on current step
@@ -1521,7 +1587,7 @@ function ChildCheckinContent({ organization, rooms }) {
 				return (
 					<PhoneVerificationStep
 						phoneNumber={phone}
-						onPhoneNumberChange={setPhoneNumber}
+						onPhoneNumberChange={updatePhoneNumber}
 						onSubmit={handlePhoneSearch}
 						isLoading={fetcher.state !== "idle"}
 					/>
@@ -1592,14 +1658,20 @@ function ChildCheckinContent({ organization, rooms }) {
 			if (fetcher.data.success) {
 				if (fetcher.data.verified) {
 					// User exists and is verified - navigate instead of setting state
-					navigate(`/landing/${orgId}/childcheckin?step=select-child`, {
-						replace: true
-					});
+					navigate(
+						`/landing/${orgId}/childcheckin?step=select-child&phone=${encodeURIComponent(phone)}`,
+						{
+							replace: true,
+						},
+					);
 				} else {
 					// User exists but needs verification
-					navigate(`/landing/${orgId}/childcheckin?step=verify`, {
-						replace: true
-					});
+					navigate(
+						`/landing/${orgId}/childcheckin?step=verify&phone=${encodeURIComponent(phone)}`,
+						{
+							replace: true,
+						},
+					);
 				}
 			} else {
 				toast.error(fetcher.data.error || "Error searching for phone number");
@@ -1612,13 +1684,19 @@ function ChildCheckinContent({ organization, rooms }) {
 				if (fetcher.data.isNewUser) {
 					setIsNewUser(true);
 					setNewUserId(fetcher.data.userId);
-					navigate(`/landing/${orgId}/childcheckin?step=${ChildCheckinActions.UPDATE_USER_INFO}`, {
-						replace: true
-					});
+					navigate(
+						`/landing/${orgId}/childcheckin?step=${ChildCheckinActions.UPDATE_USER_INFO}&phone=${encodeURIComponent(phone)}`,
+						{
+							replace: true,
+						},
+					);
 				} else {
-					navigate(`/landing/${orgId}/childcheckin?step=select-child`, {
-						replace: true
-					});
+					navigate(
+						`/landing/${orgId}/childcheckin?step=select-child&phone=${encodeURIComponent(phone)}`,
+						{
+							replace: true,
+						},
+					);
 				}
 			} else {
 				toast.error(fetcher.data.error || "Invalid verification code");
@@ -1631,7 +1709,7 @@ function ChildCheckinContent({ organization, rooms }) {
 				setCheckedInChildren(selectedChildren);
 				setQrCodeUrl(fetcher.data.qrCodeUrl);
 				navigate(`/landing/${orgId}/childcheckin?step=confirmed`, {
-					replace: true
+					replace: true,
 				});
 				toast.success("Check-in successful!");
 			} else {
@@ -1650,7 +1728,10 @@ function ChildCheckinContent({ organization, rooms }) {
 		}
 
 		// Handle response from adding/updating a child
-		else if (fetcher.data._action === ChildCheckinActions.ADD_CHILD || fetcher.data._action === ChildCheckinActions.UPDATE_CHILD) {
+		else if (
+			fetcher.data._action === ChildCheckinActions.ADD_CHILD ||
+			fetcher.data._action === ChildCheckinActions.UPDATE_CHILD
+		) {
 			if (fetcher.data.success) {
 				// Hide the form
 				setShowAddChildForm(false);
@@ -1661,36 +1742,52 @@ function ChildCheckinContent({ organization, rooms }) {
 				toast.success(
 					fetcher.data._action === ChildCheckinActions.ADD_CHILD
 						? "Child added successfully"
-						: "Child updated successfully"
+						: "Child updated successfully",
 				);
 			} else {
 				toast.error(fetcher.data.error || "Error saving child information");
 			}
 		}
-	}, [fetcher.data, fetcher.state, orgId, navigate]);
+	}, [fetcher.data, fetcher.state, orgId, navigate, phone]);
 
 	// Update step based on loader data
 	useEffect(() => {
 		const currentStep = searchParams.get("step") || "phone";
+		const phoneParam = searchParams.get("phone") || "";
 
 		// Don't redirect if in certain steps
-		if (currentStep === 'success' ||
-			currentStep === 'edit-family' ||
+		if (
+			currentStep === "success" ||
+			currentStep === "edit-family" ||
 			showAddChildForm ||
-			childBeingEdited) {
+			childBeingEdited
+		) {
 			return;
 		}
 
 		// Only redirect if appropriate
 		if (loaderData?.familyData?.verified) {
 			// Avoid causing a navigation loop by checking current step
-			if (currentStep === 'phone' || currentStep === 'verify') {
-				navigate(`/landing/${orgId}/childcheckin?step=select-child`, {
-					replace: true
-				});
+			if (currentStep === "phone" || currentStep === "verify") {
+				const phoneQuery = phoneParam
+					? `&phone=${encodeURIComponent(phoneParam)}`
+					: "";
+				navigate(
+					`/landing/${orgId}/childcheckin?step=select-child${phoneQuery}`,
+					{
+						replace: true,
+					},
+				);
 			}
 		}
-	}, [loaderData?.familyData?.verified, searchParams, orgId, showAddChildForm, childBeingEdited, navigate]);
+	}, [
+		loaderData?.familyData?.verified,
+		searchParams,
+		orgId,
+		showAddChildForm,
+		childBeingEdited,
+		navigate,
+	]);
 
 	return (
 		<div className="container max-w-md mx-auto py-8 px-4">
@@ -1716,10 +1813,7 @@ function ChildCheckinContent({ organization, rooms }) {
 			{/* Show stepper only for the main flow */}
 			{!showEditFamily && !showAddChildForm && !childBeingEdited && (
 				<div className="mb-6">
-					<Stepper
-						steps={STEP_NAMES}
-						currentStep={currentStepIndex}
-					/>
+					<Stepper steps={STEP_NAMES} currentStep={currentStepIndex} />
 				</div>
 			)}
 
@@ -1731,13 +1825,34 @@ function ChildCheckinContent({ organization, rooms }) {
 					</CardHeader>
 					<CardContent className="py-2">
 						<div className="text-xs space-y-1 text-blue-700">
-							<p><span className="font-semibold">Current Step:</span> {currentStep}</p>
-							<p><span className="font-semibold">Step Index:</span> {currentStepIndex}</p>
-							<p><span className="font-semibold">Family Data:</span> {familyData ? "✅" : "❌"}</p>
-							<p><span className="font-semibold">Selected Children:</span> {selectedChildren.length}</p>
-							<p><span className="font-semibold">Add Child Form:</span> {showAddChildForm ? "✅" : "❌"}</p>
-							<p><span className="font-semibold">Child Being Edited:</span> {childBeingEdited ? "✅" : "❌"}</p>
-							<p><span className="font-semibold">Fetcher State:</span> {fetcher.state}</p>
+							<p>
+								<span className="font-semibold">Current Step:</span>{" "}
+								{currentStep}
+							</p>
+							<p>
+								<span className="font-semibold">Step Index:</span>{" "}
+								{currentStepIndex}
+							</p>
+							<p>
+								<span className="font-semibold">Family Data:</span>{" "}
+								{familyData ? "✅" : "❌"}
+							</p>
+							<p>
+								<span className="font-semibold">Selected Children:</span>{" "}
+								{selectedChildren.length}
+							</p>
+							<p>
+								<span className="font-semibold">Add Child Form:</span>{" "}
+								{showAddChildForm ? "✅" : "❌"}
+							</p>
+							<p>
+								<span className="font-semibold">Child Being Edited:</span>{" "}
+								{childBeingEdited ? "✅" : "❌"}
+							</p>
+							<p>
+								<span className="font-semibold">Fetcher State:</span>{" "}
+								{fetcher.state}
+							</p>
 						</div>
 
 						<div className="mt-2 pt-2 border-t border-blue-200">
@@ -1772,15 +1887,14 @@ function ChildCheckinContent({ organization, rooms }) {
 					<Card>
 						<CardContent className="pt-6">
 							<p className="text-center text-red-500 mb-4">
-								There was an issue displaying content for the current step: {currentStep}
+								There was an issue displaying content for the current step:{" "}
+								{currentStep}
 							</p>
 							<p className="text-sm text-muted-foreground mb-4">
-								This could be due to missing data or an unsupported step. You can try starting over.
+								This could be due to missing data or an unsupported step. You
+								can try starting over.
 							</p>
-							<Button
-								className="w-full"
-								onClick={handleStartOver}
-							>
+							<Button className="w-full" onClick={handleStartOver}>
 								Start Over
 							</Button>
 						</CardContent>
