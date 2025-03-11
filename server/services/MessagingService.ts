@@ -20,13 +20,14 @@ export interface MessageRecipient {
 		smsFrequency?: string;
 		phoneFrequency?: string;
 		notificationTypes?: string[];
+		preferredContactMethod?: "email" | "sms" | "phone";
 	};
 }
 
 // Interface for message data
 export interface MessageData {
 	churchOrganizationId: string;
-	messageType: "email" | "sms" | "phone";
+	messageType: "email" | "sms" | "phone" | "alert";
 	message: string;
 	subject?: string;
 	templateId?: string;
@@ -383,6 +384,37 @@ export const MessagingService = {
 
 			case "phone":
 				return this.makePhoneCall(data, enrichedRecipient, organization?.name);
+				
+			case "alert":
+				// For individual messages, redirect to sendAlert which will handle preferred methods
+				if (recipient.preferences && typeof recipient.preferences === 'object') {
+					// Cast the recipient to include the required preferences structure
+					const alertRecipient = recipient as MessageRecipient & {
+						preferences: {
+							emailNotifications: boolean;
+							smsNotifications: boolean;
+							phoneNotifications: boolean;
+							preferredContactMethod?: "email" | "sms" | "phone";
+						}
+					};
+					
+					const alertResult = await this.sendAlert(data, alertRecipient);
+					
+					// Return the first result, or a default error if no results
+					if (alertResult.results.length > 0) {
+						return alertResult.results[0];
+					} else {
+						return {
+							success: false,
+							status: "Alert failed - no communication methods available",
+						};
+					}
+				} else {
+					return {
+						success: false,
+						status: "Cannot send alert - recipient is missing required preference data",
+					};
+				}
 
 			default:
 				throw new Error(`Unsupported message type: ${data.messageType}`);
@@ -411,33 +443,80 @@ export const MessagingService = {
 			reason: string;
 		}> = [];
 
-		for (const recipient of recipients) {
-			// Validate if we can send this type of message to this recipient
-			const validationResult = await this.canSendMessageToUser(
-				data.messageType,
-				recipient,
-			);
+		const isAlert = data.messageType === 'alert';
 
-			if (!validationResult.isAllowed) {
+		for (const recipient of recipients) {
+			// Skip processing if this is an alert but recipient lacks required preferences structure
+			if (isAlert && (!recipient.preferences || typeof recipient.preferences !== 'object')) {
 				console.log(
-					`Skipping message to ${recipient.email || recipient.phone}: ${validationResult.reason}`,
+					`Skipping alert to ${recipient.email || recipient.phone}: Missing preferences data`,
 				);
 				skipped++;
 				skippedRecipients.push({
 					recipient,
-					reason: validationResult.reason || "Unknown reason",
+					reason: "Missing preferences data required for alert",
 				});
 				continue;
 			}
 
-			// Send the message if validation passed
-			const result = await this.sendMessage(data, recipient);
-			results.push(result);
-
-			if (result.success) {
-				success++;
+			if (isAlert) {
+				// Handle alert message - this uses preferred communication method
+				try {
+					// Cast the recipient to include the required preferences structure for alerts
+					const alertRecipient = recipient as MessageRecipient & {
+						preferences: {
+							emailNotifications: boolean;
+							smsNotifications: boolean;
+							phoneNotifications: boolean;
+							preferredContactMethod?: "email" | "sms" | "phone";
+						}
+					};
+					
+					// Send alert through the sendAlert method
+					const alertResult = await this.sendAlert(data, alertRecipient);
+					
+					// Process results
+					results.push(...alertResult.results);
+					success += alertResult.summary.success;
+					failed += alertResult.summary.failed;
+				} catch (error) {
+					console.error(`Error sending alert to ${recipient.email || recipient.phone}:`, error);
+					failed++;
+					results.push({
+						success: false,
+						status: "Error sending alert",
+						error,
+					});
+				}
 			} else {
-				failed++;
+				// Handle regular (non-alert) message types
+				// Validate if we can send this type of message to this recipient
+				const validationResult = await this.canSendMessageToUser(
+					data.messageType,
+					recipient,
+				);
+
+				if (!validationResult.isAllowed) {
+					console.log(
+						`Skipping message to ${recipient.email || recipient.phone}: ${validationResult.reason}`,
+					);
+					skipped++;
+					skippedRecipients.push({
+						recipient,
+						reason: validationResult.reason || "Unknown reason",
+					});
+					continue;
+				}
+
+				// Send the message if validation passed
+				const result = await this.sendMessage(data, recipient);
+				results.push(result);
+
+				if (result.success) {
+					success++;
+				} else {
+					failed++;
+				}
 			}
 		}
 
@@ -464,6 +543,7 @@ export const MessagingService = {
 				emailNotifications: boolean;
 				smsNotifications: boolean;
 				phoneNotifications: boolean;
+				preferredCommunicationMethod?: "email" | "sms" | "phone";
 			};
 		},
 	): Promise<{
@@ -481,11 +561,68 @@ export const MessagingService = {
 			.where(eq(churchOrganization.id, data.churchOrganizationId))
 			.then((res) => res[0]);
 
+		console.log("enrichedRecipient", recipient);
 		// Enrich recipient data if needed
 		const enrichedRecipient = await this.enrichRecipientData(recipient);
-
-		// Send via each enabled channel according to preferences
-		if (recipient.preferences.emailNotifications) {
+		// Check if the user has a preferred contact method
+		const preferredMethod = recipient.preferences.preferredCommunicationMethod;
+		console.log("preferredMethod", preferredMethod);
+		// If a preferred method is specified, ONLY use that method
+		if (preferredMethod) {
+			let result: MessageResult | null = null;
+			
+			if (preferredMethod === "email" && recipient.preferences.emailNotifications && recipient.email) {
+				result = await this.sendEmail(
+					{
+						...data,
+						messageType: "email",
+						subject: data.subject || "Alert: Important Message",
+					},
+					enrichedRecipient,
+					organization?.name,
+				);
+			} else if (preferredMethod === "sms" && recipient.preferences.smsNotifications && recipient.phone) {
+				result = await this.sendSMS(
+					{
+						...data,
+						messageType: "sms",
+					},
+					enrichedRecipient,
+					organization?.name,
+				);
+			} else if (preferredMethod === "phone" && recipient.preferences.phoneNotifications && recipient.phone) {
+				result = await this.makePhoneCall(
+					{
+						...data,
+						messageType: "phone",
+					},
+					enrichedRecipient,
+					organization?.name,
+				);
+			}
+			
+			// If we have a result, add it to results
+			if (result) {
+				results.push(result);
+				if (result.success) success++;
+				else failed++;
+			}
+			
+			// Return results - we don't try other methods when preferred is specified
+			return {
+				results,
+				summary: {
+					success,
+					failed,
+				},
+			};
+		}
+		
+		// No preferred method specified, fall back to sending via all enabled channels
+		// Only reach here if user has no preferred method set
+		
+		// Send via email if enabled
+		if (recipient.preferences.emailNotifications && recipient.email) {
 			const emailResult = await this.sendEmail(
 				{
 					...data,
@@ -501,7 +638,8 @@ export const MessagingService = {
 			else failed++;
 		}
 
-		if (recipient.preferences.smsNotifications) {
+		// Send via SMS if enabled
+		if (recipient.preferences.smsNotifications && recipient.phone) {
 			const smsResult = await this.sendSMS(
 				{
 					...data,
@@ -516,7 +654,8 @@ export const MessagingService = {
 			else failed++;
 		}
 
-		if (recipient.preferences.phoneNotifications) {
+		// Send via phone call if enabled
+		if (recipient.preferences.phoneNotifications && recipient.phone) {
 			const phoneResult = await this.makePhoneCall(
 				{
 					...data,

@@ -53,14 +53,15 @@ export const action = createAuthLoader(
 			const formData = await request.formData();
 
 			const userPreferencesData = {
-				emailNotifications: formData.get("preferEmail"),
-				smsNotifications: formData.get("preferText"),
-				phoneNotifications: formData.get("preferCall"),
-			} as typeof userPreferences;
+				emailNotifications: formData.get("preferEmail") === "on",
+				smsNotifications: formData.get("preferText") === "on",
+				phoneNotifications: formData.get("preferCall") === "on",
+				preferredCommunicationMethod: formData.get("preferredCommunicationMethod")?.toString() || "email",
+			};
 
 			const userPreferencesResponse = await updateUserPreferences(
 				params.memberId,
-				userPreferencesData,
+				userPreferencesData as unknown as typeof userPreferences,
 			);
 
 			const user = {

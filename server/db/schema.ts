@@ -172,6 +172,7 @@ export const userPreferences = pgTable("user_preferences", {
 	emailNotifications: boolean("email_notifications").default(true).notNull(),
 	smsNotifications: boolean("sms_notifications").default(false).notNull(),
 	phoneNotifications: boolean("phone_notifications").default(false).notNull(),
+	preferredCommunicationMethod: text("preferred_communication_method").default("email").notNull(), // email, sms, phone
 	emailFrequency: text("email_frequency").default("daily").notNull(), // daily, weekly, monthly
 	smsFrequency: text("sms_frequency").default("daily").notNull(),
 	phoneFrequency: text("phone_frequency").default("weekly").notNull(),

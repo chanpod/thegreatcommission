@@ -590,7 +590,6 @@ function RenameSessionDialog({
 					<div className="grid gap-4 py-4">
 						<div className="flex flex-col gap-4">
 							<div>
-
 								<Label htmlFor="name" className="text-right">
 									Name
 								</Label>
@@ -603,7 +602,6 @@ function RenameSessionDialog({
 								/>
 							</div>
 							<div className="flex  gap-4">
-
 								<div className="">
 									<Label htmlFor="minAge" className="text-right">
 										Min Age (months)
@@ -622,7 +620,6 @@ function RenameSessionDialog({
 									<Label htmlFor="maxAge" className="text-right">
 										Max Age (months)
 									</Label>
-
 									<Input
 										id="maxAge"
 										type="number"
@@ -661,6 +658,9 @@ export default function ChildCheckin() {
 	const [activeTab, setActiveTab] = useState("room");
 	const [checkinComplete, setCheckinComplete] = useState(false);
 	const [qrCodeUrl, setQrCodeUrl] = useState("");
+
+	// State for create room dialog
+	const [isCreateRoomDialogOpen, setIsCreateRoomDialogOpen] = useState(false);
 
 	// State for child info
 	const [childInfo, setChildInfo] = useState({
@@ -1097,878 +1097,645 @@ export default function ChildCheckin() {
 	};
 
 	return (
-		<div className="container mx-auto py-8">
-			<div className="flex justify-between items-center mb-6">
-				<h1 className="text-3xl font-bold">Child Check-in</h1>
-				<Button
-					variant="outline"
-					onClick={() =>
-						navigate(`/churches/${organization}/childcheckin/list`)
-					}
-				>
-					View Checked-in Children
-				</Button>
+		<div className="container px-4 py-6 mx-auto">
+			<h1 className="text-2xl font-bold mb-4">Child Check-in Dashboard</h1>
+
+			{/* Main Action Cards */}
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+				<div className="border rounded-lg p-4 flex flex-col h-full">
+					<h2 className="text-lg font-semibold mb-2">Start Check-in</h2>
+					<p className="text-sm text-muted-foreground mb-4 flex-grow">
+						Check in a child to an active room
+					</p>
+					<div className="space-y-2">
+
+						<Button
+							variant="outline"
+							className="w-full"
+							onClick={() => {
+								setChildInfo({
+									firstName: "",
+									lastName: "",
+									dateOfBirth: "",
+									allergies: "",
+									specialNotes: "",
+									photoUrl: "",
+								});
+								setGuardianInfo({
+									firstName: "",
+									lastName: "",
+									phone: "",
+									email: "",
+									photoUrl: "",
+								});
+								setCheckinComplete(false);
+
+								if (rooms.length === 0) {
+									setIsCreateRoomDialogOpen(true);
+								} else if (rooms.length === 1) {
+									setActiveRoom(rooms[0]);
+									setActiveTab("child");
+								} else {
+									setActiveTab("room");
+								}
+							}}
+						>
+							New Child Check-in
+						</Button>
+						<Button
+							className="w-full"
+							onClick={() => setActiveTab("quick")}
+						>
+							Quick Family Check-in
+						</Button>
+					</div>
+				</div>
+
+				<div className="border rounded-lg p-4 flex flex-col h-full">
+					<h2 className="text-lg font-semibold mb-2">Room Management</h2>
+					<p className="text-sm text-muted-foreground mb-4 flex-grow">
+						Manage check-in rooms and view capacity
+					</p>
+					<div className="space-y-2">
+						<Button
+							variant="outline"
+							className="w-full"
+							onClick={() => setActiveTab("room")}
+						>
+							Manage Rooms
+						</Button>
+						<Button
+							className="w-full"
+							onClick={() => setIsCreateRoomDialogOpen(true)}
+						>
+							Create New Room
+						</Button>
+					</div>
+				</div>
+
+				<div className="border rounded-lg p-4 flex flex-col h-full">
+					<h2 className="text-lg font-semibold mb-2">Children</h2>
+					<p className="text-sm text-muted-foreground mb-4 flex-grow">
+						View and manage checked-in children
+					</p>
+					<div className="space-y-2">
+						<Button
+							className="w-full"
+							onClick={() => navigate(`/churches/${organization}/childcheckin/list`)}
+						>
+							View Checked-in Children
+						</Button>
+					</div>
+				</div>
 			</div>
 
-			<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-				<TabsList className="grid w-full grid-cols-5">
-					<TabsTrigger value="room">Room</TabsTrigger>
-					<TabsTrigger value="quick">Quick Check-in</TabsTrigger>
-					<TabsTrigger value="child" disabled={!activeRoom}>
-						Child Info
-					</TabsTrigger>
-					<TabsTrigger value="guardian" disabled={!childInfo.firstName}>
-						Guardian Info
-					</TabsTrigger>
-					<TabsTrigger value="complete" disabled={!checkinComplete}>
-						Complete
-					</TabsTrigger>
-				</TabsList>
 
-				<TabsContent value="room">
-					<Card>
-						<CardHeader>
-							<CardTitle>Check-in Room</CardTitle>
-							<CardDescription>
-								Create a new check-in room or select an existing one.
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<fetcher.Form onSubmit={handleCreateRoom} className="space-y-4">
-								<div className="space-y-2">
-									<Label htmlFor="roomName">Room Name</Label>
-									<Input
-										id="roomName"
-										name="roomName"
-										placeholder="e.g., Nursery, Toddlers, Elementary"
-										required
-									/>
-								</div>
-								<div className="grid grid-cols-2 gap-4">
-									<div className="space-y-2">
-										<Label htmlFor="minAge">Minimum Age (months)</Label>
-										<Input
-											id="minAge"
-											name="minAge"
-											type="number"
-											placeholder="e.g., 0"
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="maxAge">Maximum Age (months)</Label>
-										<Input
-											id="maxAge"
-											name="maxAge"
-											type="number"
-											placeholder="e.g., 24"
-										/>
-									</div>
-								</div>
-								<Button type="submit">Create Room</Button>
-							</fetcher.Form>
 
-							{rooms?.length > 0 && (
-								<div className="mt-6">
-									<div className="flex items-center mb-2 justify-between">
-										<h3 className="text-lg font-medium">Active Rooms</h3>
-										{rooms.some((r) => r.activeCount > 0) && (
-											<div className="text-sm text-muted-foreground">
-												<Badge variant="secondary">
-													{rooms.reduce(
-														(total, room) => total + room.activeCount,
-														0,
-													)}
-												</Badge>{" "}
-												total children checked in
+			{/* Check-in Flow Screens */}
+			{activeTab !== "room" && (
+				<div className="border-t pt-4 mt-4">
+					<div className="flex mb-4 space-x-2">
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => setActiveTab("room")}
+							className="text-muted-foreground"
+						>
+							← Back to Dashboard
+						</Button>
+					</div>
+
+					{activeTab === "quick" && (
+						<div>
+							<h2 className="text-xl font-semibold mb-2">Quick Family Check-in</h2>
+							<p className="text-muted-foreground text-sm mb-4">
+								Look up a family by phone number for quick check-in.
+							</p>
+
+							{!familyData ? (
+								<div className="space-y-4">
+									<fetcher.Form
+										onSubmit={handleSearchFamily}
+										className="space-y-2"
+									>
+										<div className="space-y-1">
+											<Label htmlFor="phoneNumber">Phone Number</Label>
+											<div className="flex gap-2">
+												<Input
+													id="phoneNumber"
+													name="phoneNumber"
+													type="tel"
+													placeholder="(555) 555-5555"
+													value={phoneNumber}
+													onChange={handlePhoneNumberChange}
+													required
+													className="flex-1"
+												/>
+												<Button
+													type="submit"
+													disabled={isSearchingFamily}
+												>
+													{isSearchingFamily ? "..." : "Search"}
+												</Button>
+											</div>
+										</div>
+									</fetcher.Form>
+								</div>
+							) : (
+								<div className="space-y-4">
+									<div>
+										<h3 className="text-lg font-medium mb-2">
+											Family Information
+										</h3>
+										<div className="p-4 border rounded-md">
+											<p className="font-medium">{familyData.family.name}</p>
+											<div className="mt-2">
+												<p className="text-sm text-muted-foreground">
+													Guardians:
+												</p>
+												<ul className="mt-1 space-y-1">
+													{familyData.guardians.map((guardian) => (
+														<li key={guardian.id} className="text-sm overflow-hidden text-ellipsis">
+															{guardian.firstName} {guardian.lastName}
+															{guardian.phone && ` - ${guardian.phone}`}
+														</li>
+													))}
+												</ul>
+											</div>
+										</div>
+									</div>
+
+									<div>
+										<div className="flex justify-between items-center mb-2">
+											<h3 className="text-lg font-medium">Children</h3>
+											<p className="text-sm text-muted-foreground">
+												Select children to check in
+											</p>
+										</div>
+
+										{familyData.children.length === 0 ? (
+											<div className="p-4 border rounded-md text-center">
+												<p className="text-muted-foreground">
+													No children found for this family
+												</p>
+											</div>
+										) : (
+											<div className="space-y-2">
+												{familyData.children.map((child) => (
+													<div
+														key={child.id}
+														className={`p-4 border rounded-md flex justify-between items-center cursor-pointer ${selectedChildren.includes(child.id)
+															? "border-primary bg-primary/5"
+															: ""
+															}`}
+														onClick={() => handleChildSelection(child.id)}
+													>
+														<div>
+															<p className="font-medium">
+																{child.firstName} {child.lastName}
+															</p>
+															{child.dateOfBirth && (
+																<p className="text-sm text-muted-foreground">
+																	{new Date(
+																		child.dateOfBirth,
+																	).toLocaleDateString()}
+																</p>
+															)}
+															{child.allergies && (
+																<p className="text-sm text-red-500">
+																	Allergies: {child.allergies}
+																</p>
+															)}
+														</div>
+														<Checkbox
+															checked={selectedChildren.includes(child.id)}
+															onCheckedChange={() =>
+																handleChildSelection(child.id)
+															}
+														/>
+													</div>
+												))}
 											</div>
 										)}
 									</div>
-									<div className="space-y-2">
-										{rooms.map((room) => (
-											<div
-												key={room.id}
-												className={`p-4 border rounded-lg ${activeRoom?.id === room.id
-													? "border-primary bg-primary/5"
-													: ""
-													}`}
-											>
-												<div className="flex justify-between items-center">
-													<div>
-														<div className="font-medium">{room.name}</div>
-														<div className="text-sm text-muted-foreground">
-															{room.minAge !== null && room.maxAge !== null ? (
-																<span>
-																	Ages: {formatAge(room.minAge)}-{formatAge(room.maxAge)}
-																</span>
-															) : room.minAge !== null ? (
-																<span>Ages: {room.minAge}+ months</span>
-															) : room.maxAge !== null ? (
-																<span>Ages: Up to {room.maxAge} months</span>
-															) : (
-																<span>All ages</span>
-															)}
-														</div>
-														<div className="text-sm text-muted-foreground">
-															Started:{" "}
-															{new Date(room.startTime).toLocaleTimeString()}
-														</div>
-														{room.activeCount > 0 && (
-															<div className="mt-1">
-																<Badge>
-																	{room.activeCount} children checked in
-																</Badge>
+
+									{rooms.length > 0 ? (
+										<div>
+											<h3 className="text-lg font-medium mb-2">Select Room</h3>
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+												{rooms.map((room) => (
+													<div
+														key={room.id}
+														className={`p-3 border rounded-lg cursor-pointer ${activeRoom?.id === room.id
+															? "border-primary bg-primary/5"
+															: ""
+															}`}
+														onClick={() => handleSelectRoom(room)}
+													>
+														<div className="flex justify-between">
+															<div>
+																<div className="font-medium">{room.name}</div>
+																{(room.minAge !== null || room.maxAge !== null) && (
+																	<p className="text-sm text-muted-foreground">
+																		Age:{" "}
+																		{room.minAge !== null && room.maxAge !== null
+																			? `${room.minAge}-${room.maxAge} months`
+																			: room.minAge !== null
+																				? `${room.minAge}+ months`
+																				: `Up to ${room.maxAge} months`}
+																	</p>
+																)}
 															</div>
-														)}
+															<div>
+																<Badge>{room.activeCount}</Badge>
+															</div>
+														</div>
 													</div>
-													<div className="flex space-x-2">
-														<Button
-															variant="outline"
-															size="sm"
-															onClick={() => handleOpenRenameDialog(room)}
-														>
-															Edit
-														</Button>
-													</div>
-												</div>
+												))}
 											</div>
-										))}
-									</div>
+										</div>
+									) : (
+										<div className="p-4 border rounded-md text-center">
+											<p className="text-muted-foreground mb-2">
+												No rooms available. Create a room to check in children.
+											</p>
+											<Button onClick={() => setIsCreateRoomDialogOpen(true)}>
+												Create Room
+											</Button>
+										</div>
+									)}
+
+									{activeRoom && selectedChildren.length > 0 && (
+										<div className="mt-4">
+											<Button
+												onClick={handleFamilyCheckin}
+												disabled={selectedChildren.length === 0 || !activeRoom}
+												className="w-full"
+											>
+												Check in {selectedChildren.length} Child
+												{selectedChildren.length !== 1 ? "ren" : ""} to {activeRoom.name}
+											</Button>
+										</div>
+									)}
 								</div>
 							)}
-						</CardContent>
-						<CardFooter>
-							<div className="w-full flex flex-col gap-2">
-								{activeRoom && (
-									<div className="text-sm text-muted-foreground">
-										Selected room:{" "}
-										<span className="font-medium">{activeRoom.name}</span>
-										<span className="text-xs">
-											{" "}
-											(will override auto-assignment)
-										</span>
-									</div>
-								)}
-								<Button onClick={() => setActiveTab("child")} variant="default">
-									Next: Child Information
-								</Button>
-							</div>
-						</CardFooter>
-					</Card>
-				</TabsContent>
+						</div>
+					)}
 
-				<TabsContent value="quick">
-					<Card>
-						<CardHeader>
-							<CardTitle>Quick Check-in</CardTitle>
-							<CardDescription>
-								Enter a phone number to find a family and check in their
-								children
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
+					{activeTab === "child" && (
+						<div>
+							<h2 className="text-xl font-semibold mb-2">Child Information</h2>
+							<p className="text-muted-foreground text-sm mb-4">
+								Enter the child's details and take a photo.
+							</p>
+
 							<div className="space-y-6">
-								<div>
-									<form
-										onSubmit={handleSearchFamily}
-										className="flex space-x-2"
-									>
-										<div className="flex-1">
-											<Label htmlFor="phoneNumber">Phone Number</Label>
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+									<div className="space-y-4">
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+											<div className="space-y-2">
+												<Label htmlFor="firstName">First Name</Label>
+												<Input
+													id="firstName"
+													name="firstName"
+													value={childInfo.firstName}
+													onChange={handleChildInfoChange}
+													required
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label htmlFor="lastName">Last Name</Label>
+												<Input
+													id="lastName"
+													name="lastName"
+													value={childInfo.lastName}
+													onChange={handleChildInfoChange}
+													required
+												/>
+											</div>
+										</div>
+										<div className="space-y-2">
+											<Label htmlFor="dateOfBirth">Date of Birth</Label>
 											<Input
-												id="phoneNumber"
-												placeholder="Enter phone number"
-												value={phoneNumber}
-												onChange={handlePhoneNumberChange}
-												type="tel"
+												id="dateOfBirth"
+												name="dateOfBirth"
+												type="date"
+												value={childInfo.dateOfBirth}
+												onChange={handleChildInfoChange}
 												required
 											/>
 										</div>
-										<Button
-											type="submit"
-											className="mt-5"
-											disabled={isSearchingFamily}
-										>
-											{isSearchingFamily ? "Searching..." : "Find Family"}
-										</Button>
-									</form>
+										<div className="space-y-2">
+											<Label htmlFor="allergies">Allergies</Label>
+											<Input
+												id="allergies"
+												name="allergies"
+												value={childInfo.allergies}
+												onChange={handleChildInfoChange}
+												placeholder="e.g., Peanuts, Dairy"
+											/>
+										</div>
+										<div className="space-y-2">
+											<Label htmlFor="specialNotes">Special Notes</Label>
+											<Textarea
+												id="specialNotes"
+												name="specialNotes"
+												value={childInfo.specialNotes}
+												onChange={handleChildInfoChange}
+												placeholder="Any special instructions or needs"
+											/>
+										</div>
+									</div>
 								</div>
 
-								{familyData && (
-									<div className="space-y-6">
-										<div>
-											<h3 className="text-lg font-medium mb-2">
-												Family Information
-											</h3>
-											<div className="p-4 border rounded-md">
-												<p className="font-medium">{familyData.family.name}</p>
-												<div className="mt-2">
-													<p className="text-sm text-muted-foreground">
-														Guardians:
-													</p>
-													<ul className="mt-1 space-y-1">
-														{familyData.guardians.map((guardian) => (
-															<li key={guardian.id} className="text-sm">
-																{guardian.firstName} {guardian.lastName}
-																{guardian.phone && ` - ${guardian.phone}`}
-															</li>
-														))}
-													</ul>
-												</div>
-											</div>
-										</div>
-
-										<div>
-											<div className="flex justify-between items-center mb-2">
-												<h3 className="text-lg font-medium">Children</h3>
-												<p className="text-sm text-muted-foreground">
-													Select children to check in
-												</p>
-											</div>
-
-											{familyData.children.length === 0 ? (
-												<div className="p-4 border rounded-md text-center">
-													<p className="text-muted-foreground">
-														No children found for this family
-													</p>
-												</div>
-											) : (
-												<div className="space-y-2">
-													{familyData.children.map((child) => (
-														<div
-															key={child.id}
-															className={`p-4 border rounded-md flex justify-between items-center cursor-pointer ${selectedChildren.includes(child.id)
-																? "border-primary bg-primary/5"
-																: ""
-																}`}
-															onClick={() => handleChildSelection(child.id)}
-														>
-															<div>
-																<p className="font-medium">
-																	{child.firstName} {child.lastName}
-																</p>
-																{child.dateOfBirth && (
-																	<p className="text-sm text-muted-foreground">
-																		{new Date(
-																			child.dateOfBirth,
-																		).toLocaleDateString()}
-																	</p>
-																)}
-																{child.allergies && (
-																	<p className="text-sm text-red-500">
-																		Allergies: {child.allergies}
-																	</p>
-																)}
-															</div>
-															<Checkbox
-																checked={selectedChildren.includes(child.id)}
-																onCheckedChange={() =>
-																	handleChildSelection(child.id)
-																}
-															/>
-														</div>
-													))}
-												</div>
-											)}
-										</div>
-
-										{activeRoom && (
-											<div className="p-4 border rounded-md">
-												<h3 className="font-medium mb-2">Selected Room</h3>
-												<div className="text-sm">
-													<p>
-														<span className="font-medium">Room:</span>{" "}
-														{activeRoom.name}
-													</p>
-													{(activeRoom.minAge !== null ||
-														activeRoom.maxAge !== null) && (
-															<p>
-																<span className="font-medium">Age Range:</span>{" "}
-																{activeRoom.minAge !== null &&
-																	activeRoom.maxAge !== null
-																	? `${activeRoom.minAge}-${activeRoom.maxAge} months`
-																	: activeRoom.minAge !== null
-																		? `${activeRoom.minAge}+ months`
-																		: `Up to ${activeRoom.maxAge} months`}
-															</p>
-														)}
-												</div>
-												<p className="text-xs text-muted-foreground mt-2">
-													This room will be used for all selected children
-													(overrides auto-assignment)
-												</p>
-											</div>
-										)}
-
-										<Button
-											onClick={handleFamilyCheckin}
-											disabled={
-												selectedChildren.length === 0 ||
-												fetcher.state === "submitting"
+								<div className="flex justify-between mt-6">
+									<Button variant="outline" onClick={() => setActiveTab("room")}>
+										Cancel
+									</Button>
+									<Button
+										onClick={() => {
+											if (
+												childInfo.firstName &&
+												childInfo.lastName &&
+												childInfo.dateOfBirth
+											) {
+												setActiveTab("guardian");
+											} else if (!childInfo.dateOfBirth) {
+												toast.error("Please enter the child's date of birth.");
+											} else {
+												toast.error(
+													"Please enter the child's first and last name.",
+												);
 											}
-											className="w-full"
-										>
-											{fetcher.state === "submitting" &&
-												fetcher.formData?.get("_action") === "familyCheckin"
-												? "Checking In..."
-												: "Check In Selected Children"}
-										</Button>
+										}}
+									>
+										Next: Guardian Information
+									</Button>
+								</div>
+							</div>
+						</div>
+					)}
+
+					{activeTab === "guardian" && (
+						<div>
+							<h2 className="text-xl font-semibold mb-2">Guardian Information</h2>
+							<p className="text-muted-foreground text-sm mb-4">
+								Enter the guardian's details and take a photo.
+							</p>
+
+							<div className="space-y-6">
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+									<div className="space-y-4">
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+											<div className="space-y-2">
+												<Label htmlFor="guardianFirstName">First Name</Label>
+												<Input
+													id="guardianFirstName"
+													name="firstName"
+													value={guardianInfo.firstName}
+													onChange={handleGuardianInfoChange}
+													required
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label htmlFor="guardianLastName">Last Name</Label>
+												<Input
+													id="guardianLastName"
+													name="lastName"
+													value={guardianInfo.lastName}
+													onChange={handleGuardianInfoChange}
+													required
+												/>
+											</div>
+										</div>
+										<div className="space-y-2">
+											<Label htmlFor="guardianPhone">Phone Number</Label>
+											<Input
+												id="guardianPhone"
+												name="phone"
+												type="tel"
+												value={guardianInfo.phone}
+												onChange={handleGuardianInfoChange}
+												placeholder="(555) 555-5555"
+											/>
+										</div>
+										<div className="space-y-2">
+											<Label htmlFor="guardianEmail">Email</Label>
+											<Input
+												id="guardianEmail"
+												name="email"
+												type="email"
+												value={guardianInfo.email}
+												onChange={handleGuardianInfoChange}
+												placeholder="guardian@example.com"
+											/>
+										</div>
+									</div>
+								</div>
+
+								<div className="flex justify-between mt-6">
+									<Button variant="outline" onClick={() => setActiveTab("child")}>
+										Back
+									</Button>
+									<Button onClick={handleCompleteCheckin}>
+										Complete Check-in
+									</Button>
+								</div>
+							</div>
+						</div>
+					)}
+
+					{activeTab === "complete" && (
+						<div>
+							<h2 className="text-xl font-semibold mb-2">Check-in Complete</h2>
+							<p className="text-muted-foreground text-sm mb-4">
+								Child has been checked in successfully.
+							</p>
+
+							<div className="space-y-6">
+								<div className="text-center mb-6">
+									<h3 className="text-xl font-medium mb-2">
+										Thank you for checking in!
+									</h3>
+									<p className="text-muted-foreground">
+										Please show this QR code to the attendant when picking up your
+										child.
+									</p>
+								</div>
+								{qrCodeUrl && (
+									<div className="my-6 max-w-xs mx-auto">
+										<img
+											src={qrCodeUrl}
+											alt="Check-in QR Code"
+											className="w-full h-auto"
+										/>
 									</div>
 								)}
-							</div>
-						</CardContent>
-					</Card>
-				</TabsContent>
 
-				<TabsContent value="child">
-					<Card>
-						<CardHeader>
-							<CardTitle>Child Information</CardTitle>
-							<CardDescription>
-								Enter the child's details and take a photo.
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-								<div className="space-y-4">
-									<div className="space-y-2">
-										<Label htmlFor="firstName">First Name</Label>
-										<Input
-											id="firstName"
-											name="firstName"
-											value={childInfo.firstName}
-											onChange={handleChildInfoChange}
-											required
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="lastName">Last Name</Label>
-										<Input
-											id="lastName"
-											name="lastName"
-											value={childInfo.lastName}
-											onChange={handleChildInfoChange}
-											required
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="dateOfBirth">Date of Birth</Label>
-										<Input
-											id="dateOfBirth"
-											name="dateOfBirth"
-											type="date"
-											value={childInfo.dateOfBirth}
-											onChange={handleChildInfoChange}
-											required
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="allergies">Allergies</Label>
-										<Input
-											id="allergies"
-											name="allergies"
-											value={childInfo.allergies}
-											onChange={handleChildInfoChange}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="specialNotes">Special Notes</Label>
-										<Textarea
-											id="specialNotes"
-											name="specialNotes"
-											value={childInfo.specialNotes}
-											onChange={handleChildInfoChange}
-											rows={3}
-										/>
-									</div>
+								<div className="flex flex-col sm:flex-row gap-3 justify-center">
+									<Button
+										variant="outline"
+										onClick={() => {
+											setActiveTab("room");
+											setChildInfo({
+												firstName: "",
+												lastName: "",
+												dateOfBirth: "",
+												allergies: "",
+												specialNotes: "",
+												photoUrl: "",
+											});
+											setGuardianInfo({
+												firstName: "",
+												lastName: "",
+												phone: "",
+												email: "",
+												photoUrl: "",
+											});
+											setCheckinComplete(false);
+										}}
+									>
+										Back to Dashboard
+									</Button>
+									<Button
+										onClick={() => navigate(`/churches/${organization}/childcheckin/list`)}
+									>
+										View All Checked-in Children
+									</Button>
 								</div>
-								<div className="space-y-4">
-									<div className="space-y-2">
-										<Label>Child's Photo (Optional)</Label>
-										<div className="flex flex-col items-center justify-center border rounded-lg p-4 h-64">
-											{childPhoto ? (
-												<div className="relative w-full h-full">
-													<img
-														src={childPhoto}
-														alt="Child"
-														className="w-full h-full object-cover rounded-lg"
-													/>
-													<Button
-														variant="destructive"
-														size="sm"
-														className="absolute top-2 right-2"
-														onClick={() => {
-															setChildPhoto(null);
-															setChildInfo({
-																...childInfo,
-																photoUrl: "",
-															});
-														}}
-													>
-														Remove
-													</Button>
-												</div>
-											) : (
-												<div className="flex flex-col items-center justify-center h-full">
-													<Button variant="outline" onClick={captureChildPhoto}>
-														Take Photo
-													</Button>
-													<p className="text-sm text-muted-foreground mt-2">
-														Or drag and drop an image here
+							</div>
+						</div>
+					)}
+				</div>
+			)}
+
+			{/* Room Management Tab - only visible when selected */}
+			{activeTab === "room" && (
+				<div className="border-t pt-4 mt-4">
+					<div className="mb-4">
+						<h2 className="text-xl font-semibold mb-2">Room Management</h2>
+						<p className="text-muted-foreground text-sm mb-4">
+							Manage your check-in rooms
+						</p>
+
+						{rooms.length > 0 ? (
+							<div className="space-y-2">
+								{rooms.map((room) => (
+									<div
+										key={room.id}
+										className="p-3 border rounded-lg"
+									>
+										<div className="flex justify-between">
+											<div>
+												<div className="font-medium">{room.name}</div>
+												{(room.minAge !== null || room.maxAge !== null) && (
+													<p className="text-sm text-muted-foreground">
+														Age:{" "}
+														{room.minAge !== null && room.maxAge !== null
+															? `${room.minAge}-${room.maxAge} months`
+															: room.minAge !== null
+																? `${room.minAge}+ months`
+																: `Up to ${room.maxAge} months`}
 													</p>
-												</div>
-											)}
-										</div>
-									</div>
-									{activeRoom && (
-										<div className="p-4 border rounded-lg mt-4">
-											<h3 className="font-medium mb-2">Selected Room</h3>
-											<div className="text-sm">
-												<p>
-													<span className="font-medium">Room:</span>{" "}
-													{activeRoom.name}
+												)}
+												<p className="text-sm text-muted-foreground">
+													Children checked in: {room.activeCount}
 												</p>
-												{(activeRoom.minAge !== null ||
-													activeRoom.maxAge !== null) && (
-														<p>
-															<span className="font-medium">Age Range:</span>{" "}
-															{activeRoom.minAge !== null &&
-																activeRoom.maxAge !== null
-																? `${activeRoom.minAge}-${activeRoom.maxAge} months`
-																: activeRoom.minAge !== null
-																	? `${activeRoom.minAge}+ months`
-																	: `Up to ${activeRoom.maxAge} months`}
-														</p>
-													)}
 											</div>
-										</div>
-									)}
-								</div>
-							</div>
-						</CardContent>
-						<CardFooter className="flex justify-between">
-							<Button variant="outline" onClick={() => setActiveTab("room")}>
-								Back
-							</Button>
-							<Button
-								onClick={() => {
-									if (
-										childInfo.firstName &&
-										childInfo.lastName &&
-										childInfo.dateOfBirth
-									) {
-										setActiveTab("guardian");
-									} else if (!childInfo.dateOfBirth) {
-										toast.error("Please enter the child's date of birth.");
-									} else {
-										toast.error(
-											"Please enter the child's first and last name.",
-										);
-									}
-								}}
-							>
-								Next: Guardian Information
-							</Button>
-						</CardFooter>
-					</Card>
-				</TabsContent>
-
-				<TabsContent value="guardian">
-					<Card>
-						<CardHeader>
-							<CardTitle>Guardian Information</CardTitle>
-							<CardDescription>
-								Enter the guardian's details and take a photo.
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-								<div className="space-y-4">
-									<div className="space-y-2">
-										<Label htmlFor="guardianFirstName">First Name</Label>
-										<Input
-											id="guardianFirstName"
-											name="firstName"
-											value={guardianInfo.firstName}
-											onChange={handleGuardianInfoChange}
-											required
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="guardianLastName">Last Name</Label>
-										<Input
-											id="guardianLastName"
-											name="lastName"
-											value={guardianInfo.lastName}
-											onChange={handleGuardianInfoChange}
-											required
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="phone">Phone Number</Label>
-										<Input
-											id="phone"
-											name="phone"
-											type="tel"
-											value={guardianInfo.phone}
-											onChange={handleGuardianInfoChange}
-											placeholder="For QR code text message"
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="email">Email</Label>
-										<Input
-											id="email"
-											name="email"
-											type="email"
-											value={guardianInfo.email}
-											onChange={handleGuardianInfoChange}
-										/>
-									</div>
-								</div>
-								<div className="space-y-4">
-									<div className="space-y-2">
-										<Label>Guardian's Photo</Label>
-										{guardianPhoto ? (
-											<div className="relative">
-												<img
-													src={guardianPhoto}
-													alt="Guardian"
-													className="w-full h-64 object-cover rounded-md"
-												/>
+											<div>
 												<Button
 													variant="outline"
 													size="sm"
-													className="absolute top-2 right-2"
-													onClick={() => setGuardianPhoto(null)}
+													onClick={() => handleOpenRenameDialog(room)}
 												>
-													Retake
+													Edit
 												</Button>
 											</div>
-										) : (
-											<div className="border rounded-md p-4">
-												<video
-													ref={guardianVideoRef}
-													autoPlay
-													playsInline
-													className="w-full h-64 object-cover"
-													onLoadedMetadata={() => console.log("Camera ready")}
-												>
-													<track kind="captions" />
-												</video>
-												<canvas
-													ref={guardianCanvasRef}
-													style={{ display: "none" }}
-												/>
-												<div className="flex space-x-2 mt-2">
-													<Button
-														className="flex-1"
-														onClick={startGuardianCamera}
-													>
-														Start Camera
-													</Button>
-													<Button
-														className="flex-1"
-														onClick={captureGuardianPhoto}
-													>
-														Take Photo
-													</Button>
-												</div>
-											</div>
-										)}
+										</div>
 									</div>
-								</div>
+								))}
 							</div>
-
-							<div className="mt-8">
-								<h3 className="text-lg font-medium mb-4">
-									Authorized Pickup Persons (Optional)
-								</h3>
-								<form
-									onSubmit={handleAddAuthorizedPickup}
-									className="grid grid-cols-1 md:grid-cols-3 gap-4"
-								>
-									<div className="space-y-2">
-										<Label htmlFor="pickupFirstName">First Name</Label>
-										<Input id="pickupFirstName" name="firstName" required />
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="pickupLastName">Last Name</Label>
-										<Input id="pickupLastName" name="lastName" required />
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="relationship">Relationship</Label>
-										<Input
-											id="relationship"
-											name="relationship"
-											placeholder="e.g., Grandparent"
-											required
-										/>
-									</div>
-									<Button type="submit" className="md:col-span-3">
-										Add Pickup Person
-									</Button>
-								</form>
-
-								{authorizedPickups.length > 0 && (
-									<div className="mt-4">
-										<h4 className="font-medium mb-2">Added Pickup Persons:</h4>
-										<ul className="space-y-2">
-											{authorizedPickups.map((person) => (
-												<li
-													key={person.id}
-													className="flex justify-between items-center p-2 border rounded-md"
-												>
-													<span>
-														{person.firstName} {person.lastName} (
-														{person.relationship})
-													</span>
-													<Button
-														variant="ghost"
-														size="sm"
-														onClick={() => {
-															const updatedPickups = authorizedPickups.filter(
-																(p) => p.id !== person.id,
-															);
-															setAuthorizedPickups(updatedPickups);
-														}}
-													>
-														Remove
-													</Button>
-												</li>
-											))}
-										</ul>
-									</div>
-								)}
-							</div>
-						</CardContent>
-						<CardFooter className="flex justify-between">
-							<Button variant="outline" onClick={() => setActiveTab("child")}>
-								Back
-							</Button>
-							<Button onClick={handleCompleteCheckin}>Complete Check-in</Button>
-						</CardFooter>
-					</Card>
-				</TabsContent>
-
-				<TabsContent value="complete">
-					<Card>
-						<CardHeader>
-							<CardTitle>Check-in Complete</CardTitle>
-							<CardDescription>
-								The child has been successfully checked in.
-							</CardDescription>
-						</CardHeader>
-						<CardContent className="flex flex-col items-center">
-							<div className="text-center mb-6">
-								<h2 className="text-2xl font-bold">
-									{childInfo.firstName} {childInfo.lastName}
-								</h2>
-								<p className="text-muted-foreground">
-									Checked in by: {guardianInfo.firstName}{" "}
-									{guardianInfo.lastName}
+						) : (
+							<div className="p-8 text-center border rounded-md">
+								<p className="text-muted-foreground mb-4">
+									No rooms available. Create a room to get started.
 								</p>
 							</div>
+						)}
 
-							<div className="bg-white p-4 rounded-md shadow-md mb-6">
-								<QRCodeSVG value={qrCodeUrl} size={200} />
-							</div>
+						<Button
+							className="w-full mt-4"
+							onClick={() => setIsCreateRoomDialogOpen(true)}
+						>
+							Create New Room
+						</Button>
+					</div>
+				</div>
+			)}
 
-							<div className="text-center mb-6">
-								<p>Scan this QR code for easy check-out.</p>
-								{guardianInfo.phone && (
-									<p className="text-sm text-muted-foreground mt-2">
-										A link to this QR code has been sent to {guardianInfo.phone}
-										.
-									</p>
-								)}
-							</div>
-
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-								<div>
-									<h3 className="font-medium mb-2">Child Information:</h3>
-									<div className="space-y-1 text-sm">
-										<p>
-											<span className="font-medium">Name:</span>{" "}
-											{childInfo.firstName} {childInfo.lastName}
-										</p>
-										{childInfo.dateOfBirth && (
-											<p>
-												<span className="font-medium">Date of Birth:</span>{" "}
-												{childInfo.dateOfBirth}
-											</p>
-										)}
-										{childInfo.allergies && (
-											<p>
-												<span className="font-medium">Allergies:</span>{" "}
-												{childInfo.allergies}
-											</p>
-										)}
-										{childInfo.specialNotes && (
-											<p>
-												<span className="font-medium">Special Notes:</span>{" "}
-												{childInfo.specialNotes}
-											</p>
-										)}
-									</div>
-								</div>
-								<div>
-									<h3 className="font-medium mb-2">Guardian Information:</h3>
-									<div className="space-y-1 text-sm">
-										<p>
-											<span className="font-medium">Name:</span>{" "}
-											{guardianInfo.firstName} {guardianInfo.lastName}
-										</p>
-										{guardianInfo.phone && (
-											<p>
-												<span className="font-medium">Phone:</span>{" "}
-												{guardianInfo.phone}
-											</p>
-										)}
-										{guardianInfo.email && (
-											<p>
-												<span className="font-medium">Email:</span>{" "}
-												{guardianInfo.email}
-											</p>
-										)}
-									</div>
-
-									{authorizedPickups.length > 0 && (
-										<div className="mt-4">
-											<h3 className="font-medium mb-2">
-												Authorized Pickup Persons:
-											</h3>
-											<ul className="space-y-1 text-sm">
-												{authorizedPickups.map((person) => (
-													<li key={person.id}>
-														{person.firstName} {person.lastName} (
-														{person.relationship})
-													</li>
-												))}
-											</ul>
-										</div>
-									)}
-								</div>
-							</div>
-						</CardContent>
-						<CardFooter className="flex justify-between">
-							<Button
-								variant="outline"
-								onClick={() => {
-									// Reset form for a new check-in
-									setChildInfo({
-										firstName: "",
-										lastName: "",
-										dateOfBirth: "",
-										allergies: "",
-										specialNotes: "",
-										photoUrl: "",
-									});
-									setGuardianInfo({
-										firstName: "",
-										lastName: "",
-										phone: "",
-										email: "",
-										photoUrl: "",
-									});
-									setChildPhoto(null);
-									setGuardianPhoto(null);
-									setAuthorizedPickups([]);
-									setQrCodeUrl("");
-									setCheckinComplete(false);
-									setActiveTab("child");
-								}}
-							>
-								Check in Another Child
-							</Button>
-							<div className="flex space-x-2">
-								<Button
-									variant="outline"
-									onClick={() =>
-										navigate(`/churches/${organization}/childcheckin/list`)
-									}
-								>
-									View All Check-ins
-								</Button>
-								<Button
-									onClick={() => {
-										// Print the check-in receipt
-										window.print();
-									}}
-								>
-									Print Receipt
-								</Button>
-							</div>
-						</CardFooter>
-					</Card>
-				</TabsContent>
-			</Tabs>
-
-			{/* Rename Session Dialog */}
+			{/* Dialogs */}
 			<RenameSessionDialog
 				isOpen={isRenameDialogOpen}
 				onClose={() => setIsRenameDialogOpen(false)}
 				session={roomToRename}
 				onRename={submitRenameRoom}
 			/>
-		</div>
-	);
-}
 
-// Rename Room Dialog Component
-function RenameRoomDialog({
-	isOpen,
-	onClose,
-	session,
-	onRename,
-}: {
-	isOpen: boolean;
-	onClose: () => void;
-	session: any;
-	onRename: (newName: string) => void;
-}) {
-	const [newName, setNewName] = useState("");
-
-	useEffect(() => {
-		if (session) {
-			setNewName(session.name);
-		}
-	}, [session]);
-
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		if (session) {
-			onRename(newName);
-		}
-		onClose();
-	};
-
-	return (
-		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Rename Room</DialogTitle>
-					<DialogDescription>Enter a new name for this room.</DialogDescription>
-				</DialogHeader>
-				<form onSubmit={handleSubmit}>
-					<div className="space-y-4 py-4">
+			{/* Create Room Dialog */}
+			<Dialog open={isCreateRoomDialogOpen} onOpenChange={setIsCreateRoomDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Create New Room</DialogTitle>
+						<DialogDescription>
+							Create a new check-in room with optional age restrictions.
+						</DialogDescription>
+					</DialogHeader>
+					<fetcher.Form onSubmit={(e) => {
+						handleCreateRoom(e);
+						setIsCreateRoomDialogOpen(false);
+					}} className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="newRoomName">Room Name</Label>
+							<Label htmlFor="roomName">Room Name</Label>
 							<Input
-								id="newRoomName"
-								value={newName}
-								onChange={(e) => setNewName(e.target.value)}
+								id="roomName"
+								name="roomName"
+								placeholder="e.g., Nursery, Toddlers, Elementary"
 								required
 							/>
 						</div>
-					</div>
-					<DialogFooter>
-						<Button type="button" variant="outline" onClick={onClose}>
-							Cancel
-						</Button>
-						<Button type="submit">Save Changes</Button>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+						<div className="grid grid-cols-2 gap-4">
+							<div className="space-y-2">
+								<Label htmlFor="minAge">Minimum Age (months)</Label>
+								<Input
+									id="minAge"
+									name="minAge"
+									type="number"
+									placeholder="e.g., 0"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="maxAge">Maximum Age (months)</Label>
+								<Input
+									id="maxAge"
+									name="maxAge"
+									type="number"
+									placeholder="e.g., 24"
+								/>
+							</div>
+						</div>
+						<DialogFooter>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => setIsCreateRoomDialogOpen(false)}
+							>
+								Cancel
+							</Button>
+							<Button type="submit">Create Room</Button>
+						</DialogFooter>
+					</fetcher.Form>
+				</DialogContent>
+			</Dialog>
+		</div>
 	);
 }
