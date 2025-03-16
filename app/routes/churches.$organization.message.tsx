@@ -8,6 +8,7 @@ import {
 } from "@/server/services/MessagingService";
 import { getUser } from "@/server/dataServices/UserDataService";
 import { getUserPreferences } from "@/server/dataServices/UserPreferences";
+import { TeamsDataService } from "@/server/dataServices/TeamsDataService";
 
 export const action = createAuthLoader(
 	async ({ request, auth, params, userContext }) => {
@@ -30,6 +31,7 @@ export const action = createAuthLoader(
 
 		// Prepare recipients array
 		const recipients: MessageRecipient[] = [];
+		const teamsService = new TeamsDataService();
 
 		for (const entry of recipientEntries) {
 			if (entry.type === "user") {
@@ -47,6 +49,29 @@ export const action = createAuthLoader(
 					lastName: user.lastName,
 					preferences: userPreferences,
 				});
+			} else if (entry.type === "team") {
+				// Handle teams - get all team members and add them to recipients
+				const teamData = await teamsService.getTeam(entry.id, true);
+
+				if (!teamData || !teamData.members) continue;
+
+				// Process each team member
+				for (const member of teamData.members) {
+					// Skip if user is already in recipients
+					if (recipients.some((r) => r.userId === member.user.id)) continue;
+
+					// Get user preferences
+					const userPreferences = await getUserPreferences(member.user.id);
+
+					recipients.push({
+						userId: member.user.id,
+						email: member.user.email,
+						phone: member.user.phone,
+						firstName: member.user.firstName,
+						lastName: member.user.lastName,
+						preferences: userPreferences,
+					});
+				}
 			}
 		}
 
