@@ -6,6 +6,7 @@ import { churchOrganization } from "server/db/schema";
 import { eq } from "drizzle-orm";
 import dns from "node:dns";
 import { promisify } from "node:util";
+import fetch from "node-fetch";
 
 // Promisify DNS lookup
 const resolveCname = promisify(dns.resolveCname);
@@ -88,6 +89,90 @@ app.get("/api/check-domain", async (req, res) => {
 		});
 	} catch (error) {
 		console.error("Error checking domain:", error);
+		res.status(500).json({
+			success: false,
+			error: "Internal server error",
+		});
+	}
+});
+
+// API endpoint to automatically configure a domain with Vercel
+app.post("/api/configure-domain", async (req, res) => {
+	try {
+		const { domain, organizationId } = req.body;
+
+		if (!domain || !organizationId) {
+			return res.status(400).json({
+				success: false,
+				error: "Domain and organizationId are required",
+			});
+		}
+
+		// Check if domain exists in our database
+		const org = await db
+			.select()
+			.from(churchOrganization)
+			.where(eq(churchOrganization.id, organizationId))
+			.then((res) => res[0] || null);
+
+		if (!org) {
+			return res.status(404).json({
+				success: false,
+				error: "Organization not found",
+			});
+		}
+
+		// Vercel API configuration
+		const vercelToken = process.env.VERCEL_API_TOKEN;
+		const vercelTeamId = process.env.VERCEL_TEAM_ID;
+		const vercelProjectId = process.env.VERCEL_PROJECT_ID;
+
+		if (!vercelToken || !vercelProjectId) {
+			return res.status(500).json({
+				success: false,
+				error: "Vercel API configuration is missing",
+			});
+		}
+
+		// Add domain to Vercel project
+		const vercelApiUrl = `https://api.vercel.com/v9/projects/${vercelProjectId}/domains`;
+		const vercelResponse = await fetch(vercelApiUrl, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${vercelToken}`,
+				...(vercelTeamId ? { "X-Vercel-Team-Id": vercelTeamId } : {}),
+			},
+			body: JSON.stringify({ name: domain }),
+		});
+
+		const vercelData = await vercelResponse.json();
+
+		if (!vercelResponse.ok) {
+			console.error("Vercel API error:", vercelData);
+			return res.status(vercelResponse.status).json({
+				success: false,
+				error: "Failed to configure domain with Vercel",
+				details: vercelData,
+			});
+		}
+
+		// Update the organization with the custom domain
+		await db
+			.update(churchOrganization)
+			.set({
+				customDomain: domain,
+				updatedAt: new Date(),
+			})
+			.where(eq(churchOrganization.id, organizationId));
+
+		res.json({
+			success: true,
+			message: "Domain configured successfully",
+			vercelResponse: vercelData,
+		});
+	} catch (error) {
+		console.error("Error configuring domain:", error);
 		res.status(500).json({
 			success: false,
 			error: "Internal server error",

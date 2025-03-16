@@ -893,7 +893,7 @@ export default function LandingConfig() {
 							</p>
 
 							{customDomain && (
-								<div className="mt-2">
+								<div className="mt-2 flex gap-2">
 									<Button
 										type="button"
 										variant="outline"
@@ -930,6 +930,43 @@ export default function LandingConfig() {
 									>
 										Verify Domain Setup
 									</Button>
+									<Button
+										type="button"
+										variant="default"
+										size="sm"
+										onClick={async () => {
+											try {
+												// First save the domain to the database
+												await fetch("/api/configure-domain", {
+													method: "POST",
+													headers: {
+														"Content-Type": "application/json",
+													},
+													body: JSON.stringify({
+														domain: customDomain,
+														organizationId: params.organization,
+													}),
+												}).then(async (res) => {
+													const data = await res.json();
+													if (data.success) {
+														toast.success(
+															"Domain configured successfully with Vercel! 🎉",
+														);
+													} else {
+														toast.error(
+															`Failed to configure domain: ${data.error}`,
+														);
+														console.error("Domain configuration error:", data);
+													}
+												});
+											} catch (error) {
+												toast.error("Error configuring domain");
+												console.error(error);
+											}
+										}}
+									>
+										Configure Domain
+									</Button>
 								</div>
 							)}
 						</div>
@@ -960,9 +997,9 @@ export default function LandingConfig() {
 								</ul>
 								<li>Enter your domain above (without http:// or https://)</li>
 								<li>
-									Save your changes and wait for DNS propagation (can take up to
-									48 hours)
+									Click "Configure Domain" to automatically set up the domain
 								</li>
+								<li>Wait for DNS propagation (can take up to 48 hours)</li>
 							</ol>
 							<p className="text-sm text-muted-foreground mt-2">
 								Once set up, your church's landing page will be accessible at

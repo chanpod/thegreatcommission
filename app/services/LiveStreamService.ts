@@ -3,9 +3,12 @@ import { google } from "googleapis";
 export class LiveStreamService {
 	private youtube;
 	private apiKey: string;
-	constructor(apiKey: string) {
+	private referer: string;
+
+	constructor(apiKey: string, referer = "https://thegreatcommission.org") {
 		this.youtube = google.youtube("v3");
 		this.apiKey = apiKey;
+		this.referer = referer;
 	}
 
 	/**
@@ -31,6 +34,9 @@ export class LiveStreamService {
 				q: channelHandle,
 				type: ["channel"],
 				maxResults: 1,
+				headers: {
+					Referer: this.referer,
+				},
 			});
 
 			const channelId = channelResponse.data.items?.[0]?.snippet?.channelId;
@@ -44,6 +50,9 @@ export class LiveStreamService {
 				eventType: "live",
 				type: ["video"],
 				maxResults: 1,
+				headers: {
+					Referer: this.referer,
+				},
 			});
 
 			// If we find any live streams, the channel is live
