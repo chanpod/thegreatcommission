@@ -10,6 +10,7 @@ import {
 	useLoaderData,
 	useNavigate,
 	useSubmit,
+	useParams,
 } from "react-router";
 import {
 	churchOrganization,
@@ -331,6 +332,7 @@ export const action = createAuthLoader(async ({ request, params }) => {
 
 export default function LandingConfig() {
 	const { config, organization, permissions, forms, members } = useLoaderData();
+	const params = useParams();
 	const submit = useSubmit();
 	const navigate = useNavigate();
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -883,90 +885,31 @@ export default function LandingConfig() {
 							<Input
 								id="customDomain"
 								value={customDomain}
-								onChange={(e) => setCustomDomain(e.target.value)}
-								placeholder="e.g., yourchurch.com"
+								onChange={(e) =>
+									setCustomDomain(e.target.value.trim().toLowerCase())
+								}
+								placeholder="e.g., yourchurch.com or www.yourchurch.com"
 							/>
 							<p className="text-sm text-muted-foreground">
-								Enter your custom domain to use for your church website. You'll
+								Enter your custom domain without http:// or https://. You'll
 								need to set up a CNAME record pointing to
-								thegreatcommission.org.
+								thegreatcommission.life.
 							</p>
 
 							{customDomain && (
 								<div className="mt-2 flex gap-2">
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										onClick={async () => {
-											try {
-												const response = await fetch(
-													`/api/check-domain?domain=${encodeURIComponent(customDomain)}`,
-												);
-												const data = await response.json();
-
-												if (data.isConfigured) {
-													toast.success("Domain is properly configured! 🎉");
-												} else if (!data.exists) {
-													toast.error(
-														"This domain is not saved in our system yet. Save your changes first.",
-													);
-												} else if (data.dns.error) {
-													toast.error(`DNS error: ${data.dns.error}`);
-												} else if (!data.dns.success) {
-													toast.error(
-														"CNAME record not properly configured. Please check your DNS settings.",
-													);
-												} else {
-													toast.error(
-														"Domain verification failed. Please check your settings.",
-													);
-												}
-											} catch (error) {
-												toast.error("Error checking domain configuration");
-												console.error(error);
-											}
-										}}
-									>
-										Verify Domain Setup
-									</Button>
-									<Button
-										type="button"
-										variant="default"
-										size="sm"
-										onClick={async () => {
-											try {
-												// First save the domain to the database
-												await fetch("/api/configure-domain", {
-													method: "POST",
-													headers: {
-														"Content-Type": "application/json",
-													},
-													body: JSON.stringify({
-														domain: customDomain,
-														organizationId: params.organization,
-													}),
-												}).then(async (res) => {
-													const data = await res.json();
-													if (data.success) {
-														toast.success(
-															"Domain configured successfully with Vercel! 🎉",
-														);
-													} else {
-														toast.error(
-															`Failed to configure domain: ${data.error}`,
-														);
-														console.error("Domain configuration error:", data);
-													}
-												});
-											} catch (error) {
-												toast.error("Error configuring domain");
-												console.error(error);
-											}
-										}}
-									>
-										Configure Domain
-									</Button>
+									{organization?.customDomain === customDomain && (
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={() => {
+												window.open(`https://${customDomain}`, "_blank");
+											}}
+										>
+											Visit Site
+										</Button>
+									)}
 								</div>
 							)}
 						</div>
@@ -985,26 +928,84 @@ export default function LandingConfig() {
 								</li>
 								<ul className="list-disc pl-6 mt-1 space-y-1">
 									<li>
-										<strong>Host/Name:</strong> @ or www (depending on if you
-										want example.com or www.example.com)
+										<strong>For a root domain</strong> (example.com):
+										<ul className="list-disc pl-6 mt-1">
+											<li>
+												<strong>Host/Name:</strong> @ (or leave blank)
+											</li>
+											<li>
+												<strong>Value/Target:</strong> thegreatcommission.life
+											</li>
+											<li>
+												<strong>TTL:</strong> 3600 (or Auto)
+											</li>
+											<li>
+												<strong>Note:</strong> Some DNS providers don't allow
+												CNAME for root domains. If this is the case, use a
+												subdomain instead or look for "CNAME flattening" or
+												"ANAME" options.
+											</li>
+										</ul>
 									</li>
-									<li>
-										<strong>Value/Target:</strong> thegreatcommission.org
-									</li>
-									<li>
-										<strong>TTL:</strong> 3600 (or Auto)
+									<li className="mt-2">
+										<strong>For a subdomain</strong> (www.example.com or
+										church.example.com):
+										<ul className="list-disc pl-6 mt-1">
+											<li>
+												<strong>Host/Name:</strong> www (or your subdomain)
+											</li>
+											<li>
+												<strong>Value/Target:</strong> thegreatcommission.life
+											</li>
+											<li>
+												<strong>TTL:</strong> 3600 (or Auto)
+											</li>
+										</ul>
 									</li>
 								</ul>
 								<li>Enter your domain above (without http:// or https://)</li>
-								<li>
-									Click "Configure Domain" to automatically set up the domain
-								</li>
+								<li>Click "Save Changes" at the bottom of the page</li>
 								<li>Wait for DNS propagation (can take up to 48 hours)</li>
+								<li>
+									Once DNS is properly configured, your site will be accessible
+									at your custom domain
+								</li>
 							</ol>
 							<p className="text-sm text-muted-foreground mt-2">
 								Once set up, your church's landing page will be accessible at
-								your custom domain.
+								your custom domain. All SSL certificates are handled
+								automatically.
 							</p>
+
+							<h3 className="text-sm font-medium mt-4 mb-2">
+								Troubleshooting:
+							</h3>
+							<ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
+								<li>
+									<strong>DNS not configured:</strong> Make sure your CNAME
+									record points to{" "}
+									<code className="bg-background px-1 rounded">
+										thegreatcommission.life
+									</code>{" "}
+									(not thegreatcommission.org or any other domain).
+								</li>
+								<li>
+									<strong>Root domain issues:</strong> If you're using a root
+									domain (example.com), some DNS providers don't allow CNAME
+									records. Try using a www subdomain instead or look for "CNAME
+									flattening" or "ANAME" options.
+								</li>
+								<li>
+									<strong>Propagation delay:</strong> DNS changes can take up to
+									48 hours to propagate worldwide. If your site isn't accessible
+									immediately, try again later.
+								</li>
+								<li>
+									<strong>SSL certificate:</strong> SSL certificates are
+									provisioned automatically after DNS verification. This may
+									take a few minutes after DNS propagation is complete.
+								</li>
+							</ul>
 						</div>
 					</CardContent>
 				</Card>

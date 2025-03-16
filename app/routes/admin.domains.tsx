@@ -13,10 +13,8 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { Button } from "~/components/ui/button";
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { isNotNull } from "drizzle-orm";
-import { toast } from "sonner";
-import { useState } from "react";
 
 export const loader = createAuthLoader(async ({ request, userContext }) => {
 	// Get all organizations with custom domains
@@ -29,40 +27,8 @@ export const loader = createAuthLoader(async ({ request, userContext }) => {
 }, true);
 
 export default function AdminDomains() {
-	const { organizations } = useLoaderData<typeof loader>();
-	const [configuringDomain, setConfiguringDomain] = useState<string | null>(
-		null,
-	);
-
-	const configureDomainWithVercel = async (orgId: string, domain: string) => {
-		setConfiguringDomain(domain);
-		try {
-			const response = await fetch("/api/configure-domain", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					domain,
-					organizationId: orgId,
-				}),
-			});
-
-			const data = await response.json();
-
-			if (data.success) {
-				toast.success(`Domain ${domain} configured successfully with Vercel!`);
-			} else {
-				toast.error(`Failed to configure domain: ${data.error}`);
-				console.error("Domain configuration error:", data);
-			}
-		} catch (error) {
-			toast.error("Error configuring domain");
-			console.error(error);
-		} finally {
-			setConfiguringDomain(null);
-		}
-	};
+	const data = useLoaderData<typeof loader>();
+	const { organizations } = data;
 
 	return (
 		<PageLayout title="Custom Domains">
@@ -123,19 +89,6 @@ export default function AdminDomains() {
 													}
 												>
 													Edit
-												</Button>
-												<Button
-													variant="outline"
-													size="sm"
-													onClick={() =>
-														configureDomainWithVercel(org.id, org.customDomain!)
-													}
-													disabled={configuringDomain === org.customDomain}
-												>
-													<RefreshCw
-														className={`h-4 w-4 mr-2 ${configuringDomain === org.customDomain ? "animate-spin" : ""}`}
-													/>
-													Configure with Vercel
 												</Button>
 											</div>
 										</TableCell>

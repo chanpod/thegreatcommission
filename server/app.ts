@@ -16,7 +16,7 @@ declare global {
 	namespace Express {
 		interface Request {
 			customDomain?: boolean;
-			organization?: any;
+			organization?: typeof churchOrganization.$inferSelect;
 		}
 	}
 }
@@ -25,7 +25,7 @@ declare module "react-router" {
 	export interface AppLoadContext {
 		VALUE_FROM_VERCEL: string;
 		customDomain?: boolean;
-		organization?: any;
+		organization?: typeof churchOrganization.$inferSelect;
 	}
 }
 
@@ -64,10 +64,8 @@ app.get("/api/check-domain", async (req, res) => {
 		try {
 			const cnameRecords = await resolveCname(domain);
 			dnsCheck = {
-				success: cnameRecords.some(
-					(record) =>
-						record.includes("thegreatcommission.org") ||
-						record.includes("vercel.app"),
+				success: cnameRecords.some((record) =>
+					record.includes("thegreatcommission.life"),
 				),
 				records: cnameRecords,
 				error: null,
@@ -122,41 +120,6 @@ app.post("/api/configure-domain", async (req, res) => {
 			});
 		}
 
-		// Vercel API configuration
-		const vercelToken = process.env.VERCEL_API_TOKEN;
-		const vercelTeamId = process.env.VERCEL_TEAM_ID;
-		const vercelProjectId = process.env.VERCEL_PROJECT_ID;
-
-		if (!vercelToken || !vercelProjectId) {
-			return res.status(500).json({
-				success: false,
-				error: "Vercel API configuration is missing",
-			});
-		}
-
-		// Add domain to Vercel project
-		const vercelApiUrl = `https://api.vercel.com/v9/projects/${vercelProjectId}/domains`;
-		const vercelResponse = await fetch(vercelApiUrl, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${vercelToken}`,
-				...(vercelTeamId ? { "X-Vercel-Team-Id": vercelTeamId } : {}),
-			},
-			body: JSON.stringify({ name: domain }),
-		});
-
-		const vercelData = await vercelResponse.json();
-
-		if (!vercelResponse.ok) {
-			console.error("Vercel API error:", vercelData);
-			return res.status(vercelResponse.status).json({
-				success: false,
-				error: "Failed to configure domain with Vercel",
-				details: vercelData,
-			});
-		}
-
 		// Update the organization with the custom domain
 		await db
 			.update(churchOrganization)
@@ -169,7 +132,6 @@ app.post("/api/configure-domain", async (req, res) => {
 		res.json({
 			success: true,
 			message: "Domain configured successfully",
-			vercelResponse: vercelData,
 		});
 	} catch (error) {
 		console.error("Error configuring domain:", error);
@@ -199,7 +161,8 @@ app.use(async (req, res, next) => {
 			hostname === "localhost" ||
 			hostname.includes("vercel.app") ||
 			hostname.includes("127.0.0.1") ||
-			hostname === "thegreatcommission.org"
+			hostname === "thegreatcommission.org" ||
+			hostname === "thegreatcommission.life"
 		) {
 			return next();
 		}
