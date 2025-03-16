@@ -72,7 +72,7 @@ const STEPS = [
 	{ id: "branding", title: "Branding", icon: <Palette className="h-5 w-5" /> },
 	{
 		id: "landing-page",
-		title: "Landing Page",
+		title: "Website",
 		icon: <Globe className="h-5 w-5" />,
 	},
 	{ id: "complete", title: "Complete", icon: <Check className="h-5 w-5" /> },
@@ -767,7 +767,7 @@ export default function GettingStarted() {
 									</div>
 								)}
 
-								{/* Step 4: Landing Page */}
+								{/* Step 4: Website */}
 								{currentStep === 4 && (
 									<div className="space-y-6">
 										<div className="space-y-4">

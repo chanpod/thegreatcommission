@@ -74,16 +74,16 @@ export function LandingToolbar({
 							Copy URL
 						</Button>
 
-						<Button variant="secondary" size="sm" asChild>
-							<a
-								href={`/landing/${organization.id}`}
-								target="_blank"
-								rel="noopener noreferrer"
-							>
+						<Link
+							to={`/landing/${organization.id}`}
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							<Button variant="secondary" size="sm" asChild>
 								<Eye className="h-4 w-4 mr-2" />
 								Preview
-							</a>
-						</Button>
+							</Button>
+						</Link>
 					</div>
 				</div>
 			</div>

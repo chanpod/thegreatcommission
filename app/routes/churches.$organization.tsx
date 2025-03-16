@@ -111,7 +111,7 @@ const NAV_ITEMS = [
 	{ name: "Overview", href: "details" },
 	{ name: "People", href: "people" },
 	{ name: "Events", href: "events" },
-	{ name: "Landing Page", href: "landing" },
+	{ name: "Website", href: "landing" },
 	{ name: "Message Usage", href: "message-usage" },
 	{ name: "Child Check-in", href: "childcheckin" },
 ];

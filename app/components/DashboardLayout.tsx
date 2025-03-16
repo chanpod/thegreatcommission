@@ -7,7 +7,7 @@ const navigation = [
 		icon: HomeIcon,
 	},
 	{
-		name: "Landing Page",
+		name: "Website",
 		path: (organizationId: string) => `/dashboard/${organizationId}/landing`,
 		icon: ImageIcon,
 	},
