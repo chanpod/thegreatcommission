@@ -101,18 +101,18 @@ export function AboutEditor({
 
 	const themeColors = getThemeColors();
 
-	// Create a more vibrant and pronounced gradient with multiple color stops
-	const backgroundGradient = `linear-gradient(135deg, 
-		${themeColors.primary} 0%, 
-		${themeColors.accent || "#8b5cf6"} 50%, 
-		${themeColors.secondary} 100%)`;
+	// Create a clean gradient string without whitespace or newlines
+	const backgroundGradient = `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.accent || "#8b5cf6"} 50%, ${themeColors.secondary} 100%)`;
+
+	// This is the exact same gradient that will be used on the landing page
+	const previewGradient = backgroundGradient;
 
 	return (
 		<div className="space-y-4">
 			<div
 				className="p-4 rounded-lg mb-4 animated-gradient"
 				style={{
-					background: backgroundGradient,
+					background: previewGradient,
 					backgroundSize: "200% 200%", // More compact background size for more dramatic movement
 					boxShadow: "0 4px 20px rgba(0, 0, 0, 0.2)", // Add shadow for depth
 					border: `1px solid ${themeColors.accent || "#8b5cf6"}`, // Add border with accent color

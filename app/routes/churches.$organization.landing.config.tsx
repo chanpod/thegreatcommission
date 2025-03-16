@@ -486,6 +486,18 @@ export default function LandingConfig() {
 		submitData.set("heroOverlayOpacity", heroConfig.overlayOpacity);
 		submitData.set("heroHeight", heroConfig.height);
 
+		// Get theme colors from organization
+		const themeColors = organization?.themeColors
+			? JSON.parse(organization.themeColors)
+			: {
+					primary: "#3b82f6",
+					secondary: "#1e293b",
+					accent: "#8b5cf6",
+				};
+
+		// Create a clean gradient string without whitespace or newlines
+		const backgroundGradient = `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.accent || "#8b5cf6"} 50%, ${themeColors.secondary} 100%)`;
+
 		// Add about section configuration
 		const aboutSection = {
 			title: formData.aboutTitle,
@@ -493,8 +505,7 @@ export default function LandingConfig() {
 			content: formData.aboutContent,
 			logoImage: aboutLogoUrl,
 			buttons: aboutButtons,
-			backgroundGradient:
-				"linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-secondary) 100%)",
+			animateGradient: true,
 		};
 		submitData.set("aboutSection", JSON.stringify(aboutSection));
 

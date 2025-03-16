@@ -20,7 +20,7 @@ export default function About({
 	title,
 	subtitle,
 	content,
-	backgroundGradient = "linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-secondary) 100%)",
+	backgroundGradient,
 	buttons = [],
 	logoImage,
 	imagePosition = "left",
@@ -55,7 +55,9 @@ export default function About({
 		<section
 			className={`py-16 px-4 md:px-8 overflow-hidden relative ${animateGradient ? "animated-gradient" : ""}`}
 			style={{
-				background: backgroundGradient,
+				background:
+					backgroundGradient ||
+					"linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-accent) 50%, var(--theme-secondary) 100%)",
 				backgroundSize: animateGradient ? "400% 400%" : "auto",
 			}}
 		>

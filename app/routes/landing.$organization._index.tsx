@@ -46,6 +46,16 @@ export default function LandingPageContent() {
 		CustomSectionProps[]
 	>(config?.customSections, []);
 
+	// Get theme colors from organization
+	const themeColors = safeJsonParse(organization.themeColors, {
+		primary: "#3b82f6",
+		secondary: "#1e293b",
+		accent: "#8b5cf6",
+	});
+
+	// Create a clean gradient string with the actual theme colors
+	const aboutGradient = `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.accent} 50%, ${themeColors.secondary} 100%)`;
+
 	// Parse aboutSection from config if it exists
 	let aboutSection: AboutProps;
 
@@ -54,8 +64,7 @@ export default function LandingPageContent() {
 		aboutSection = safeJsonParse<AboutProps>(config.aboutSection, {
 			title: config?.aboutTitle || "About Us",
 			content: config?.aboutContent || organization.description,
-			backgroundGradient:
-				"linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-accent) 100%)",
+			backgroundGradient: aboutGradient,
 			buttons: [],
 			subtitle: config?.aboutSubtitle || "Our Mission",
 			logoImage: config?.aboutLogoImage || "",
@@ -66,14 +75,16 @@ export default function LandingPageContent() {
 		aboutSection = {
 			title: config?.aboutTitle || "About Us",
 			content: config?.aboutContent || organization.description,
-			backgroundGradient:
-				"linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-accent) 100%)",
+			backgroundGradient: aboutGradient,
 			buttons: safeJsonParse(config?.aboutButtons, []),
 			subtitle: config?.aboutSubtitle || "Our Mission",
 			logoImage: config?.aboutLogoImage || "",
 			animateGradient: true,
 		};
 	}
+
+	// Override the backgroundGradient with our actual theme colors gradient
+	aboutSection.backgroundGradient = aboutGradient;
 
 	// Hero configuration
 	const heroConfig = {
