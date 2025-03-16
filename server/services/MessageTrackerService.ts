@@ -6,20 +6,16 @@ import { eq, gte, lte, desc, sql, count } from "drizzle-orm";
 const MESSAGE_COSTS = {
 	sms: 1, // $0.01 per SMS
 	phone: 10, // $0.10 per phone call
-	email: 0.5, // $0.005 per email
 };
 
 // Interface for message tracking data
 export interface MessageTrackingData {
 	churchOrganizationId: string;
-	messageType: "sms" | "phone" | "email";
+	messageType: "sms" | "phone";
 	recipientId?: string;
-	guardianId?: string;
 	recipientPhone?: string;
-	recipientEmail?: string;
 	sentByUserId?: string;
 	messageContent?: string;
-	messageSubject?: string;
 	messageLength?: number;
 	callDuration?: number;
 	status?: string;
@@ -60,10 +56,8 @@ export class MessageTrackerService {
 				messageType: data.messageType,
 				recipientId: data.recipientId,
 				recipientPhone: data.recipientPhone,
-				recipientEmail: data.recipientEmail,
 				sentByUserId: data.sentByUserId,
 				messageContent: data.messageContent,
-				messageSubject: data.messageSubject,
 				messageLength: data.messageLength,
 				callDuration: data.callDuration,
 				status: data.status || "sent",

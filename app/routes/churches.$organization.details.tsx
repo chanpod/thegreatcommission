@@ -3,12 +3,17 @@ import { OrganizationDataService } from "@/server/dataServices/OrganizationDataS
 import { db } from "@/server/db/dbConnection";
 import { teams, events, usersToTeams } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
-import { Outlet, useLoaderData } from "react-router";
+import { Outlet, redirect, useLoaderData } from "react-router";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import { OrgDescription } from "~/src/components/organizations/OrgDescription";
 import { childCheckinService } from "~/services/ChildCheckinService";
 
-export const loader = createAuthLoader(async ({ params }) => {
+export const loader = createAuthLoader(async ({ params, userContext }) => {
+	const user = userContext?.user;
+
+	if (user === undefined || user === null) {
+		throw redirect(`/landing/${params.organization}`);
+	}
 	const organizationDataService = new OrganizationDataService();
 	const organization = await organizationDataService.getOrganization(
 		params.organization,

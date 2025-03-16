@@ -67,6 +67,7 @@ import {
 } from "~/components/ui/table";
 import { createAuthLoader } from "~/server/auth/authLoader";
 import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
+import { PeopleNavigation } from "~/components/PeopleNavigation";
 
 import {
 	type MessageRecipient,
@@ -219,7 +220,7 @@ export const action = createAuthLoader(
 	true,
 );
 
-export default function MembersList() {
+export default function MembersPage() {
 	const { members, roles, teams, permissions } = useLoaderData<typeof loader>();
 	const { user } = useContext(UserContext);
 
@@ -462,7 +463,8 @@ export default function MembersList() {
 
 	return (
 		<PageLayout
-			title="Members"
+			title="Organization Members"
+			description="Manage your organization's members"
 			actions={
 				<div className="flex gap-2">
 					{user && permissions.canMessage && selectedCount > 0 && (
@@ -480,6 +482,8 @@ export default function MembersList() {
 				</div>
 			}
 		>
+			<PeopleNavigation />
+
 			<div className="space-y-4">
 				<div className="flex gap-4">
 					<div className="w-48">

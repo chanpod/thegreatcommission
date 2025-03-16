@@ -47,7 +47,7 @@ export const action = createAuthLoader(
 				zip: formData.get("zip"),
 			};
 
-			const existingUser = await getUser(user.email);
+			const existingUser = await getUser({ email: user.email as string });
 
 			if (existingUser.users) {
 				const response = await db

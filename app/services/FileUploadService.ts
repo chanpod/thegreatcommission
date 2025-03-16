@@ -42,6 +42,55 @@ export class FileUploadService {
 			throw new Error("Failed to upload file");
 		}
 	}
+
+	/**
+	 * Upload a child photo from a File object
+	 * @param file The File object
+	 * @param organizationId The ID of the organization
+	 * @param filename The desired filename
+	 * @returns The URL of the uploaded file
+	 */
+	static async uploadChildPhoto(
+		file: File,
+		organizationId: string,
+		filename: string
+	): Promise<string> {
+		try {
+			// Convert File to data URL
+			const dataUrl = await this.fileToDataUrl(file);
+			
+			// In a real-world scenario, you would upload this to a storage service
+			// For now, we'll just return the data URL with the filename
+			
+			// Format a safe filename
+			const safeFilename = filename.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+			
+			// In a real implementation, you would:
+			// 1. Upload the file to a storage service
+			// 2. Return the URL of the uploaded file
+			
+			// For demonstration, return a simulated URL path
+			// In production, replace this with actual file storage logic
+			return dataUrl;
+		} catch (error) {
+			console.error("Error uploading child photo:", error);
+			return "";
+		}
+	}
+	
+	/**
+	 * Convert a File object to a data URL
+	 * @param file The File object
+	 * @returns A Promise that resolves to the data URL
+	 */
+	private static fileToDataUrl(file: File): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as string);
+			reader.onerror = reject;
+			reader.readAsDataURL(file);
+		});
+	}
 }
 
 export const fileUploadService = new FileUploadService();

@@ -15,11 +15,11 @@ export default function ServiceTimes({
 	isLive = false,
 }: ServiceTimesProps) {
 	return (
-		<section id="services" className="py-12 secondary-bg">
-			<div className="container mx-auto px-4">
+		<section id="services" className="py-12 bg-white relative overflow-hidden">
+			<div className="container mx-auto px-4 relative z-10">
 				<div className="flex justify-center items-center gap-2 mb-6 relative">
-					<Clock className="h-5 w-5 text-white" />
-					<h2 className="text-2xl font-bold text-white">Service Times</h2>
+					<Clock className="h-5 w-5 text-primary" />
+					<h2 className="text-2xl font-bold text-primary">Service Times</h2>
 					{liveStreamUrl && isLive && (
 						<a
 							href={liveStreamUrl}
@@ -40,7 +40,7 @@ export default function ServiceTimes({
 					{services.map((service) => (
 						<div
 							key={service.id}
-							className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border-l-4 accent-border"
+							className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border-l-4 accent-border relative overflow-hidden"
 						>
 							<h3 className="text-xl font-semibold mb-2 text-primary">
 								{service.title}

@@ -45,7 +45,7 @@ const uploadRouter = {
 			console.log("file url", file.url);
 
 			// !!! Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
-			return { uploadedBy: metadata.userId };
+			return { uploadedBy: metadata.userId, url: file.url };
 		}),
 
 	// New uploader for event photos that allows multiple images

@@ -1,23 +1,26 @@
+import { OrganizationDataService } from "@/server/dataServices/OrganizationDataService";
 import { db } from "@/server/db/dbConnection";
 import { PermissionsService } from "@/server/services/PermissionsService";
 import { eq } from "drizzle-orm";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronUp, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
-	Form,
 	useBeforeUnload,
 	useLoaderData,
 	useNavigate,
 	useSubmit,
 } from "react-router";
-import { ClientOnly } from "remix-utils/client-only";
 import {
 	churchOrganization,
-	landingPageConfig,
 	formConfig,
+	landingPageConfig,
 } from "server/db/schema";
 import { toast } from "sonner";
 import type { CustomSectionProps } from "~/components/CustomSection";
-import { RichTextEditor } from "~/components/messaging/RichTextEditor";
+import { AboutEditor } from "~/components/landing/AboutEditor";
+import { CustomSectionsEditor } from "~/components/landing/CustomSectionsEditor";
+import { HeroEditor } from "~/components/landing/HeroEditor";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -29,25 +32,25 @@ import {
 	AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { UploadButton } from "~/utils/uploadthing";
 import { LandingToolbar } from "./churches.$organization.landing._index";
-import { OrganizationDataService } from "@/server/dataServices/OrganizationDataService";
-import { ChevronUp, X } from "lucide-react";
-import { CustomSectionsEditor } from "~/components/landing/CustomSectionsEditor";
-import { HeroEditor } from "~/components/landing/HeroEditor";
-import { AboutEditor } from "~/components/landing/AboutEditor";
-import { AnimatePresence, motion } from "framer-motion";
 
 // Mini-sidenav component for quick navigation
 function MiniSidenav() {
 	const [activeSection, setActiveSection] = useState<string | null>(null);
 	const [isOpen, setIsOpen] = useState(false);
 	const [isMobile, setIsMobile] = useState(false);
+	const [isCollapsed, setIsCollapsed] = useState(false);
 
 	// Check if on mobile
 	useEffect(() => {
@@ -108,6 +111,9 @@ function MiniSidenav() {
 		{ id: "settings-section", label: "Settings" },
 	];
 
+	// Calculate approximate height based on number of sections
+	const navHeight = navSections.length * 40 + 35; // 40px per button + padding
+
 	if (isMobile) {
 		return (
 			<div className="fixed bottom-6 right-6 z-10">
@@ -155,23 +161,51 @@ function MiniSidenav() {
 	}
 
 	return (
-		<div className="fixed right-4 top-1/3 z-10 bg-white rounded-lg shadow-md p-2 border">
-			<div className="flex flex-col gap-2">
-				{navSections.map((section) => (
-					<button
-						type="button"
-						key={section.id}
-						onClick={() => scrollToSection(section.id)}
-						className={`p-2 rounded-md text-sm ${
-							activeSection === section.id
-								? "bg-blue-100 text-blue-700"
-								: "hover:bg-gray-100"
-						}`}
+		<div className="fixed right-4 top-1/3 z-10 flex">
+			<AnimatePresence>
+				{!isCollapsed && (
+					<motion.div
+						initial={{ opacity: 0, x: 20 }}
+						animate={{ opacity: 1, x: 0 }}
+						exit={{ opacity: 0, x: 20 }}
+						className="bg-white rounded-l-lg shadow-md p-2 border border-r-0"
 					>
-						{section.label}
-					</button>
-				))}
-			</div>
+						<div className="flex flex-col gap-2">
+							{navSections.map((section) => (
+								<button
+									type="button"
+									key={section.id}
+									onClick={() => scrollToSection(section.id)}
+									className={`p-2 rounded-md text-sm ${
+										activeSection === section.id
+											? "bg-blue-100 text-blue-700"
+											: "hover:bg-gray-100"
+									}`}
+								>
+									{section.label}
+								</button>
+							))}
+						</div>
+					</motion.div>
+				)}
+			</AnimatePresence>
+
+			<button
+				type="button"
+				onClick={() => setIsCollapsed(!isCollapsed)}
+				className={`bg-white border shadow-md flex items-center justify-center transition-all duration-200
+					${
+						isCollapsed
+							? "border-l rounded-lg px-3 py-2 bg-primary/5 hover:bg-primary/10"
+							: "border-l-0 rounded-r-lg px-2"
+					}`}
+				aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+				style={isCollapsed ? { minHeight: `${navHeight}px` } : {}}
+			>
+				<ChevronUp
+					className={`h-5 w-5 transform transition-transform ${isCollapsed ? "rotate-90 text-primary" : "-rotate-90"}`}
+				/>
+			</button>
 		</div>
 	);
 }
@@ -452,6 +486,18 @@ export default function LandingConfig() {
 		submitData.set("heroOverlayOpacity", heroConfig.overlayOpacity);
 		submitData.set("heroHeight", heroConfig.height);
 
+		// Get theme colors from organization
+		const themeColors = organization?.themeColors
+			? JSON.parse(organization.themeColors)
+			: {
+					primary: "#3b82f6",
+					secondary: "#1e293b",
+					accent: "#8b5cf6",
+				};
+
+		// Create a clean gradient string without whitespace or newlines
+		const backgroundGradient = `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.accent || "#8b5cf6"} 50%, ${themeColors.secondary} 100%)`;
+
 		// Add about section configuration
 		const aboutSection = {
 			title: formData.aboutTitle,
@@ -459,7 +505,7 @@ export default function LandingConfig() {
 			content: formData.aboutContent,
 			logoImage: aboutLogoUrl,
 			buttons: aboutButtons,
-			backgroundGradient: "linear-gradient(135deg, #00a99d 0%, #89d7bb 100%)",
+			animateGradient: true,
 		};
 		submitData.set("aboutSection", JSON.stringify(aboutSection));
 
@@ -623,7 +669,7 @@ export default function LandingConfig() {
 			/>
 			<MiniSidenav />
 			<div className="flex justify-between items-center mb-4 p-3">
-				<h1 className="text-3xl font-bold">Landing Page Configuration</h1>
+				<h1 className="text-3xl font-bold">Website Configuration</h1>
 				<div className="flex gap-2">
 					<Button
 						type="button"
@@ -651,6 +697,12 @@ export default function LandingConfig() {
 				<Card id="hero-section">
 					<CardHeader>
 						<CardTitle>Hero Section</CardTitle>
+						<CardDescription>
+							The hero section is the main banner at the top of your landing
+							page. It includes your headline, background image and key
+							messaging to make a strong first impression and communicate your
+							church's identity to visitors.
+						</CardDescription>
 					</CardHeader>
 					<CardContent>
 						<HeroEditor
@@ -685,6 +737,7 @@ export default function LandingConfig() {
 								}));
 							}}
 							config={config}
+							organization={organization}
 						/>
 					</CardContent>
 				</Card>
@@ -1004,7 +1057,7 @@ export default function LandingConfig() {
 							navigate(`/landing/${organization.id}`);
 						}}
 					>
-						Preview Landing Page
+						Preview Website
 					</Button>
 					<Button type="submit" disabled={!hasUnsavedChanges}>
 						Save Changes

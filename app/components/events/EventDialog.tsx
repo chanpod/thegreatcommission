@@ -44,56 +44,65 @@ import { cn } from "~/lib/utils";
 import { RichTextEditor } from "~/components/messaging/RichTextEditor";
 import { UploadButton } from "~/utils/uploadthing";
 import { toast } from "sonner";
+import { EventOrganizerSelector, type Organizer } from "./EventOrganizerSelector";
 
 type Event = typeof events.$inferSelect & {
 	heroImageUrl?: string;
+	organizers?: Organizer[];
 };
 
-interface EventDialogProps {
+export interface EventDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	event?: Event;
+	initialDate?: Date;
 	onSubmit: (event: Event) => void;
 	onDelete?: () => void;
-	mode: "create" | "edit";
+	mode: "create" | "edit" | "view";
 	isSubmitting?: boolean;
 	showDeleteConfirm?: boolean;
 	setShowDeleteConfirm?: (show: boolean) => void;
+	churchOrganizationId?: string;
 }
 
 export function EventDialog({
 	open,
 	onOpenChange,
-	event: initialEvent,
+	event,
+	initialDate,
 	onSubmit,
 	onDelete,
-	mode,
+	mode = "create",
 	isSubmitting = false,
 	showDeleteConfirm = false,
 	setShowDeleteConfirm,
+	churchOrganizationId,
 }: EventDialogProps) {
-	const [event, setEvent] = useState<Event>(() => {
-		if (initialEvent) {
-			return {
-				...initialEvent,
-				// Ensure dates are Date objects
-				startDate: new Date(initialEvent.startDate),
-				endDate: new Date(initialEvent.endDate),
-			};
-		}
-		return {
-			title: "",
-			description: "",
-			type: "local",
-			location: "",
-			allDay: false,
-			startDate: new Date(),
-			endDate: addHours(new Date(), 1),
-			churchOrganizationId: "",
-			createdAt: new Date(),
-			updatedAt: new Date(),
-		} as Event;
-	});
+	// Initialize state with event data or defaults
+	const [title, setTitle] = useState(event?.title || "");
+	const [description, setDescription] = useState(event?.description || "");
+	const [startDate, setStartDate] = useState<Date>(
+		event?.startDate || initialDate || new Date()
+	);
+	const [endDate, setEndDate] = useState<Date>(
+		event?.endDate || (initialDate ? addHours(initialDate, 1) : addHours(new Date(), 1))
+	);
+	const [allDay, setAllDay] = useState(event?.allDay || false);
+	const [type, setType] = useState(event?.type || "local");
+	const [location, setLocation] = useState(event?.location || "");
+	const [heroImageUrl, setHeroImageUrl] = useState(event?.heroImageUrl || "");
+	const [volunteersNeeded, setVolunteersNeeded] = useState<number | null>(
+		event?.volunteersNeeded || null
+	);
+	const [investment, setInvestment] = useState<number | null>(
+		event?.investment || null
+	);
+	const [fundingRaised, setFundingRaised] = useState<number | null>(
+		event?.fundingRaised || null
+	);
+	const [organizers, setOrganizers] = useState<Organizer[]>(
+		event?.organizers || []
+	);
 
 	// Use local state if no external state is provided
 	const [localShowDeleteConfirm, setLocalShowDeleteConfirm] = useState(false);
@@ -106,32 +115,32 @@ export function EventDialog({
 		setShowDeleteConfirm || setLocalShowDeleteConfirm;
 
 	useEffect(() => {
-		if (initialEvent) {
-			setEvent({
-				...initialEvent,
-				startDate: new Date(initialEvent.startDate ?? new Date()),
-				endDate: new Date(initialEvent.endDate ?? new Date()),
-			});
+		if (event) {
+			setStartDate(new Date(event.startDate));
+			setEndDate(new Date(event.endDate));
+			setAllDay(event.allDay);
+			setType(event.type);
+			setLocation(event.location || "");
+			setHeroImageUrl(event.heroImageUrl || "");
+			setVolunteersNeeded(event.volunteersNeeded || null);
+			setInvestment(event.investment || null);
+			setFundingRaised(event.fundingRaised || null);
+			setOrganizers(event.organizers || []);
 		}
-	}, [initialEvent]);
+	}, [event]);
 
 	const handleDateChange = (date: Date | undefined, isStart: boolean) => {
 		if (!date) return;
 
 		if (isStart) {
-			setEvent((prev) => ({
-				...prev,
-				startDate: date,
-				endDate:
-					prev.endDate && date > prev.endDate
-						? addHours(date, 1)
-						: prev.endDate,
-			}));
+			setStartDate(date);
+			setEndDate(
+				endDate && date > endDate
+					? addHours(date, 1)
+					: endDate
+			);
 		} else {
-			setEvent((prev) => ({
-				...prev,
-				endDate: date,
-			}));
+			setEndDate(date);
 		}
 	};
 
@@ -139,37 +148,35 @@ export function EventDialog({
 		const [hours, minutes] = time.split(":").map(Number);
 
 		if (isStart) {
-			setEvent((prev) => {
-				const newStart = setMinutes(setHours(prev.startDate, hours), minutes);
-				const newEnd =
-					prev.endDate && newStart > prev.endDate
-						? addHours(newStart, 1)
-						: prev.endDate;
-				return {
-					...prev,
-					startDate: newStart,
-					endDate: newEnd,
-				};
-			});
+			setStartDate(setMinutes(setHours(startDate, hours), minutes));
+			setEndDate(
+				endDate && setMinutes(setHours(startDate, hours), minutes) > endDate
+					? addHours(setMinutes(setHours(startDate, hours), minutes), 1)
+					: endDate
+			);
 		} else {
-			setEvent((prev) => ({
-				...prev,
-				endDate: setMinutes(setHours(prev.endDate, hours), minutes),
-			}));
+			setEndDate(setMinutes(setHours(endDate, hours), minutes));
 		}
 	};
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
-		if (mode === "edit" && !event.id) return;
+		if (mode === "edit" && !event?.id) return;
 
 		const eventData = {
 			...event,
-			// Ensure these are properly formatted for submission
-			startDate: event.startDate,
-			endDate: event.endDate,
-			// Include the ID for edit mode
-			...(mode === "edit" && { id: event.id }),
+			title,
+			description,
+			type,
+			location,
+			allDay,
+			startDate,
+			endDate,
+			volunteersNeeded,
+			investment,
+			fundingRaised,
+			organizers,
+			...(mode === "edit" && { id: event?.id }),
 		};
 
 		onSubmit(eventData);
@@ -177,9 +184,13 @@ export function EventDialog({
 
 	const handleImageUploadComplete = (res: { url: string }[]) => {
 		if (res?.[0]) {
-			setEvent((prev) => ({ ...prev, heroImageUrl: res[0].url }));
+			setHeroImageUrl(res[0].url);
 			toast.success("Hero image uploaded successfully");
 		}
+	};
+
+	const handleOrganizersChange = (organizers: Organizer[]) => {
+		setOrganizers(organizers);
 	};
 
 	return (
@@ -200,26 +211,16 @@ export function EventDialog({
 						<div>
 							<Label>Title</Label>
 							<Input
-								value={event.title}
-								onChange={(e) =>
-									setEvent({
-										...event,
-										title: e.target.value,
-									})
-								}
+								value={title}
+								onChange={(e) => setTitle(e.target.value)}
 								placeholder="Enter event title..."
 							/>
 						</div>
 						<div className="grid gap-2">
 							<Label htmlFor="type">Event Type</Label>
 							<Select
-								value={event.type}
-								onValueChange={(value) =>
-									setEvent({
-										...event,
-										type: value as Event["type"],
-									})
-								}
+								value={type}
+								onValueChange={(value) => setType(value as Event["type"])}
 							>
 								<SelectTrigger>
 									<SelectValue placeholder="Select event type" />
@@ -241,10 +242,10 @@ export function EventDialog({
 										toast.error(`Upload failed: ${error.message}`);
 									}}
 								/>
-								{event.heroImageUrl && (
+								{heroImageUrl && (
 									<div className="relative">
 										<img
-											src={event.heroImageUrl}
+											src={heroImageUrl}
 											alt="Event hero"
 											className="w-full h-48 object-cover rounded-md"
 										/>
@@ -253,9 +254,7 @@ export function EventDialog({
 											variant="destructive"
 											size="sm"
 											className="absolute top-2 right-2"
-											onClick={() =>
-												setEvent((prev) => ({ ...prev, heroImageUrl: "" }))
-											}
+											onClick={() => setHeroImageUrl("")}
 										>
 											Remove Image
 										</Button>
@@ -266,13 +265,8 @@ export function EventDialog({
 						<div>
 							<Label>Description</Label>
 							<RichTextEditor
-								content={event.description}
-								onContentChange={(content) =>
-									setEvent({
-										...event,
-										description: content,
-									})
-								}
+								content={description}
+								onContentChange={(content) => setDescription(content)}
 								placeholder="Enter event description..."
 							/>
 						</div>
@@ -280,25 +274,15 @@ export function EventDialog({
 							<Label htmlFor="location">Location</Label>
 							<Input
 								id="location"
-								value={event.location || ""}
-								onChange={(e) =>
-									setEvent({
-										...event,
-										location: e.target.value,
-									})
-								}
+								value={location}
+								onChange={(e) => setLocation(e.target.value)}
 							/>
 						</div>
 						<div className="flex items-center space-x-2">
 							<Checkbox
 								id="allDay"
-								checked={event.allDay}
-								onCheckedChange={(checked) =>
-									setEvent({
-										...event,
-										allDay: !!checked,
-									})
-								}
+								checked={allDay}
+								onCheckedChange={(checked) => setAllDay(!!checked)}
 							/>
 							<Label htmlFor="allDay">All day event</Label>
 						</div>
@@ -312,8 +296,8 @@ export function EventDialog({
 												variant={"outline"}
 												className="w-full top-0 h-full px-3 py-2"
 											>
-												{event.startDate ? (
-													format(event.startDate, "PPP")
+												{startDate ? (
+													format(startDate, "PPP")
 												) : (
 													<span>Pick a date</span>
 												)}
@@ -323,7 +307,7 @@ export function EventDialog({
 										<PopoverContent className="w-auto p-0" align="start">
 											<Calendar
 												mode="single"
-												selected={event.startDate}
+												selected={startDate}
 												onSelect={(date) => handleDateChange(date, true)}
 												disabled={(date) => date < new Date()}
 												initialFocus
@@ -331,9 +315,9 @@ export function EventDialog({
 										</PopoverContent>
 									</Popover>
 								</div>
-								{!event.allDay && (
+								{!allDay && (
 									<TimeField
-										value={format(event.startDate, "HH:mm")}
+										value={format(startDate, "HH:mm")}
 										onChange={(value) => handleTimeChange(value, true)}
 									/>
 								)}
@@ -349,8 +333,8 @@ export function EventDialog({
 												variant={"outline"}
 												className="w-full top-0 h-full px-3 py-2"
 											>
-												{event.endDate ? (
-													format(event.endDate, "PPP")
+												{endDate ? (
+													format(endDate, "PPP")
 												) : (
 													<span>Pick a date</span>
 												)}
@@ -360,37 +344,34 @@ export function EventDialog({
 										<PopoverContent className="w-auto p-0" align="start">
 											<Calendar
 												mode="single"
-												selected={event.endDate}
+												selected={endDate}
 												onSelect={(date) => handleDateChange(date, false)}
 												disabled={(date) =>
-													date < new Date() || date < event.startDate
+													date < new Date() || date < startDate
 												}
 												initialFocus
 											/>
 										</PopoverContent>
 									</Popover>
 								</div>
-								{!event.allDay && (
+								{!allDay && (
 									<TimeField
-										value={format(event.endDate, "HH:mm")}
+										value={format(endDate, "HH:mm")}
 										onChange={(value) => handleTimeChange(value, false)}
 									/>
 								)}
 							</div>
 						</div>
-						{event.type === "mission" && (
+						{type === "mission" && (
 							<>
 								<div className="grid gap-2">
 									<Label htmlFor="volunteersNeeded">Volunteers Needed</Label>
 									<Input
 										id="volunteersNeeded"
 										type="number"
-										value={event.volunteersNeeded || ""}
+										value={volunteersNeeded || ""}
 										onChange={(e) =>
-											setEvent({
-												...event,
-												volunteersNeeded: Number.parseInt(e.target.value) || 0,
-											})
+											setVolunteersNeeded(Number.parseInt(e.target.value) || 0)
 										}
 									/>
 								</div>
@@ -399,12 +380,9 @@ export function EventDialog({
 									<Input
 										id="investment"
 										type="number"
-										value={event.investment || ""}
+										value={investment || ""}
 										onChange={(e) =>
-											setEvent({
-												...event,
-												investment: Number.parseInt(e.target.value) || 0,
-											})
+											setInvestment(Number.parseInt(e.target.value) || 0)
 										}
 									/>
 								</div>
@@ -413,16 +391,22 @@ export function EventDialog({
 									<Input
 										id="fundingRaised"
 										type="number"
-										value={event.fundingRaised || ""}
+										value={fundingRaised || ""}
 										onChange={(e) =>
-											setEvent({
-												...event,
-												fundingRaised: Number.parseInt(e.target.value) || 0,
-											})
+											setFundingRaised(Number.parseInt(e.target.value) || 0)
 										}
 									/>
 								</div>
 							</>
+						)}
+						{churchOrganizationId && (
+							<div className="border rounded-md p-4">
+								<EventOrganizerSelector
+									churchOrganizationId={churchOrganizationId}
+									organizers={organizers}
+									onChange={handleOrganizersChange}
+								/>
+							</div>
 						)}
 						<DialogFooter className="sticky bottom-0 bg-background pt-4 mt-4 border-t gap-2 sm:gap-0">
 							{mode === "edit" && onDelete && (
@@ -449,13 +433,8 @@ export function EventDialog({
 								>
 									Cancel
 								</Button>
-								<Button type="submit" disabled={isSubmitting}>
-									{isSubmitting ? (
-										<>
-											<span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-foreground" />
-											{mode === "create" ? "Creating..." : "Updating..."}
-										</>
-									) : mode === "create" ? (
+								<Button type="submit" loading={isSubmitting}>
+									{mode === "create" ? (
 										"Create Event"
 									) : (
 										"Update Event"
@@ -476,7 +455,7 @@ export function EventDialog({
 						<AlertDialogDescription>
 							This action cannot be undone. This will permanently delete the
 							event
-							<strong> {event.title}</strong> and remove it from our servers.
+							<strong> {title}</strong> and remove it from our servers.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>

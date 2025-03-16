@@ -16,7 +16,7 @@ export default function UsersForm({ defaultValues }: { defaultValues: any }) {
             <Input name="zip" label="Zip Code" defaultValue={defaultValues.zip} />
             <Input name="phone" label="Phone" defaultValue={defaultValues.phone} />
             <div className="space-y-2">
-                <Label className="text-sm font-medium">Preferred Communication Methods</Label>
+                <Label className="text-sm font-medium">Communication Methods</Label>
                 <div className="space-y-1">
                     <div className="flex items-center space-x-2">
                         <input
@@ -47,6 +47,45 @@ export default function UsersForm({ defaultValues }: { defaultValues: any }) {
                             className="rounded border-gray-300"
                         />
                         <Label htmlFor="preferCall" className="text-sm">Phone Call</Label>
+                    </div>
+                </div>
+            </div>
+
+            <div className="space-y-2 mt-4">
+                <Label className="text-sm font-medium">Preferred Communication Method</Label>
+                <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                        <input
+                            type="radio"
+                            id="preferredEmail"
+                            name="preferredCommunicationMethod"
+                            value="email"
+                            defaultChecked={defaultValues.preferredCommunicationMethod === "email" || !defaultValues.preferredCommunicationMethod}
+                            className="rounded-full border-gray-300"
+                        />
+                        <Label htmlFor="preferredEmail" className="text-sm">Email</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <input
+                            type="radio"
+                            id="preferredText"
+                            name="preferredCommunicationMethod"
+                            value="sms"
+                            defaultChecked={defaultValues.preferredCommunicationMethod === "sms"}
+                            className="rounded-full border-gray-300"
+                        />
+                        <Label htmlFor="preferredText" className="text-sm">Text Message</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <input
+                            type="radio"
+                            id="preferredCall"
+                            name="preferredCommunicationMethod"
+                            value="phone"
+                            defaultChecked={defaultValues.preferredCommunicationMethod === "phone"}
+                            className="rounded-full border-gray-300"
+                        />
+                        <Label htmlFor="preferredCall" className="text-sm">Phone Call</Label>
                     </div>
                 </div>
             </div>

@@ -4,7 +4,6 @@ import { format } from "date-fns";
 import {
 	BookmarkIcon,
 	FileDownIcon,
-	Mail,
 	MessageSquare,
 	PhoneCall,
 } from "lucide-react";
@@ -130,10 +129,9 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 	const endDate = formData.get("endDate") as string;
 	const period = formData.get("period") as string;
 	const organizationId = params.organization as string;
-	const emailCount = parseInt(formData.get("emailCount") as string, 10);
-	const smsCount = parseInt(formData.get("smsCount") as string, 10);
-	const phoneCount = parseInt(formData.get("phoneCount") as string, 10);
-	const totalCost = parseFloat(formData.get("totalCost") as string);
+	const smsCount = Number.parseInt(formData.get("smsCount") as string, 10);
+	const phoneCount = Number.parseInt(formData.get("phoneCount") as string, 10);
+	const totalCost = Number.parseFloat(formData.get("totalCost") as string);
 
 	// Save the report to the database
 	try {
@@ -143,7 +141,6 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 			startDate: new Date(startDate),
 			endDate: new Date(endDate),
 			period,
-			emailCount,
 			smsCount,
 			phoneCount,
 			totalCost: Math.round(totalCost * 100), // Store in cents
@@ -170,9 +167,6 @@ export default function MessageUsage() {
 	const isReportsPage = location.pathname.endsWith("/reports");
 
 	// Format statistics for display
-	const emailStats = stats.messageTypes.find(
-		(type) => type.messageType === "email",
-	) || { count: 0, totalCost: 0 };
 	const smsStats = stats.messageTypes.find(
 		(type) => type.messageType === "sms",
 	) || { count: 0, totalCost: 0 };
@@ -195,7 +189,7 @@ export default function MessageUsage() {
 				[
 					format(new Date(msg.sentAt), "yyyy-MM-dd HH:mm:ss"),
 					msg.messageType,
-					msg.recipientEmail || msg.recipientPhone || msg.recipientId,
+					msg.recipientPhone || msg.recipientId,
 					msg.status,
 					(msg.cost / 100).toFixed(2),
 					msg.providerMessageId || "",
@@ -313,11 +307,6 @@ export default function MessageUsage() {
 												<input type="hidden" name="period" value={period} />
 												<input
 													type="hidden"
-													name="emailCount"
-													value={emailStats.count}
-												/>
-												<input
-													type="hidden"
 													name="smsCount"
 													value={smsStats.count}
 												/>
@@ -372,22 +361,7 @@ export default function MessageUsage() {
 							</div>
 						</div>
 
-						<div className="grid gap-4 md:grid-cols-3 dark">
-							<Card>
-								<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-									<CardTitle className="text-sm font-medium">
-										Email Messages
-									</CardTitle>
-									<Mail className="h-4 w-4 text-gray-600" />
-								</CardHeader>
-								<CardContent>
-									<div className="text-2xl font-bold">{emailStats.count}</div>
-									<p className="text-xs text-gray-400">
-										${(emailStats.totalCost / 100).toFixed(2)} total cost
-									</p>
-								</CardContent>
-							</Card>
-
+						<div className="grid gap-4 md:grid-cols-2 dark">
 							<Card>
 								<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 									<CardTitle className="text-sm font-medium">
@@ -418,7 +392,7 @@ export default function MessageUsage() {
 								</CardContent>
 							</Card>
 
-							<Card className="md:col-span-3">
+							<Card className="md:col-span-2">
 								<CardHeader>
 									<CardTitle>Total Usage</CardTitle>
 									<CardDescription className="text-gray-400">
@@ -481,14 +455,6 @@ export default function MessageUsage() {
 											</TableHeader>
 											<TableBody>
 												<TableRow>
-													<TableCell className="font-medium">Email</TableCell>
-													<TableCell>{emailStats.count}</TableCell>
-													<TableCell>$0.005</TableCell>
-													<TableCell>
-														${(emailStats.totalCost / 100).toFixed(2)}
-													</TableCell>
-												</TableRow>
-												<TableRow>
 													<TableCell className="font-medium">SMS</TableCell>
 													<TableCell>{smsStats.count}</TableCell>
 													<TableCell>$0.01 per segment</TableCell>
@@ -546,9 +512,7 @@ export default function MessageUsage() {
 																msg.messageType.slice(1)}
 														</TableCell>
 														<TableCell>
-															{msg.recipientEmail ||
-																msg.recipientPhone ||
-																msg.recipientId}
+															{msg.recipientPhone || msg.recipientId}
 														</TableCell>
 														<TableCell>
 															<span

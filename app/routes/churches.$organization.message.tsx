@@ -1,11 +1,14 @@
 import { createAuthLoader } from "~/server/auth/authLoader";
-import { churchOrganization, users, guardiansTable } from "@/server/db/schema";
+import { churchOrganization, users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db/dbConnection";
 import {
 	MessagingService,
 	type MessageRecipient,
 } from "@/server/services/MessagingService";
+import { getUser } from "@/server/dataServices/UserDataService";
+import { getUserPreferences } from "@/server/dataServices/UserPreferences";
+import { TeamsDataService } from "@/server/dataServices/TeamsDataService";
 
 export const action = createAuthLoader(
 	async ({ request, auth, params, userContext }) => {
@@ -21,22 +24,20 @@ export const action = createAuthLoader(
 
 		// Get all recipientIds entries and extract the type and ID
 		const recipientEntries = formData.getAll("recipientIds[]").map((id) => {
-			// Extract the type (user/guardian) and ID
+			// Extract the type and ID
 			const [type, actualId] = (id as string).split(":");
 			return { type, id: actualId };
 		});
 
 		// Prepare recipients array
 		const recipients: MessageRecipient[] = [];
+		const teamsService = new TeamsDataService();
 
 		for (const entry of recipientEntries) {
 			if (entry.type === "user") {
 				// Handle users
-				const user = await db
-					.select()
-					.from(users)
-					.where(eq(users.id, entry.id))
-					.then((res) => res[0]);
+				const user = (await getUser({ userId: entry.id })).users;
+				const userPreferences = await getUserPreferences(entry.id);
 
 				if (!user) continue;
 
@@ -46,24 +47,31 @@ export const action = createAuthLoader(
 					phone: user.phone,
 					firstName: user.firstName,
 					lastName: user.lastName,
+					preferences: userPreferences,
 				});
-			} else if (entry.type === "guardian") {
-				// Handle guardians
-				const guardian = await db
-					.select()
-					.from(guardiansTable)
-					.where(eq(guardiansTable.id, entry.id))
-					.then((res) => res[0]);
+			} else if (entry.type === "team") {
+				// Handle teams - get all team members and add them to recipients
+				const teamData = await teamsService.getTeam(entry.id, true);
 
-				if (!guardian) continue;
+				if (!teamData || !teamData.members) continue;
 
-				recipients.push({
-					guardianId: guardian.userId,
-					email: guardian.email,
-					phone: guardian.phone,
-					firstName: guardian.firstName,
-					lastName: guardian.lastName,
-				});
+				// Process each team member
+				for (const member of teamData.members) {
+					// Skip if user is already in recipients
+					if (recipients.some((r) => r.userId === member.user.id)) continue;
+
+					// Get user preferences
+					const userPreferences = await getUserPreferences(member.user.id);
+
+					recipients.push({
+						userId: member.user.id,
+						email: member.user.email,
+						phone: member.user.phone,
+						firstName: member.user.firstName,
+						lastName: member.user.lastName,
+						preferences: userPreferences,
+					});
+				}
 			}
 		}
 
@@ -86,7 +94,7 @@ export const action = createAuthLoader(
 
 		return {
 			success: true,
-			message: `Messages sent: ${result.summary.success} successful, ${result.summary.failed} failed`,
+			message: `Messages sent: ${result.summary.success} successful, ${result.summary.failed} failed, ${result.summary.skipped} skipped`,
 			details: result,
 		};
 	},

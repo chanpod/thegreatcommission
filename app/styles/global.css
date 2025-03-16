@@ -1,0 +1,107 @@
+/* Animated gradient for About section */
+.animated-gradient {
+	animation: gradient 8s ease infinite;
+	background-size: 200% 200% !important;
+	transition: all 0.3s ease;
+}
+
+@keyframes gradient {
+	0% {
+		background-position: 0% 25%;
+	}
+	25% {
+		background-position: 50% 0%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+	75% {
+		background-position: 50% 100%;
+	}
+	100% {
+		background-position: 0% 25%;
+	}
+}
+
+/* Animation for floating particles */
+.float-animation {
+	animation: float 10s ease-in-out infinite;
+}
+
+@keyframes float {
+	0%,
+	100% {
+		transform: translateY(0) translateX(0);
+	}
+	25% {
+		transform: translateY(-15px) translateX(10px);
+	}
+	50% {
+		transform: translateY(5px) translateX(-10px);
+	}
+	75% {
+		transform: translateY(-5px) translateX(15px);
+	}
+}
+
+/* Animation for pulsing effect */
+.pulse-animation {
+	animation: pulse 4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.1);
+	}
+}
+
+/* Animation for spinning effect */
+.spin-slow {
+	animation: spin 20s linear infinite;
+}
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Animation for dashed lines */
+.animate-dash {
+	animation: dash 20s linear infinite;
+}
+
+.animate-dash-reverse {
+	animation: dash-reverse 20s linear infinite;
+}
+
+@keyframes dash {
+	to {
+		stroke-dashoffset: 1000;
+	}
+}
+
+@keyframes dash-reverse {
+	to {
+		stroke-dashoffset: -1000;
+	}
+}
+
+/* Reveal on scroll animation */
+.reveal-on-scroll {
+	opacity: 0;
+	transform: translateY(20px);
+	transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.reveal-on-scroll.visible {
+	opacity: 1;
+	transform: translateY(0);
+}

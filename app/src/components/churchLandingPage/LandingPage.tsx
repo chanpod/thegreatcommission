@@ -13,6 +13,8 @@ interface LandingPageProps {
 	serviceTimes: Array<typeof events.$inferSelect>;
 	upcomingEvents: Array<typeof events.$inferSelect>;
 	isLive: boolean;
+	canViewForms?: boolean;
+	children?: React.ReactNode;
 }
 
 interface FooterProps {
@@ -40,7 +42,7 @@ function safeJsonParse<T>(
 	}
 }
 
-function ThemeProvider({
+export function ThemeProvider({
 	organization,
 	children,
 }: {
@@ -75,10 +77,9 @@ const LandingPage = ({
 	serviceTimes,
 	upcomingEvents,
 	isLive,
+	canViewForms = false,
+	children,
 }: LandingPageProps) => {
-	// Debug logging to check what config data is being received
-	console.log("LandingPage received config:", config);
-
 	return (
 		<ThemeProvider organization={organization}>
 			<div className="min-h-screen flex flex-col">
@@ -86,30 +87,35 @@ const LandingPage = ({
 					churchName={organization.name}
 					logoUrl={organization.logoUrl}
 					organizationId={organization.id}
+					canViewForms={canViewForms}
 				/>
 
-				{/* Render the nested route content here */}
-				<Outlet
-					context={{
-						organization,
-						config,
-						serviceTimes,
-						upcomingEvents,
-						isLive,
-					}}
-				/>
+				{/* Render children if provided, otherwise render the Outlet */}
+				{children || (
+					<Outlet
+						context={{
+							organization,
+							config,
+							serviceTimes,
+							upcomingEvents,
+							isLive,
+						}}
+					/>
+				)}
 
 				<Footer
 					organization={organization}
 					contactInfo={{
-						email: config?.contactEmail || organization.email,
-						phone: config?.contactPhone || organization.phone,
-						address:
-							config?.contactAddress ||
-							`${organization.street}, ${organization.city}, ${organization.state} ${organization.zip}`,
+						email: organization.contactEmail || "",
+						phone: organization.contactPhone || "",
+						address: organization.address || "",
 					}}
-					content={config?.footerContent}
-					socialLinks={safeJsonParse(config?.socialLinks, null)}
+					content={config?.footerContent || undefined}
+					socialLinks={
+						config?.socialLinks
+							? safeJsonParse(config.socialLinks, {})
+							: undefined
+					}
 				/>
 			</div>
 		</ThemeProvider>

@@ -1,4 +1,4 @@
-import { aliasedTable, eq } from "drizzle-orm";
+import { aliasedTable, eq, or } from "drizzle-orm";
 
 import {
 	churchOrganization,
@@ -17,17 +17,25 @@ export async function updateUser(userId: string, user: typeof usersSchema) {
 		.where(eq(usersSchema.id, userId));
 }
 
+type GetUser = {
+	users: typeof usersSchema.$inferSelect;
+	roles: (typeof rolesSchema.$inferSelect)[];
+};
+
 export async function getUser(
-	email: string,
+	{
+		email,
+		userId,
+	}: {
+		email?: string;
+		userId?: string;
+	},
 	includes: { roles: boolean; churches: boolean } = {
 		roles: false,
 		churches: false,
 	},
-): Promise<{
-	users: typeof usersSchema | null;
-	roles: (typeof rolesSchema)[];
-}> {
-	let query = db.select().from(usersSchema).where(eq(usersSchema.email, email));
+): Promise<GetUser> {
+	let query = db.select().from(usersSchema).where(or(eq(usersSchema.email, email), eq(usersSchema.id, userId)));
 	let users;
 	let roles = [];
 
@@ -36,11 +44,11 @@ export async function getUser(
 		query.leftJoin(usersToRoles, eq(usersSchema.id, usersToRoles.userId));
 		query.leftJoin(rolesAlias, eq(usersToRoles.roleId, rolesAlias.id));
 
-		const result = await query.then((result) => result[0]);
+		const result = await query.then((result) => result[0]) as GetUser;
 
 		if (result) {
-			users = result.users as typeof users;
-			roles = result.roles as (typeof roles)[];
+			users = result.users as typeof usersSchema.$inferSelect;
+			roles = result.roles as (typeof rolesSchema.$inferSelect)[];
 		}
 	} else {
 		const result = await query.then((result) => result[0]);

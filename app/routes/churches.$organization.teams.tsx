@@ -35,6 +35,7 @@ import { DeleteConfirm } from "~/src/components/confirm/DeleteConfirm";
 import { Input } from "~/src/components/forms/input/Input";
 import { PageLayout } from "~/src/components/layout/PageLayout";
 import { MembersList } from "~/src/components/listItems/components/MembersList";
+import { PeopleNavigation } from "~/components/PeopleNavigation";
 
 type TeamWithMembers = {
 	team: typeof teamsTable.$inferSelect;
@@ -207,7 +208,7 @@ function TeamCard({
 	);
 }
 
-export default function TeamsList() {
+export default function TeamsPage() {
 	const { teams, permissions } = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
 	const navigate = useNavigate();
@@ -255,16 +256,22 @@ export default function TeamsList() {
 
 	return (
 		<PageLayout
-			title="Teams"
+			title="Organization Teams"
+			description="Manage your organization's teams"
 			actions={
 				permissions.canAdd && (
-					<Button onClick={() => setShowCreateModal(true)}>
-						<PlusIcon className="h-4 w-4 mr-2" />
+					<Button
+						onClick={() => setShowCreateModal(true)}
+						className="flex items-center gap-2"
+					>
+						<PlusIcon className="h-4 w-4" />
 						Create Team
 					</Button>
 				)
 			}
 		>
+			<PeopleNavigation />
+
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				{teams.map((team) => (
 					<TeamCard

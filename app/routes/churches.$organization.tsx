@@ -34,6 +34,12 @@ export const links: Route.LinksFunction = () => [
 
 export const loader = createAuthLoader(
 	async ({ request, auth, params, userContext }) => {
+		const user = userContext.user;
+		console.log("=======");
+		if (!user?.id) {
+			throw redirect(`/landing/${user?.churchId}`);
+		}
+
 		const organization = await db
 			.select()
 			.from(churchOrganization)
@@ -103,11 +109,9 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
 const NAV_ITEMS = [
 	{ name: "Overview", href: "details" },
-	{ name: "Members", href: "members" },
-	{ name: "Teams", href: "teams" },
+	{ name: "People", href: "people" },
 	{ name: "Events", href: "events" },
-	{ name: "Roles", href: "roles" },
-	{ name: "Landing Page", href: "landing" },
+	{ name: "Website", href: "landing" },
 	{ name: "Message Usage", href: "message-usage" },
 	{ name: "Child Check-in", href: "childcheckin" },
 ];

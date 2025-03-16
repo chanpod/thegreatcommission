@@ -102,7 +102,6 @@ export default function SavedReports() {
 				"Period",
 				"Start Date",
 				"End Date",
-				"Email Count",
 				"SMS Count",
 				"Phone Count",
 				"Total Cost",
@@ -113,7 +112,6 @@ export default function SavedReports() {
 				report.period,
 				format(new Date(report.startDate), "yyyy-MM-dd"),
 				format(new Date(report.endDate), "yyyy-MM-dd"),
-				report.emailCount,
 				report.smsCount,
 				report.phoneCount,
 				(report.totalCost / 100).toFixed(2),
@@ -184,8 +182,7 @@ export default function SavedReports() {
 						</TableHeader>
 						<TableBody>
 							{reports.map((report) => {
-								const totalMessages =
-									report.emailCount + report.smsCount + report.phoneCount;
+								const totalMessages = report.smsCount + report.phoneCount;
 								const formattedStartDate = format(
 									new Date(report.startDate),
 									"MMM d, yyyy",

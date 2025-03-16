@@ -1,4 +1,5 @@
-import React from "react";
+import type { ChangeEvent } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -6,6 +7,7 @@ import { toast } from "sonner";
 import { UploadButton } from "~/utils/uploadthing";
 import { ClientOnly } from "remix-utils/client-only";
 import { RichTextEditor } from "~/components/messaging/RichTextEditor";
+import type { landingPageConfig, churchOrganization } from "server/db/schema";
 
 interface AboutButton {
 	label: string;
@@ -29,12 +31,11 @@ interface AboutEditorProps {
 		aboutContent: string;
 	};
 	handleFieldChange: (
-		e: React.ChangeEvent<
-			HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-		>,
+		e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
 	) => void;
 	onContentChange: (content: string) => void;
-	config: any;
+	config: typeof landingPageConfig.$inferSelect | null;
+	organization?: typeof churchOrganization.$inferSelect; // Properly typed organization prop
 }
 
 export function AboutEditor({
@@ -48,20 +49,85 @@ export function AboutEditor({
 	handleFieldChange,
 	onContentChange,
 	config,
+	organization,
 }: AboutEditorProps) {
+	// Local state for button inputs to prevent losing focus on every keystroke
+	const [localButtons, setLocalButtons] = useState<AboutButton[]>(aboutButtons);
+
+	// Update local state when parent state changes
+	useEffect(() => {
+		setLocalButtons(aboutButtons);
+	}, [aboutButtons]);
+
+	// Handle local button changes
+	const handleButtonChange = (
+		index: number,
+		field: "label" | "url",
+		value: string,
+	) => {
+		setLocalButtons((prev) =>
+			prev.map((button, i) =>
+				i === index ? { ...button, [field]: value } : button,
+			),
+		);
+	};
+
+	// Update parent state when input loses focus
+	const handleButtonBlur = (index: number, field: "label" | "url") => {
+		updateAboutButton(index, field, localButtons[index][field]);
+	};
+
+	// Get theme colors from organization, or use defaults if not available
+	const getThemeColors = () => {
+		try {
+			if (organization?.themeColors) {
+				return JSON.parse(organization.themeColors) as {
+					primary: string;
+					secondary: string;
+					accent: string;
+				};
+			}
+		} catch (error) {
+			console.error("Error parsing theme colors:", error);
+		}
+
+		// Default theme colors if not available
+		return {
+			primary: "#3b82f6",
+			secondary: "#1e293b",
+			accent: "#8b5cf6",
+		};
+	};
+
+	const themeColors = getThemeColors();
+
+	// Create a clean gradient string without whitespace or newlines
+	const backgroundGradient = `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.accent || "#8b5cf6"} 50%, ${themeColors.secondary} 100%)`;
+
+	// This is the exact same gradient that will be used on the landing page
+	const previewGradient = backgroundGradient;
+
 	return (
 		<div className="space-y-4">
 			<div
-				className="p-4 rounded-lg mb-4"
+				className="p-4 rounded-lg mb-4 animated-gradient"
 				style={{
-					background: "linear-gradient(135deg, #00a99d 0%, #89d7bb 100%)",
+					background: previewGradient,
+					backgroundSize: "200% 200%", // More compact background size for more dramatic movement
+					boxShadow: "0 4px 20px rgba(0, 0, 0, 0.2)", // Add shadow for depth
+					border: `1px solid ${themeColors.accent || "#8b5cf6"}`, // Add border with accent color
 				}}
 			>
 				<div className="text-white text-center">
 					<p className="text-xs uppercase tracking-wider">Preview</p>
 					<h3 className="text-lg font-semibold mt-1">
-						This section will have a teal gradient background like this
+						This section will have an animated gradient background using your
+						theme colors
 					</h3>
+					<p className="text-sm mt-2">
+						Primary: {themeColors.primary} | Accent: {themeColors.accent} |
+						Secondary: {themeColors.secondary}
+					</p>
 				</div>
 			</div>
 
@@ -119,7 +185,7 @@ export function AboutEditor({
 							endpoint="imageUploader"
 							onClientUploadComplete={(res) => {
 								if (res?.[0]) {
-									setAboutLogoUrl(res[0].ufsUrl);
+									setAboutLogoUrl(res[0].url);
 									toast.success(
 										"Image uploaded successfully. Please save changes to keep this image.",
 									);
@@ -146,24 +212,23 @@ export function AboutEditor({
 						</div>
 
 						<div className="space-y-3">
-							{aboutButtons.map((button, index) => (
-								<div
-									key={`button-${button.label}-${index}`}
-									className="flex gap-2 items-start"
-								>
+							{localButtons.map((button, index) => (
+								<div key={`button-${index}`} className="flex gap-2 items-start">
 									<div className="grid grid-cols-2 gap-2 flex-1">
 										<Input
 											value={button.label}
 											onChange={(e) =>
-												updateAboutButton(index, "label", e.target.value)
+												handleButtonChange(index, "label", e.target.value)
 											}
+											onBlur={() => handleButtonBlur(index, "label")}
 											placeholder="Button Label"
 										/>
 										<Input
 											value={button.url}
 											onChange={(e) =>
-												updateAboutButton(index, "url", e.target.value)
+												handleButtonChange(index, "url", e.target.value)
 											}
+											onBlur={() => handleButtonBlur(index, "url")}
 											placeholder="Button URL"
 										/>
 									</div>
@@ -177,7 +242,7 @@ export function AboutEditor({
 								</div>
 							))}
 
-							{aboutButtons.length === 0 && (
+							{localButtons.length === 0 && (
 								<p className="text-sm text-muted-foreground italic">
 									Add buttons like "What We Believe" or "Core Values" to your
 									about section

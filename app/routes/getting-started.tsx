@@ -7,6 +7,7 @@ import {
 	useSearchParams,
 	useNavigate,
 	useLoaderData,
+	useNavigation,
 } from "react-router";
 import {
 	Check,
@@ -19,6 +20,7 @@ import {
 	Palette,
 	ChevronLeft,
 	UserCircle,
+	Loader2,
 } from "lucide-react";
 import { db } from "@/server/db/dbConnection";
 import {
@@ -52,6 +54,7 @@ import type { Route } from "./+types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { AuthService } from "~/services/AuthService";
 import { getAuth, rootAuthLoader } from "@clerk/react-router/ssr.server";
+import { createAuthLoader } from "~/server/auth/authLoader";
 
 // Define the steps of the wizard
 const STEPS = [
@@ -69,29 +72,24 @@ const STEPS = [
 	{ id: "branding", title: "Branding", icon: <Palette className="h-5 w-5" /> },
 	{
 		id: "landing-page",
-		title: "Landing Page",
+		title: "Website",
 		icon: <Globe className="h-5 w-5" />,
 	},
 	{ id: "complete", title: "Complete", icon: <Check className="h-5 w-5" /> },
 ];
 
-export const loader = async (request: Route.LoaderArgs) => {
-	return rootAuthLoader(request, async ({ request, params, context }) => {
-		// Get user context
-		const userContext = await AuthService.getAuthenticatedUser(request.auth);
+export const loader = createAuthLoader(async ({ request, userContext }) => {
+	// If authenticated and on auth step, redirect to church-info step
+	const url = new URL(request.url);
+	const currentStep = url.searchParams.get("step");
+	if (userContext && (!currentStep || currentStep === "auth")) {
+		throw redirect("/getting-started?step=church-info");
+	}
 
-		// If authenticated and on auth step, redirect to church-info step
-		const url = new URL(request.url);
-		const currentStep = url.searchParams.get("step");
-		if (userContext && (!currentStep || currentStep === "auth")) {
-			return redirect("/getting-started?step=church-info");
-		}
-
-		return {
-			isAuthenticated: !!userContext,
-		};
-	});
-};
+	return {
+		isAuthenticated: !!userContext,
+	};
+});
 
 export const action = async (request: Route.ActionArgs) => {
 	return rootAuthLoader(request, async ({ request, params, context }) => {
@@ -113,9 +111,43 @@ export const action = async (request: Route.ActionArgs) => {
 		}
 
 		// For all other steps, verify the user is authenticated
-
 		if (!userContext) {
 			return redirect("/getting-started?step=auth");
+		}
+
+		// Validate required fields based on the current step
+		const errors: Record<string, string> = {};
+
+		if (completedStep === "church-info") {
+			if (!formData.get("name")) {
+				errors.name = "Church name is required";
+			}
+		}
+
+		if (completedStep === "location") {
+			if (!formData.get("street")) {
+				errors.street = "Street address is required";
+			}
+			if (!formData.get("city")) {
+				errors.city = "City is required";
+			}
+			if (!formData.get("state")) {
+				errors.state = "State is required";
+			}
+			if (!formData.get("zip")) {
+				errors.zip = "Zip code is required";
+			}
+		}
+
+		// If there are validation errors, return them
+		if (Object.keys(errors).length > 0) {
+			return {
+				status: 400,
+				step: completedStep,
+				data: Object.fromEntries(formData.entries()),
+				errors,
+				message: "Please fix the errors before continuing",
+			};
 		}
 
 		// Store data in session for multi-step form
@@ -141,18 +173,14 @@ export const action = async (request: Route.ActionArgs) => {
 						city: formData.get("city") as string,
 						state: formData.get("state") as string,
 						zip: formData.get("zip") as string,
-						churchBannerUrl:
-							(formData.get("churchBannerUrl") as string) || null,
 						mainChurchWebsite:
 							(formData.get("mainChurchWebsite") as string) || null,
 						createdById: userContext.user.id,
 						updatedAt: new Date(),
 						email: (formData.get("contactEmail") as string) || null,
 						phone: (formData.get("contactPhone") as string) || null,
-						description: (formData.get("aboutContent") as string) || null,
-						avatarUrl: null,
-						parentOrganizationId: null,
-						themeColors: (formData.get("themeColors") as string) || null,
+						description: (formData.get("aboutContent") as string) || "",
+						logoUrl: (formData.get("logoUrl") as string) || null,
 					})
 					.returning();
 
@@ -163,11 +191,8 @@ export const action = async (request: Route.ActionArgs) => {
 						name: "Admin",
 						description: "Full administrative control",
 						permissions: getAllPermissions(),
-						isDefault: false,
-						isActive: true,
 						churchOrganizationId: org.id,
 						updatedAt: new Date(),
-						createdAt: new Date(),
 					})
 					.returning();
 
@@ -177,7 +202,6 @@ export const action = async (request: Route.ActionArgs) => {
 					organizationRoleId: adminRole.id,
 					churchOrganizationId: org.id,
 					updatedAt: new Date(),
-					createdAt: new Date(),
 				});
 
 				// Make creator an admin in the organization
@@ -202,7 +226,6 @@ export const action = async (request: Route.ActionArgs) => {
 					contactEmail: (formData.get("contactEmail") as string) || null,
 					contactPhone: (formData.get("contactPhone") as string) || null,
 					contactAddress: `${formData.get("street")}, ${formData.get("city")}, ${formData.get("state")} ${formData.get("zip")}`,
-					createdAt: new Date(),
 					updatedAt: new Date(),
 				});
 
@@ -223,6 +246,8 @@ export default function GettingStarted() {
 	const submit = useSubmit();
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
+	const navigation = useNavigation();
+	const isSubmitting = navigation.state === "submitting";
 
 	// Get the step from URL params or default to auth step
 	const stepParam = searchParams.get("step");
@@ -249,6 +274,9 @@ export default function GettingStarted() {
 		secondary: "#1e293b",
 		accent: "#8b5cf6",
 	});
+	const [errors, setErrors] = useState<Record<string, string>>({});
+	const [isLogoUploading, setIsLogoUploading] = useState(false);
+	const [isHeroImageUploading, setIsHeroImageUploading] = useState(false);
 
 	// Update URL when step changes
 	useEffect(() => {
@@ -279,8 +307,16 @@ export default function GettingStarted() {
 				}
 			}
 
+			// Set errors if any
+			if (actionData.errors) {
+				setErrors(actionData.errors);
+				toast.error("Please fix the errors before continuing");
+			} else {
+				setErrors({});
+			}
+
 			// Move to the next step if a step was successfully saved
-			if (actionData.step) {
+			if (actionData.step && !actionData.errors) {
 				const nextStepIndex = STEPS.findIndex(
 					(step) => step.id === actionData.step,
 				);
@@ -315,6 +351,40 @@ export default function GettingStarted() {
 	};
 
 	const handleSubmitStep = (nextStep: string) => {
+		// Client-side validation
+		const newErrors: Record<string, string> = {};
+
+		if (STEPS[currentStep].id === "church-info") {
+			if (!formData.name) {
+				newErrors.name = "Church name is required";
+			}
+		}
+
+		if (STEPS[currentStep].id === "location") {
+			if (!formData.street) {
+				newErrors.street = "Street address is required";
+			}
+			if (!formData.city) {
+				newErrors.city = "City is required";
+			}
+			if (!formData.state) {
+				newErrors.state = "State is required";
+			}
+			if (!formData.zip) {
+				newErrors.zip = "Zip code is required";
+			}
+		}
+
+		// If there are validation errors, show them and don't submit
+		if (Object.keys(newErrors).length > 0) {
+			setErrors(newErrors);
+			toast.error("Please fix the errors before continuing");
+			return;
+		}
+
+		// Clear errors
+		setErrors({});
+
 		// Add theme colors to form data
 		const updatedFormData = {
 			...formData,
@@ -443,7 +513,13 @@ export default function GettingStarted() {
 												value={formData.name || ""}
 												onChange={handleFormChange}
 												required
+												className={errors.name ? "border-red-500" : ""}
 											/>
+											{errors.name && (
+												<p className="text-sm text-red-500 mt-1">
+													{errors.name}
+												</p>
+											)}
 										</div>
 
 										<div className="space-y-2">
@@ -495,7 +571,13 @@ export default function GettingStarted() {
 												value={formData.street || ""}
 												onChange={handleFormChange}
 												required
+												className={errors.street ? "border-red-500" : ""}
 											/>
+											{errors.street && (
+												<p className="text-sm text-red-500 mt-1">
+													{errors.street}
+												</p>
+											)}
 										</div>
 
 										<div className="space-y-2">
@@ -506,7 +588,13 @@ export default function GettingStarted() {
 												value={formData.city || ""}
 												onChange={handleFormChange}
 												required
+												className={errors.city ? "border-red-500" : ""}
 											/>
+											{errors.city && (
+												<p className="text-sm text-red-500 mt-1">
+													{errors.city}
+												</p>
+											)}
 										</div>
 
 										<div className="grid grid-cols-2 gap-4">
@@ -518,7 +606,13 @@ export default function GettingStarted() {
 													value={formData.state || ""}
 													onChange={handleFormChange}
 													required
+													className={errors.state ? "border-red-500" : ""}
 												/>
+												{errors.state && (
+													<p className="text-sm text-red-500 mt-1">
+														{errors.state}
+													</p>
+												)}
 											</div>
 
 											<div className="space-y-2">
@@ -529,7 +623,13 @@ export default function GettingStarted() {
 													value={formData.zip || ""}
 													onChange={handleFormChange}
 													required
+													className={errors.zip ? "border-red-500" : ""}
 												/>
+												{errors.zip && (
+													<p className="text-sm text-red-500 mt-1">
+														{errors.zip}
+													</p>
+												)}
 											</div>
 										</div>
 									</div>
@@ -554,16 +654,30 @@ export default function GettingStarted() {
 												</div>
 											)}
 
+											{isLogoUploading && (
+												<div className="flex items-center space-x-2 mb-2">
+													<Loader2 className="h-4 w-4 animate-spin" />
+													<span className="text-sm text-muted-foreground">
+														Uploading logo...
+													</span>
+												</div>
+											)}
+
 											<UploadButton
 												endpoint="imageUploader"
 												onClientUploadComplete={(res) => {
 													if (res?.[0]) {
-														setLogoUrl(res[0].ufsUrl);
+														setLogoUrl(res[0].url);
 														toast.success("Logo uploaded successfully");
+														setIsLogoUploading(false);
 													}
 												}}
 												onUploadError={(error: Error) => {
 													toast.error(`Upload failed: ${error.message}`);
+													setIsLogoUploading(false);
+												}}
+												onUploadBegin={() => {
+													setIsLogoUploading(true);
 												}}
 											/>
 											<input type="hidden" name="logoUrl" value={logoUrl} />
@@ -653,7 +767,7 @@ export default function GettingStarted() {
 									</div>
 								)}
 
-								{/* Step 4: Landing Page */}
+								{/* Step 4: Website */}
 								{currentStep === 4 && (
 									<div className="space-y-6">
 										<div className="space-y-4">
@@ -715,16 +829,31 @@ export default function GettingStarted() {
 														/>
 													</div>
 												)}
+
+												{isHeroImageUploading && (
+													<div className="flex items-center space-x-2 mb-2">
+														<Loader2 className="h-4 w-4 animate-spin" />
+														<span className="text-sm text-muted-foreground">
+															Uploading image...
+														</span>
+													</div>
+												)}
+
 												<UploadButton
 													endpoint="imageUploader"
 													onClientUploadComplete={(res) => {
 														if (res?.[0]) {
-															setHeroImageUrl(res[0].ufsUrl);
+															setHeroImageUrl(res[0].url);
 															toast.success("Image uploaded successfully");
+															setIsHeroImageUploading(false);
 														}
 													}}
 													onUploadError={(error: Error) => {
 														toast.error(`Upload failed: ${error.message}`);
+														setIsHeroImageUploading(false);
+													}}
+													onUploadBegin={() => {
+														setIsHeroImageUploading(true);
 													}}
 												/>
 												<input
@@ -763,6 +892,7 @@ export default function GettingStarted() {
 											variant="outline"
 											onClick={goToPreviousStep}
 											className="flex items-center space-x-1"
+											disabled={isSubmitting}
 										>
 											<ChevronLeft className="h-4 w-4" />
 											<span>Back</span>
@@ -776,17 +906,35 @@ export default function GettingStarted() {
 											type="button"
 											onClick={goToNextStep}
 											className="flex items-center space-x-1 ml-auto"
+											disabled={isSubmitting}
 										>
-											<span>Next</span>
-											<ChevronRight className="h-4 w-4" />
+											{isSubmitting ? (
+												<>
+													<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+													<span>Saving...</span>
+												</>
+											) : (
+												<>
+													<span>Next</span>
+													<ChevronRight className="h-4 w-4" />
+												</>
+											)}
 										</Button>
 									) : (
 										<Button
 											type="button"
 											onClick={handleComplete}
 											className="ml-auto"
+											disabled={isSubmitting}
 										>
-											Complete Setup
+											{isSubmitting ? (
+												<>
+													<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+													<span>Completing...</span>
+												</>
+											) : (
+												<span>Complete Setup</span>
+											)}
 										</Button>
 									)}
 								</div>

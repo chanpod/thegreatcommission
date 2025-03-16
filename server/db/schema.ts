@@ -4,8 +4,11 @@ import {
 	timestamp,
 	boolean,
 	integer,
-	unique,
+	uuid,
+	pgEnum,
+	json,
 	serial,
+	unique,
 	foreignKey,
 	type AnyPgColumn,
 	numeric,
@@ -28,6 +31,12 @@ export const users = pgTable("users", {
 	country: text("country"),
 	avatarUrl: text("avatar_url"),
 	googleId: text("google_id").unique(),
+	photoUrl: text("photo_url"),
+	churchOrganizationId: text("church_organization_id").references(
+		() => churchOrganization.id,
+	),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	updatedAt: timestamp("updated_at").notNull(),
 });
 
 export const roles = pgTable("roles", {
@@ -163,6 +172,7 @@ export const userPreferences = pgTable("user_preferences", {
 	emailNotifications: boolean("email_notifications").default(true).notNull(),
 	smsNotifications: boolean("sms_notifications").default(false).notNull(),
 	phoneNotifications: boolean("phone_notifications").default(false).notNull(),
+	preferredCommunicationMethod: text("preferred_communication_method").default("email").notNull(), // email, sms, phone
 	emailFrequency: text("email_frequency").default("daily").notNull(), // daily, weekly, monthly
 	smsFrequency: text("sms_frequency").default("daily").notNull(),
 	phoneFrequency: text("phone_frequency").default("weekly").notNull(),
@@ -346,22 +356,18 @@ export const messageTracker = pgTable("message_tracker", {
 	churchOrganizationId: text("church_organization_id")
 		.notNull()
 		.references(() => churchOrganization.id),
-	messageType: text("message_type").notNull(), // "sms", "phone", "email"
+	messageType: text("message_type").notNull(), // "sms", "phone"
 	recipientId: text("recipient_id").references(() => users.id),
-	guardianId: text("guardian_id").references(() => guardiansTable.id),
 	recipientPhone: text("recipient_phone"),
-	recipientEmail: text("recipient_email"),
 	sentByUserId: text("sent_by_user_id").references(() => users.id),
 	messageContent: text("message_content"), // Optional for compliance/auditing
-	messageSubject: text("message_subject"), // For email messages
 	messageLength: integer("message_length"), // Character count for SMS
 	callDuration: integer("call_duration"), // Duration in seconds for phone calls
 	status: text("status").notNull().default("sent"), // sent, delivered, failed
 	providerMessageId: text("provider_message_id"), // ID returned by Twilio/SendGrid
 	cost: integer("cost"), // Cost in cents
-	sentAt: timestamp("sent_at").defaultNow().notNull(),
-	createdAt: timestamp("created_at").defaultNow().notNull(),
-	updatedAt: timestamp("updated_at").notNull(),
+	sentAt: timestamp("sent_at").notNull(),
+	updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Saved message usage reports
@@ -376,7 +382,6 @@ export const messageUsageReports = pgTable("message_usage_reports", {
 	startDate: timestamp("start_date").notNull(),
 	endDate: timestamp("end_date").notNull(),
 	period: text("period").notNull(), // week, month, year
-	emailCount: integer("email_count").default(0),
 	smsCount: integer("sms_count").default(0),
 	phoneCount: integer("phone_count").default(0),
 	totalCost: integer("total_cost").default(0), // Stored in cents
@@ -430,10 +435,11 @@ export const childrenTable = pgTable("children", {
 		.$defaultFn(() => uuidv4()),
 	firstName: text("first_name").notNull(),
 	lastName: text("last_name").notNull(),
-	dateOfBirth: timestamp("date_of_birth"),
+	dateOfBirth: timestamp("date_of_birth").notNull(),
 	allergies: text("allergies"),
 	specialNotes: text("special_notes"),
 	photoUrl: text("photo_url"),
+	familyId: text("family_id").references(() => familiesTable.id),
 	churchOrganizationId: text("church_organization_id")
 		.notNull()
 		.references(() => churchOrganization.id),
@@ -441,17 +447,12 @@ export const childrenTable = pgTable("children", {
 	updatedAt: timestamp("updated_at").notNull(),
 });
 
-// Table for storing parent/guardian information
-export const guardiansTable = pgTable("guardians", {
+// Table for storing families
+export const familiesTable = pgTable("families", {
 	id: text("id")
 		.primaryKey()
 		.$defaultFn(() => uuidv4()),
-	firstName: text("first_name").notNull(),
-	lastName: text("last_name").notNull(),
-	phone: text("phone"),
-	email: text("email"),
-	photoUrl: text("photo_url"),
-	userId: text("user_id").references(() => users.id), // Optional link to user account
+	name: text("name").notNull(), // Family name (e.g., "Smith Family")
 	churchOrganizationId: text("church_organization_id")
 		.notNull()
 		.references(() => churchOrganization.id),
@@ -459,14 +460,14 @@ export const guardiansTable = pgTable("guardians", {
 	updatedAt: timestamp("updated_at").notNull(),
 });
 
-// Table for linking children to guardians
-export const childrenToGuardiansTable = pgTable("children_to_guardians", {
-	childId: text("child_id")
+// Table for linking users to families (as guardians)
+export const usersToFamiliesTable = pgTable("users_to_families", {
+	userId: text("user_id")
 		.notNull()
-		.references(() => childrenTable.id, { onDelete: "cascade" }),
-	guardianId: text("guardian_id")
+		.references(() => users.id, { onDelete: "cascade" }),
+	familyId: text("family_id")
 		.notNull()
-		.references(() => guardiansTable.id, { onDelete: "cascade" }),
+		.references(() => familiesTable.id, { onDelete: "cascade" }),
 	relationship: text("relationship").notNull(), // parent, grandparent, aunt, uncle, etc.
 	isPrimaryGuardian: boolean("is_primary_guardian").default(false),
 	canPickup: boolean("can_pickup").default(true),
@@ -474,13 +475,16 @@ export const childrenToGuardiansTable = pgTable("children_to_guardians", {
 	updatedAt: timestamp("updated_at").notNull(),
 });
 
-// Table for storing checkin sessions
-export const checkinSessionsTable = pgTable("checkin_sessions", {
+// Table for storing rooms (formerly checkin sessions)
+export const roomsTable = pgTable("rooms", {
 	id: text("id")
 		.primaryKey()
 		.$defaultFn(() => uuidv4()),
 	eventId: text("event_id"), // Optional link to an event
-	name: text("name").notNull(), // Name of the session (e.g., "Sunday School - June 2, 2024")
+	name: text("name").notNull(), // Name of the room (e.g., "Nursery", "Toddlers", "Elementary")
+	minAge: integer("min_age"), // Minimum age in months
+	maxAge: integer("max_age"), // Maximum age in months
+	capacity: integer("capacity").default(10), // Maximum number of children allowed in the room
 	churchOrganizationId: text("church_organization_id")
 		.notNull()
 		.references(() => churchOrganization.id),
@@ -499,17 +503,15 @@ export const childCheckinsTable = pgTable("child_checkins", {
 	childId: text("child_id")
 		.notNull()
 		.references(() => childrenTable.id),
-	sessionId: text("session_id")
+	roomId: text("room_id")
 		.notNull()
-		.references(() => checkinSessionsTable.id),
+		.references(() => roomsTable.id),
 	checkinTime: timestamp("checkin_time").defaultNow().notNull(),
 	checkoutTime: timestamp("checkout_time"),
-	checkedInByGuardianId: text("checked_in_by_guardian_id")
+	checkedInByUserId: text("checked_in_by_user_id")
 		.notNull()
-		.references(() => guardiansTable.id),
-	checkedOutByGuardianId: text("checked_out_by_guardian_id").references(
-		() => guardiansTable.id,
-	),
+		.references(() => users.id),
+	checkedOutByUserId: text("checked_out_by_user_id").references(() => users.id),
 	checkinNotes: text("checkin_notes"),
 	secureId: text("secure_id")
 		.notNull()
@@ -541,14 +543,14 @@ export const authorizedPickupPersonsTable = pgTable(
 export type Child = typeof childrenTable.$inferSelect;
 export type NewChild = typeof childrenTable.$inferInsert;
 
-export type Guardian = typeof guardiansTable.$inferSelect;
-export type NewGuardian = typeof guardiansTable.$inferInsert;
+export type Family = typeof familiesTable.$inferSelect;
+export type NewFamily = typeof familiesTable.$inferInsert;
 
-export type ChildToGuardian = typeof childrenToGuardiansTable.$inferSelect;
-export type NewChildToGuardian = typeof childrenToGuardiansTable.$inferInsert;
+export type UserToFamily = typeof usersToFamiliesTable.$inferSelect;
+export type NewUserToFamily = typeof usersToFamiliesTable.$inferInsert;
 
-export type CheckinSession = typeof checkinSessionsTable.$inferSelect;
-export type NewCheckinSession = typeof checkinSessionsTable.$inferInsert;
+export type Room = typeof roomsTable.$inferSelect;
+export type NewRoom = typeof roomsTable.$inferInsert;
 
 export type ChildCheckin = typeof childCheckinsTable.$inferSelect;
 export type NewChildCheckin = typeof childCheckinsTable.$inferInsert;
@@ -557,3 +559,6 @@ export type AuthorizedPickupPerson =
 	typeof authorizedPickupPersonsTable.$inferSelect;
 export type NewAuthorizedPickupPerson =
 	typeof authorizedPickupPersonsTable.$inferInsert;
+
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
