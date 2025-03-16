@@ -8,7 +8,8 @@ import type { AboutProps } from "~/components/About";
 import CustomSection from "~/components/CustomSection";
 import type { CustomSectionProps } from "~/components/CustomSection";
 import { ContactFormDialog } from "~/components/ContactFormDialog";
-import { setupScrollReveal, applyScrollRevealClass } from "~/lib/scrollReveal";
+import AnimatedElement, { AnimatedGroup } from "~/components/AnimatedElement";
+import { motion } from "framer-motion";
 import type {
 	churchOrganization,
 	events,
@@ -107,19 +108,6 @@ export default function LandingPageContent() {
 		decorativeElements: true,
 	}));
 
-	// Set up scroll reveal animations
-	useEffect(() => {
-		// Initialize scroll reveal
-		const cleanup = setupScrollReveal();
-
-		// Apply reveal classes to section elements
-		applyScrollRevealClass("section h2, section h3", 100);
-		applyScrollRevealClass(".event-card", 150);
-		applyScrollRevealClass(".prose > p", 100);
-
-		return cleanup;
-	}, []);
-
 	return (
 		<>
 			<Hero
@@ -154,14 +142,20 @@ export default function LandingPageContent() {
 
 			{/* Contact Form Section */}
 			{config?.contactFormEnabled && (
-				<div className="py-12 bg-gray-50 text-center relative overflow-hidden">
+				<div className="py-12 bg-gray-50 text-center relative overflow-hidden contact-section">
 					{/* Enhanced decorative SVG elements */}
-					<div className="absolute top-0 right-0 w-64 h-64 opacity-5 text-gray-400">
+					<motion.div
+						className="absolute top-0 right-0 w-64 h-64 opacity-5 text-gray-400"
+						initial={{ opacity: 0, scale: 0.8 }}
+						animate={{ opacity: 0.05, scale: 1 }}
+						transition={{ duration: 1.5 }}
+					>
 						<svg
 							className="w-full h-full float-animation"
 							viewBox="0 0 200 200"
 							xmlns="http://www.w3.org/2000/svg"
 							style={{ animationDuration: "15s" }}
+							aria-hidden="true"
 						>
 							<path
 								fill="currentColor"
@@ -169,13 +163,19 @@ export default function LandingPageContent() {
 								transform="translate(100 100)"
 							/>
 						</svg>
-					</div>
-					<div className="absolute bottom-0 left-0 w-64 h-64 opacity-5 text-gray-400">
+					</motion.div>
+					<motion.div
+						className="absolute bottom-0 left-0 w-64 h-64 opacity-5 text-gray-400"
+						initial={{ opacity: 0, scale: 0.8 }}
+						animate={{ opacity: 0.05, scale: 1 }}
+						transition={{ duration: 1.5, delay: 0.3 }}
+					>
 						<svg
 							className="w-full h-full float-animation"
 							viewBox="0 0 200 200"
 							xmlns="http://www.w3.org/2000/svg"
 							style={{ animationDuration: "20s", animationDelay: "2s" }}
+							aria-hidden="true"
 						>
 							<path
 								fill="currentColor"
@@ -183,17 +183,28 @@ export default function LandingPageContent() {
 								transform="translate(100 100)"
 							/>
 						</svg>
-					</div>
+					</motion.div>
 
 					{/* Animated background pattern */}
-					<div className="absolute inset-0 pattern-grid opacity-10"></div>
+					<motion.div
+						className="absolute inset-0 pattern-grid opacity-10"
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 0.1 }}
+						transition={{ duration: 1 }}
+					/>
 
 					{/* Animated particles */}
 					<div className="absolute inset-0 pointer-events-none">
 						{[...Array(6)].map((_, i) => (
-							<div
-								key={i}
+							<motion.div
+								key={`particle-${i}`}
 								className="absolute rounded-full bg-gray-400 opacity-20 float-animation"
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 0.2 }}
+								transition={{
+									duration: 1,
+									delay: i * 0.1,
+								}}
 								style={{
 									width: `${Math.random() * 8 + 4}px`,
 									height: `${Math.random() * 8 + 4}px`,
@@ -207,26 +218,24 @@ export default function LandingPageContent() {
 					</div>
 
 					<div className="container mx-auto px-4 relative z-10">
-						<h2 className="text-3xl font-bold mb-6 text-gray-800 reveal-on-scroll">
-							Get In Touch
-						</h2>
-						<p
-							className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto reveal-on-scroll"
-							style={{ transitionDelay: "100ms" }}
-						>
-							Have questions or want to learn more about our church? We'd love
-							to hear from you!
-						</p>
-						<div
-							className="reveal-on-scroll"
-							style={{ transitionDelay: "200ms" }}
-						>
+						<AnimatedElement variant="fade-down">
+							<h2 className="text-3xl font-bold mb-6 text-gray-800">
+								Get In Touch
+							</h2>
+						</AnimatedElement>
+						<AnimatedElement variant="fade-up" delay={0.1}>
+							<p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+								Have questions or want to learn more about our church? We'd love
+								to hear from you!
+							</p>
+						</AnimatedElement>
+						<AnimatedElement variant="zoom-in" delay={0.2}>
 							<ContactFormDialog
 								buttonText="Contact Us"
 								churchId={organization.id}
 								buttonSize="lg"
 							/>
-						</div>
+						</AnimatedElement>
 					</div>
 				</div>
 			)}

@@ -1,5 +1,7 @@
 import React from "react";
 import { ContactFormDialog } from "~/components/ContactFormDialog";
+import AnimatedElement, { AnimatedGroup } from "./AnimatedElement";
+import { motion } from "framer-motion";
 
 export interface CustomSectionButton {
 	label: string;
@@ -317,63 +319,120 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 
 	// Text-only layout
 	const renderTextOnlyLayout = () => (
-		<div className={`${getTextAlignClass()}`}>
+		<div className={`${getContentWidthClass()} mx-auto`}>
 			{title && (
-				<h2 className="text-3xl md:text-4xl font-bold mb-4">{title}</h2>
+				<AnimatedElement variant="fade-down" className={getTextAlignClass()}>
+					<h2 className="text-3xl md:text-4xl font-bold mb-4 custom-section-title">
+						{title}
+					</h2>
+				</AnimatedElement>
 			)}
-			{subtitle && <h3 className="text-xl md:text-2xl mb-6">{subtitle}</h3>}
-
+			{subtitle && (
+				<AnimatedElement
+					variant="fade-up"
+					delay={0.1}
+					className={getTextAlignClass()}
+				>
+					<h3 className="text-xl md:text-2xl mb-6 custom-section-subtitle">
+						{subtitle}
+					</h3>
+				</AnimatedElement>
+			)}
 			{content && (
-				<div
-					className={`prose max-w-none mb-8 ${useThemeColors ? "prose-invert" : ""}`}
-					dangerouslySetInnerHTML={{ __html: content }}
-				/>
+				<AnimatedElement
+					variant="fade-up"
+					delay={0.2}
+					className={getTextAlignClass()}
+				>
+					<div
+						className="prose prose-lg max-w-none mb-8 custom-section-content"
+						dangerouslySetInnerHTML={{ __html: content }}
+					/>
+				</AnimatedElement>
 			)}
-
-			{renderButtons()}
+			{buttons.length > 0 && (
+				<AnimatedGroup variant="fade-up" staggerDelay={0.1}>
+					{renderButtons()}
+				</AnimatedGroup>
+			)}
 		</div>
 	);
 
 	// Text and image layout
 	const renderTextImageLayout = () => {
-		const mainImage = images[0]?.url || "";
-		const imageAlt = images[0]?.alt || "Section image";
-
-		const flex =
-			imagePosition === "left"
-				? "flex-col md:flex-row"
-				: "flex-col md:flex-row-reverse";
-
+		const imageFirst = imagePosition === "left";
 		return (
-			<div className={`flex ${flex} gap-8 md:gap-12 items-center`}>
-				{mainImage && (
-					<div className="md:w-1/2 relative">
-						<img
-							src={mainImage}
-							alt={imageAlt}
-							className="w-full h-auto rounded-lg shadow-lg relative z-10"
-						/>
-						{/* Add decorative element behind image */}
-						{decorativeElements && (
-							<div className="absolute inset-0 bg-current opacity-5 rounded-lg transform -translate-x-4 translate-y-4 z-0"></div>
+			<div className={`${getContentWidthClass()} mx-auto`}>
+				<div
+					className={`flex flex-col ${
+						imageFirst ? "md:flex-row" : "md:flex-row-reverse"
+					} gap-8 md:gap-16 items-center`}
+				>
+					{/* Image side */}
+					<div className="md:w-1/2">
+						{images.length > 0 && (
+							<div className="relative">
+								<AnimatedElement variant="zoom-in">
+									<img
+										src={images[0].url}
+										alt={images[0].alt || "Section image"}
+										className="w-full h-auto rounded-lg shadow-lg custom-section-image"
+									/>
+								</AnimatedElement>
+								{/* Optional decorative elements */}
+								{decorativeElements && (
+									<motion.div
+										className="absolute -bottom-4 -right-4 w-full h-full border-4 border-primary border-opacity-20 rounded-lg z-0"
+										initial={{ opacity: 0, scale: 0.9 }}
+										animate={{ opacity: 1, scale: 1 }}
+										transition={{ duration: 0.8, delay: 0.3 }}
+									/>
+								)}
+							</div>
 						)}
 					</div>
-				)}
 
-				<div className={`md:w-1/2 ${getTextAlignClass()}`}>
-					{title && (
-						<h2 className="text-3xl md:text-4xl font-bold mb-4">{title}</h2>
-					)}
-					{subtitle && <h3 className="text-xl md:text-2xl mb-6">{subtitle}</h3>}
-
-					{content && (
-						<div
-							className={`prose max-w-none mb-8 ${useThemeColors ? "prose-invert" : ""}`}
-							dangerouslySetInnerHTML={{ __html: content }}
-						/>
-					)}
-
-					{renderButtons()}
+					{/* Text side */}
+					<div className="md:w-1/2">
+						{title && (
+							<AnimatedElement
+								variant="fade-down"
+								className={getTextAlignClass()}
+							>
+								<h2 className="text-3xl md:text-4xl font-bold mb-4 custom-section-title">
+									{title}
+								</h2>
+							</AnimatedElement>
+						)}
+						{subtitle && (
+							<AnimatedElement
+								variant="fade-up"
+								delay={0.1}
+								className={getTextAlignClass()}
+							>
+								<h3 className="text-xl md:text-2xl mb-6 custom-section-subtitle">
+									{subtitle}
+								</h3>
+							</AnimatedElement>
+						)}
+						{content && (
+							<AnimatedElement
+								variant="fade-up"
+								delay={0.2}
+								className={getTextAlignClass()}
+							>
+								<div
+									className="prose prose-lg max-w-none mb-8 custom-section-content"
+									dangerouslySetInnerHTML={{ __html: content }}
+								/>
+							</AnimatedElement>
+						)}
+						{buttons.length > 0 && (
+							<AnimatedGroup variant="fade-up" staggerDelay={0.1}>
+								{renderButtons()}
+							</AnimatedGroup>
+						)}
+					</div>
 				</div>
 			</div>
 		);
@@ -381,36 +440,54 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 
 	// Full width image layout
 	const renderFullWidthImageLayout = () => {
-		const mainImage = images[0]?.url || "";
-		const imageAlt = images[0]?.alt || "Section image";
-
 		return (
-			<div className="relative z-10">
-				{(title || subtitle) && (
-					<div className={`${getTextAlignClass()} mb-8`}>
-						{title && (
-							<h2 className="text-3xl md:text-4xl font-bold mb-4">{title}</h2>
-						)}
-						{subtitle && (
-							<h3 className="text-xl md:text-2xl mb-6">{subtitle}</h3>
-						)}
-					</div>
-				)}
-
-				{mainImage && (
-					<div className="relative w-full mb-8">
-						<img src={mainImage} alt={imageAlt} className="w-full h-auto" />
-					</div>
-				)}
-
-				{content && (
-					<div className={`${getTextAlignClass()}`}>
-						<div
-							className={`prose max-w-none mb-8 ${useThemeColors ? "prose-invert" : ""}`}
-							dangerouslySetInnerHTML={{ __html: content }}
+			<div className="w-full">
+				{/* Full width image */}
+				{images.length > 0 && (
+					<div className="relative w-full h-[400px] md:h-[500px] overflow-hidden">
+						<motion.img
+							src={images[0].url}
+							alt={images[0].alt || "Section image"}
+							className="w-full h-full object-cover custom-section-image"
+							initial={{ scale: 1.1, opacity: 0.8 }}
+							animate={{ scale: 1, opacity: 1 }}
+							transition={{ duration: 1.2 }}
 						/>
-
-						{renderButtons()}
+						{/* Content overlay */}
+						<motion.div
+							className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-center items-center text-white p-8"
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							transition={{ duration: 0.8 }}
+						>
+							{title && (
+								<AnimatedElement variant="fade-down">
+									<h2 className="text-3xl md:text-5xl font-bold mb-4 text-center text-white custom-section-title">
+										{title}
+									</h2>
+								</AnimatedElement>
+							)}
+							{subtitle && (
+								<AnimatedElement variant="fade-up" delay={0.1}>
+									<h3 className="text-xl md:text-2xl mb-6 text-center text-white custom-section-subtitle">
+										{subtitle}
+									</h3>
+								</AnimatedElement>
+							)}
+							{content && (
+								<AnimatedElement variant="fade-up" delay={0.2}>
+									<div
+										className="prose prose-lg prose-invert max-w-2xl mx-auto text-center mb-8 custom-section-content"
+										dangerouslySetInnerHTML={{ __html: content }}
+									/>
+								</AnimatedElement>
+							)}
+							{buttons.length > 0 && (
+								<AnimatedGroup variant="fade-up" staggerDelay={0.1}>
+									{renderButtons()}
+								</AnimatedGroup>
+							)}
+						</motion.div>
 					</div>
 				)}
 			</div>
@@ -419,40 +496,55 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 
 	// Cards layout
 	const renderCardsLayout = () => (
-		<>
-			<div className={`${getTextAlignClass()}`}>
-				{title && (
-					<h2 className="text-3xl md:text-4xl font-bold mb-4">{title}</h2>
-				)}
-				{subtitle && <h3 className="text-xl md:text-2xl mb-6">{subtitle}</h3>}
-
-				{content && (
+		<div className={`${getContentWidthClass()} mx-auto`}>
+			{title && (
+				<AnimatedElement variant="fade-down" className={getTextAlignClass()}>
+					<h2 className="text-3xl md:text-4xl font-bold mb-4 custom-section-title">
+						{title}
+					</h2>
+				</AnimatedElement>
+			)}
+			{subtitle && (
+				<AnimatedElement
+					variant="fade-up"
+					delay={0.1}
+					className={getTextAlignClass()}
+				>
+					<h3 className="text-xl md:text-2xl mb-6 custom-section-subtitle">
+						{subtitle}
+					</h3>
+				</AnimatedElement>
+			)}
+			{content && (
+				<AnimatedElement
+					variant="fade-up"
+					delay={0.2}
+					className={getTextAlignClass()}
+				>
 					<div
-						className={`prose max-w-none ${useThemeColors ? "prose-invert" : ""}`}
+						className="prose prose-lg max-w-none mb-8 custom-section-content"
 						dangerouslySetInnerHTML={{ __html: content }}
 					/>
-				)}
-			</div>
+				</AnimatedElement>
+			)}
 
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
+			{/* Cards grid */}
+			<AnimatedGroup
+				variant="fade-up"
+				staggerDelay={0.1}
+				className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8"
+			>
 				{cards.map((card, index) => (
 					<div
-						key={index}
-						className={`rounded-lg overflow-hidden shadow-lg transition-transform duration-300 hover:-translate-y-2 ${
-							useThemeColors ? "bg-white bg-opacity-10" : "bg-white"
-						}`}
+						key={`card-${index}`}
+						className="bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-2 custom-section-card"
 					>
 						{card.image && (
-							<div className="relative">
-								<img
-									src={card.image}
-									alt={card.title || "Card image"}
-									className="w-full h-48 object-cover"
-								/>
-								{decorativeElements && (
-									<div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-								)}
-							</div>
+							<img
+								src={card.image}
+								alt={card.title || `Card ${index + 1}`}
+								className="w-full h-48 object-cover"
+							/>
 						)}
 						<div className="p-6">
 							{card.title && (
@@ -460,162 +552,139 @@ const CustomSection: React.FC<CustomSectionProps> = ({
 							)}
 							{card.content && (
 								<div
-									className={`prose-sm ${useThemeColors ? "prose-invert" : ""} mb-4`}
+									className="prose"
 									dangerouslySetInnerHTML={{ __html: card.content }}
 								/>
 							)}
 							{card.link && (
 								<a
 									href={card.link}
-									className={`inline-block mt-2 ${
-										useThemeColors
-											? "text-white hover:underline"
-											: "text-blue-600 hover:text-blue-800"
-									}`}
+									className="inline-block mt-4 text-primary hover:underline"
 								>
-									Learn more →
+									Learn More →
 								</a>
 							)}
 						</div>
 					</div>
 				))}
-			</div>
+			</AnimatedGroup>
 
 			{buttons.length > 0 && (
-				<div className={`mt-12 ${getTextAlignClass()}`}>{renderButtons()}</div>
+				<AnimatedElement variant="fade-up" delay={0.3} className="mt-12">
+					{renderButtons()}
+				</AnimatedElement>
 			)}
-		</>
+		</div>
 	);
 
 	// Team layout
 	const renderTeamLayout = () => (
-		<>
-			<div className={`${getTextAlignClass()}`}>
-				{title && (
-					<h2 className="text-3xl md:text-4xl font-bold mb-4">{title}</h2>
-				)}
-				{subtitle && <h3 className="text-xl md:text-2xl mb-6">{subtitle}</h3>}
-
-				{content && (
+		<div className={`${getContentWidthClass()} mx-auto`}>
+			{title && (
+				<AnimatedElement variant="fade-down" className={getTextAlignClass()}>
+					<h2 className="text-3xl md:text-4xl font-bold mb-4 custom-section-title">
+						{title}
+					</h2>
+				</AnimatedElement>
+			)}
+			{subtitle && (
+				<AnimatedElement
+					variant="fade-up"
+					delay={0.1}
+					className={getTextAlignClass()}
+				>
+					<h3 className="text-xl md:text-2xl mb-6 custom-section-subtitle">
+						{subtitle}
+					</h3>
+				</AnimatedElement>
+			)}
+			{content && (
+				<AnimatedElement
+					variant="fade-up"
+					delay={0.2}
+					className={getTextAlignClass()}
+				>
 					<div
-						className={`prose max-w-none ${useThemeColors ? "prose-invert" : ""}`}
+						className="prose prose-lg max-w-none mb-8 custom-section-content"
 						dangerouslySetInnerHTML={{ __html: content }}
 					/>
-				)}
-			</div>
+				</AnimatedElement>
+			)}
 
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mt-8">
+			{/* Team members grid */}
+			<AnimatedGroup
+				variant="fade-up"
+				staggerDelay={0.1}
+				className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mt-8"
+			>
 				{teamMembers.map((member, index) => (
 					<div
-						key={index}
-						className={`text-center transition-transform duration-300 hover:-translate-y-2`}
+						key={`member-${index}`}
+						className="bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl team-member"
 					>
-						{member.image && (
-							<div className="relative mx-auto w-48 h-48 mb-4">
-								<div className="w-full h-full rounded-full overflow-hidden relative z-10">
-									<img
-										src={member.image}
-										alt={member.name}
-										className="w-full h-full object-cover"
-									/>
-								</div>
-								{decorativeElements && (
-									<div
-										className={`absolute inset-0 rounded-full transform translate-x-2 translate-y-2 z-0 ${
-											useThemeColors ? "bg-white bg-opacity-10" : "bg-blue-100"
-										}`}
-									></div>
-								)}
-							</div>
-						)}
-						<h3 className="text-xl font-bold">{member.name}</h3>
-						{member.role && (
-							<p
-								className={`${useThemeColors ? "text-white text-opacity-80" : "text-gray-600"} mb-3`}
-							>
-								{member.role}
-							</p>
-						)}
-						{member.bio && (
-							<div
-								className={`prose-sm ${useThemeColors ? "prose-invert" : ""} mx-auto`}
-								dangerouslySetInnerHTML={{ __html: member.bio }}
+						<div className="relative">
+							<img
+								src={
+									member.image ||
+									`https://ui-avatars.com/api/?name=${encodeURIComponent(
+										member.name,
+									)}&background=random&size=256`
+								}
+								alt={member.name}
+								className="w-full h-64 object-cover object-center"
 							/>
-						)}
+							{/* Optional decorative overlay */}
+							{decorativeElements && (
+								<div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+							)}
+						</div>
+						<div className="p-6">
+							<h3 className="text-xl font-bold mb-1">{member.name}</h3>
+							{member.role && (
+								<p className="text-gray-600 mb-3">{member.role}</p>
+							)}
+							{member.bio && (
+								<div
+									className="prose prose-sm"
+									dangerouslySetInnerHTML={{ __html: member.bio }}
+								/>
+							)}
+						</div>
 					</div>
 				))}
-			</div>
+			</AnimatedGroup>
 
 			{buttons.length > 0 && (
-				<div className={`mt-12 ${getTextAlignClass()}`}>{renderButtons()}</div>
+				<AnimatedElement variant="fade-up" delay={0.3} className="mt-12">
+					{renderButtons()}
+				</AnimatedElement>
 			)}
-		</>
+		</div>
 	);
 
 	// Render buttons
 	const renderButtons = () => {
-		if (buttons.length === 0) return null;
-
 		return (
-			<div className="flex flex-wrap gap-4 justify-start">
-				{buttons.map((button, index) => {
-					// Check if the button URL is for a form
-					if (button.url.includes("/forms/")) {
-						// Extract form ID from URL if it's a form link
-						const formIdMatch = button.url.match(/\/forms\/([^\/]+)/);
-						const formId = formIdMatch ? formIdMatch[1] : null;
-
-						// Extract organization ID from URL
-						// Handle both absolute and relative paths
-						let orgId;
-						if (button.url.includes("/landing/")) {
-							const orgIdMatch = button.url.match(/\/landing\/([^\/]+)/);
-							orgId = orgIdMatch ? orgIdMatch[1] : null;
-						} else {
-							// For relative paths like /forms/123, try to get org ID from the current URL
-							const pathParts = window.location.pathname.split("/");
-							const landingIndex = pathParts.findIndex(
-								(part) => part === "landing",
-							);
-							if (landingIndex >= 0 && landingIndex < pathParts.length - 1) {
-								orgId = pathParts[landingIndex + 1];
-							}
-						}
-
-						if (formId && orgId) {
-							// Use ContactFormDialog for form links
-							return (
-								<ContactFormDialog
-									key={index}
-									buttonText={button.label}
-									churchId={orgId}
-									formId={formId}
-									buttonVariant={
-										button.variant === "primary"
-											? "default"
-											: button.variant === "secondary"
-												? "secondary"
-												: "outline"
-									}
-									buttonClassName={getButtonClass(button.variant)}
-									dialogTitle="Complete Form"
-									dialogDescription="Please fill out the form below"
-								/>
-							);
-						}
-					}
-
-					// Regular link for non-form URLs
-					return (
-						<a
-							key={index}
-							href={button.url}
-							className={getButtonClass(button.variant)}
-						>
-							{button.label}
-						</a>
-					);
-				})}
+			<div
+				className={`flex flex-wrap gap-4 mt-6 ${
+					textAlign === "center"
+						? "justify-center"
+						: textAlign === "right"
+							? "justify-end"
+							: "justify-start"
+				}`}
+			>
+				{buttons.map((button, index) => (
+					<a
+						key={`button-${index}`}
+						href={button.url}
+						className={`${getButtonClass(
+							button.variant,
+						)} custom-section-button`}
+					>
+						{button.label}
+					</a>
+				))}
 			</div>
 		);
 	};
