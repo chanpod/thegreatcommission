@@ -20,15 +20,17 @@ export default function Header({
 		<header className="border-b primary-bg">
 			<div className="container mx-auto px-4 py-4">
 				<div className="flex justify-between items-center">
-					<div className="flex items-center gap-3">
+					<div>
 						<Link to={`/landing/${organizationId}`}>
-							{logoUrl && (
-								<Avatar>
-									<AvatarImage src={logoUrl} alt={`${churchName} logo`} />
-									<AvatarFallback>CN</AvatarFallback>
-								</Avatar>
-							)}
-							<h1 className="text-xl font-bold text-white">{churchName}</h1>
+							<div className="flex flex-row items-center gap-3">
+								{logoUrl && (
+									<Avatar>
+										<AvatarImage src={logoUrl} alt={`${churchName} logo`} />
+										<AvatarFallback>CN</AvatarFallback>
+									</Avatar>
+								)}
+								<h1 className="text-xl font-bold text-white">{churchName}</h1>
+							</div>
 						</Link>
 					</div>
 
