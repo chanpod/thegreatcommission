@@ -31,6 +31,22 @@ declare module "react-router" {
 
 const app = express();
 
+// Add middleware to parse JSON bodies
+app.use(express.json());
+
+// Test endpoint for JSON parsing
+app.post("/api/test-json", (req, res) => {
+	console.log("Test JSON request received:", {
+		body: req.body,
+		contentType: req.headers["content-type"],
+	});
+
+	res.json({
+		success: true,
+		receivedBody: req.body,
+	});
+});
+
 // Health check endpoint
 app.get("/api/health", (req, res) => {
 	res.status(200).json({
@@ -97,12 +113,18 @@ app.get("/api/check-domain", async (req, res) => {
 // API endpoint to automatically configure a domain with Vercel
 app.post("/api/configure-domain", async (req, res) => {
 	try {
-		const { domain, organizationId } = req.body;
+		console.log("Configure domain request received:", {
+			body: req.body,
+			contentType: req.headers["content-type"],
+		});
+
+		const { domain, organizationId } = req.body || {};
 
 		if (!domain || !organizationId) {
 			return res.status(400).json({
 				success: false,
 				error: "Domain and organizationId are required",
+				receivedBody: req.body,
 			});
 		}
 

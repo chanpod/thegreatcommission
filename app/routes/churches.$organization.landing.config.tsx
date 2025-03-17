@@ -333,19 +333,24 @@ export const action = createAuthLoader(async ({ request, params }) => {
 		if (customDomain) {
 			try {
 				// Call our API endpoint to register the domain with Vercel
-				const response = await fetch(
-					`${request.url.split("/churches")[0]}/api/configure-domain`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({
-							domain: customDomain,
-							organizationId: params.organization,
-						}),
+				console.log("Registering domain from action:", {
+					domain: customDomain,
+					organizationId: params.organization,
+				});
+
+				const response = await fetch("/api/configure-domain", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
 					},
-				);
+					body: JSON.stringify({
+						domain: customDomain,
+						organizationId: params.organization,
+					}),
+				});
+
+				// Log response status
+				console.log("Registration response status:", response.status);
 
 				vercelResponse = await response.json();
 				console.log("Vercel domain registration response:", vercelResponse);
@@ -739,7 +744,12 @@ export default function LandingConfig() {
 		setVercelError(null);
 
 		try {
-			const response = await fetch(`/api/configure-domain`, {
+			console.log("Verifying domain:", {
+				domain: customDomain,
+				organizationId: params.organization,
+			});
+
+			const response = await fetch("/api/configure-domain", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -750,7 +760,11 @@ export default function LandingConfig() {
 				}),
 			});
 
+			// Log response status
+			console.log("Verification response status:", response.status);
+
 			const data = await response.json();
+			console.log("Verification response data:", data);
 
 			if (data.success) {
 				toast.success("Domain verification initiated!");
@@ -764,13 +778,38 @@ export default function LandingConfig() {
 					toast.error(`Vercel domain registration: ${data.vercelError}`);
 				}
 			} else {
-				toast.error("Failed to verify domain. Please try again.");
+				toast.error(
+					`Failed to verify domain: ${data.error || "Unknown error"}`,
+				);
 			}
 		} catch (error) {
 			console.error("Error verifying domain:", error);
-			toast.error("An error occurred. Please try again.");
+			toast.error(`An error occurred: ${error.message || "Unknown error"}`);
 		} finally {
 			setIsSubmitting(false);
+		}
+	};
+
+	// Add a function to test JSON parsing
+	const testJsonParsing = async () => {
+		try {
+			const response = await fetch("/api/test-json", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					testField: "Test value",
+					timestamp: new Date().toISOString(),
+				}),
+			});
+
+			const data = await response.json();
+			console.log("Test JSON response:", data);
+			toast.success("Test JSON request successful");
+		} catch (error) {
+			console.error("Error testing JSON:", error);
+			toast.error(`Test JSON error: ${error.message || "Unknown error"}`);
 		}
 	};
 
@@ -1024,15 +1063,28 @@ export default function LandingConfig() {
 									)}
 
 									{(vercelVerification || vercelError) && (
-										<Button
-											type="button"
-											variant="secondary"
-											size="sm"
-											onClick={verifyDomain}
-											disabled={isSubmitting}
-										>
-											{isSubmitting ? "Verifying..." : "Verify Domain"}
-										</Button>
+										<>
+											<Button
+												type="button"
+												variant="secondary"
+												size="sm"
+												onClick={verifyDomain}
+												disabled={isSubmitting}
+											>
+												{isSubmitting ? "Verifying..." : "Verify Domain"}
+											</Button>
+
+											{process.env.NODE_ENV === "development" && (
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													onClick={testJsonParsing}
+												>
+													Test JSON
+												</Button>
+											)}
+										</>
 									)}
 								</div>
 							)}
@@ -1043,29 +1095,68 @@ export default function LandingConfig() {
 										Domain Verification Required
 									</h3>
 									<p className="text-sm text-yellow-700 dark:text-yellow-400 mb-2">
-										Please add the following DNS record to verify your domain
-										ownership:
+										Please add the following DNS record in your DNS provider
+										(Cloudflare, GoDaddy, etc.) to verify your domain ownership:
 									</p>
 
 									{vercelVerification.type === "TXT" && (
-										<div className="bg-yellow-100 dark:bg-yellow-900 p-3 rounded-md font-mono text-xs">
-											<p>
-												<strong>Type:</strong> TXT
-											</p>
-											<p>
-												<strong>Name:</strong> {vercelVerification.domain}
-											</p>
-											<p>
-												<strong>Value:</strong> {vercelVerification.value}
-											</p>
-										</div>
+										<>
+											<div className="bg-yellow-100 dark:bg-yellow-900 p-3 rounded-md font-mono text-xs">
+												<p>
+													<strong>Type:</strong> TXT
+												</p>
+												<p>
+													<strong>Name:</strong> {vercelVerification.domain}
+												</p>
+												<p>
+													<strong>Value:</strong> {vercelVerification.value}
+												</p>
+												<p>
+													<strong>TTL:</strong> Auto (or 3600)
+												</p>
+											</div>
+
+											<div className="mt-4 space-y-3">
+												<h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+													How to add this record in Cloudflare:
+												</h4>
+												<ol className="text-sm text-yellow-700 dark:text-yellow-400 list-decimal pl-5 space-y-2">
+													<li>Log in to your Cloudflare account</li>
+													<li>
+														Select your domain (
+														{customDomain.split(".").slice(-2).join(".")})
+													</li>
+													<li>Click on "DNS" in the top navigation</li>
+													<li>Click "Add record"</li>
+													<li>Select "TXT" as the type</li>
+													<li>
+														For "Name", enter:{" "}
+														<span className="font-mono bg-yellow-50 dark:bg-yellow-900 px-1">
+															{vercelVerification.domain}
+														</span>
+													</li>
+													<li>
+														For "Content", enter:{" "}
+														<span className="font-mono bg-yellow-50 dark:bg-yellow-900 px-1">
+															{vercelVerification.value}
+														</span>
+													</li>
+													<li>Leave TTL as "Auto"</li>
+													<li>
+														Make sure "Proxy status" is set to "DNS only" (gray
+														cloud)
+													</li>
+													<li>Click "Save"</li>
+												</ol>
+											</div>
+										</>
 									)}
 
-									<p className="text-sm text-yellow-700 dark:text-yellow-400 mt-2">
+									<p className="text-sm text-yellow-700 dark:text-yellow-400 mt-4">
 										After adding this record, it may take up to 48 hours for DNS
-										changes to propagate. Once you've added the record, click
-										the "Verify Domain" button above to check verification
-										status.
+										changes to propagate. Once you've added the record and
+										waited for propagation, click the "Verify Domain" button
+										above to check verification status.
 									</p>
 								</div>
 							)}
@@ -1078,9 +1169,47 @@ export default function LandingConfig() {
 									<p className="text-sm text-red-700 dark:text-red-400">
 										{vercelError}
 									</p>
-									<p className="text-sm text-red-700 dark:text-red-400 mt-2">
-										Please check your domain configuration and try again using
-										the "Verify Domain" button above.
+									<div className="mt-3 space-y-2">
+										<h4 className="text-sm font-medium text-red-800 dark:text-red-300">
+											Troubleshooting Steps:
+										</h4>
+										<ol className="text-sm text-red-700 dark:text-red-400 list-decimal pl-5 space-y-1">
+											<li>
+												Verify that your CNAME record is correctly set up in
+												Cloudflare pointing to{" "}
+												<span className="font-mono bg-red-100 dark:bg-red-900 px-1">
+													thegreatcommission.life
+												</span>
+											</li>
+											<li>
+												Make sure the CNAME record is set to "Proxied" (orange
+												cloud) in Cloudflare
+											</li>
+											<li>
+												Check that you don't have conflicting DNS records for
+												the same domain
+											</li>
+											<li>
+												If you're using a root domain, ensure you're using
+												Cloudflare's CNAME flattening feature
+											</li>
+											<li>
+												Wait a few minutes and try again using the "Verify
+												Domain" button above
+											</li>
+										</ol>
+									</div>
+									<p className="text-sm text-red-700 dark:text-red-400 mt-3">
+										If you continue to experience issues, please check your
+										Cloudflare SSL/TLS settings:
+										<ol className="list-decimal pl-5 mt-1 space-y-1">
+											<li>In Cloudflare, go to SSL/TLS → Overview</li>
+											<li>Set the encryption mode to "Flexible" temporarily</li>
+											<li>Try verifying the domain again</li>
+											<li>
+												Once verified, you can change back to "Full" if desired
+											</li>
+										</ol>
 									</p>
 								</div>
 							)}
