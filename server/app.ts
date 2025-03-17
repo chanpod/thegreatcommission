@@ -129,9 +129,65 @@ app.post("/api/configure-domain", async (req, res) => {
 			})
 			.where(eq(churchOrganization.id, organizationId));
 
+		// Register domain with Vercel API
+		const vercelApiToken = process.env.VERCEL_API_TOKEN;
+		const vercelTeamId = process.env.VERCEL_TEAM_ID;
+		const vercelProjectId = process.env.VERCEL_PROJECT_ID;
+
+		if (vercelApiToken && vercelProjectId) {
+			try {
+				// Add domain to Vercel project
+				const vercelResponse = await fetch(
+					`https://api.vercel.com/v9/projects/${vercelProjectId}/domains${
+						vercelTeamId ? `?teamId=${vercelTeamId}` : ""
+					}`,
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${vercelApiToken}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							name: domain,
+						}),
+					},
+				);
+
+				const vercelData = await vercelResponse.json();
+
+				if (!vercelResponse.ok) {
+					console.error("Vercel API error:", vercelData);
+					// We still return success since the domain was updated in our database
+					return res.json({
+						success: true,
+						message:
+							"Domain configured in database, but Vercel registration failed",
+						vercelError: vercelData.error?.message || "Unknown Vercel error",
+					});
+				}
+
+				// Return success with Vercel verification info
+				return res.json({
+					success: true,
+					message: "Domain configured successfully and registered with Vercel",
+					vercelVerification: vercelData.verification,
+				});
+			} catch (vercelError) {
+				console.error("Error registering domain with Vercel:", vercelError);
+				// We still return success since the domain was updated in our database
+				return res.json({
+					success: true,
+					message:
+						"Domain configured in database, but Vercel registration failed",
+					vercelError: vercelError.message,
+				});
+			}
+		}
+
 		res.json({
 			success: true,
-			message: "Domain configured successfully",
+			message:
+				"Domain configured successfully in database only (Vercel API token not configured)",
 		});
 	} catch (error) {
 		console.error("Error configuring domain:", error);

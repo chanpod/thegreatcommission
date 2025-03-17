@@ -4,7 +4,7 @@ import { PermissionsService } from "@/server/services/PermissionsService";
 import { eq } from "drizzle-orm";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronUp, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
 	useBeforeUnload,
 	useLoaderData,
@@ -317,7 +317,10 @@ export const action = createAuthLoader(async ({ request, params }) => {
 
 	// Update custom domain if provided
 	const customDomain = formData.get("customDomain") as string;
+	let vercelResponse = null;
+
 	if (customDomain !== undefined) {
+		// Update the database
 		await db
 			.update(churchOrganization)
 			.set({
@@ -325,9 +328,39 @@ export const action = createAuthLoader(async ({ request, params }) => {
 				updatedAt: now,
 			})
 			.where(eq(churchOrganization.id, params.organization));
+
+		// If there's a custom domain, register it with Vercel
+		if (customDomain) {
+			try {
+				// Call our API endpoint to register the domain with Vercel
+				const response = await fetch(
+					`${request.url.split("/churches")[0]}/api/configure-domain`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							domain: customDomain,
+							organizationId: params.organization,
+						}),
+					},
+				);
+
+				vercelResponse = await response.json();
+				console.log("Vercel domain registration response:", vercelResponse);
+			} catch (error) {
+				console.error("Error registering domain with Vercel:", error);
+			}
+		}
 	}
 
-	return { success: true };
+	// Return success response with Vercel verification info if available
+	return {
+		success: true,
+		vercelVerification: vercelResponse?.vercelVerification || null,
+		vercelError: vercelResponse?.vercelError || null,
+	};
 }, true);
 
 export default function LandingConfig() {
@@ -340,6 +373,7 @@ export default function LandingConfig() {
 	const [pendingNavigation, setPendingNavigation] = useState<string | null>(
 		null,
 	);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	// Hero configuration state
 	const [heroImageUrl, setHeroImageUrl] = useState<string>(
@@ -392,6 +426,10 @@ export default function LandingConfig() {
 
 	// Search term state
 	const [searchTerm, setSearchTerm] = useState("");
+
+	// Vercel verification state
+	const [vercelVerification, setVercelVerification] = useState(null);
+	const [vercelError, setVercelError] = useState(null);
 
 	// Track changes
 	useEffect(() => {
@@ -474,6 +512,10 @@ export default function LandingConfig() {
 
 	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
+		setIsSubmitting(true);
+		setVercelVerification(null);
+		setVercelError(null);
+
 		const submitData = new FormData();
 
 		// Add all form data fields
@@ -540,9 +582,35 @@ export default function LandingConfig() {
 		submitData.set("logoUrl", logoUrl);
 		submitData.set("customDomain", customDomain);
 
-		submit(submitData, { method: "post" });
-		setHasUnsavedChanges(false);
-		toast.success("Landing page configuration saved successfully");
+		fetch(`/churches/${params.organization}/landing/config`, {
+			method: "POST",
+			body: submitData,
+		})
+			.then((res) => res.json())
+			.then((data) => {
+				setIsSubmitting(false);
+				if (data.success) {
+					toast.success("Settings saved successfully!");
+
+					// Handle Vercel verification data if present
+					if (data.vercelVerification) {
+						setVercelVerification(data.vercelVerification);
+					}
+
+					// Handle Vercel error if present
+					if (data.vercelError) {
+						setVercelError(data.vercelError);
+						toast.error(`Vercel domain registration: ${data.vercelError}`);
+					}
+				} else {
+					toast.error("Failed to save settings. Please try again.");
+				}
+			})
+			.catch((error) => {
+				setIsSubmitting(false);
+				toast.error("An error occurred. Please try again.");
+				console.error("Error saving settings:", error);
+			});
 	};
 
 	const addSocialLink = () => {
@@ -660,6 +728,50 @@ export default function LandingConfig() {
 			...prev,
 			[field]: value,
 		}));
+	};
+
+	// Add a function to manually verify domain
+	const verifyDomain = async () => {
+		if (!customDomain) return;
+
+		setIsSubmitting(true);
+		setVercelVerification(null);
+		setVercelError(null);
+
+		try {
+			const response = await fetch(`/api/configure-domain`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					domain: customDomain,
+					organizationId: params.organization,
+				}),
+			});
+
+			const data = await response.json();
+
+			if (data.success) {
+				toast.success("Domain verification initiated!");
+
+				if (data.vercelVerification) {
+					setVercelVerification(data.vercelVerification);
+				}
+
+				if (data.vercelError) {
+					setVercelError(data.vercelError);
+					toast.error(`Vercel domain registration: ${data.vercelError}`);
+				}
+			} else {
+				toast.error("Failed to verify domain. Please try again.");
+			}
+		} catch (error) {
+			console.error("Error verifying domain:", error);
+			toast.error("An error occurred. Please try again.");
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
 	return (
@@ -910,6 +1022,66 @@ export default function LandingConfig() {
 											Visit Site
 										</Button>
 									)}
+
+									{(vercelVerification || vercelError) && (
+										<Button
+											type="button"
+											variant="secondary"
+											size="sm"
+											onClick={verifyDomain}
+											disabled={isSubmitting}
+										>
+											{isSubmitting ? "Verifying..." : "Verify Domain"}
+										</Button>
+									)}
+								</div>
+							)}
+
+							{vercelVerification && (
+								<div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-md">
+									<h3 className="text-sm font-medium mb-2 text-yellow-800 dark:text-yellow-300">
+										Domain Verification Required
+									</h3>
+									<p className="text-sm text-yellow-700 dark:text-yellow-400 mb-2">
+										Please add the following DNS record to verify your domain
+										ownership:
+									</p>
+
+									{vercelVerification.type === "TXT" && (
+										<div className="bg-yellow-100 dark:bg-yellow-900 p-3 rounded-md font-mono text-xs">
+											<p>
+												<strong>Type:</strong> TXT
+											</p>
+											<p>
+												<strong>Name:</strong> {vercelVerification.domain}
+											</p>
+											<p>
+												<strong>Value:</strong> {vercelVerification.value}
+											</p>
+										</div>
+									)}
+
+									<p className="text-sm text-yellow-700 dark:text-yellow-400 mt-2">
+										After adding this record, it may take up to 48 hours for DNS
+										changes to propagate. Once you've added the record, click
+										the "Verify Domain" button above to check verification
+										status.
+									</p>
+								</div>
+							)}
+
+							{vercelError && (
+								<div className="mt-4 p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
+									<h3 className="text-sm font-medium mb-2 text-red-800 dark:text-red-300">
+										Domain Registration Error
+									</h3>
+									<p className="text-sm text-red-700 dark:text-red-400">
+										{vercelError}
+									</p>
+									<p className="text-sm text-red-700 dark:text-red-400 mt-2">
+										Please check your domain configuration and try again using
+										the "Verify Domain" button above.
+									</p>
 								</div>
 							)}
 						</div>
